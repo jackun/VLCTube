@@ -511,7 +511,7 @@ ScriptInstance.prototype.saveSettings = function(ev){
 	//GM_setValue('vlc_http-caching', unsafeWindow['vlc_controls'].options.get("http-caching"));
 	if(this.fmtChanged && this.selectNode)
 	{
-		GM_setValue('ytquality', this.selectNode.options[sel.selectedIndex].getAttribute('name'));
+		GM_setValue('ytquality', this.selectNode.options[this.selectNode.selectedIndex].getAttribute('name'));
 	}
 }
 
