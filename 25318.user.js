@@ -12,12 +12,14 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        39.1
+// @version        39.2
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx23+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
+//2013-09-13 #movie_player ID as global var, changed back to #movie_player for compat. 
+//           with other scripts etc + more funcs. Fix saving selected format.
 //2013-09-10 Fix if video only has one flv stream and "discard FLVs" is selected
 //2013-09-09 Signature decryption. Needs testing.
 //2013-09-08 Set popup body background to black if in dark theme "compat. mode"
@@ -38,6 +40,7 @@
 //state play: 1, pause: 2, stop/end: 0
 var gPlayerApiID = 'player-api';//-legacy';
 var gPlayerID = 'player';//-legacy';
+var gMoviePlayerID = 'movie_player'; ///< Change to something else if flash/html5 player keeps overwriting VLC player
 var vsTxt = false;
 var stateUpdateFreq = 250;// 250ms
 var vlc_id = 'mymovie';
@@ -281,8 +284,25 @@ var itagToText = {
 	36 : '180p/3gpp',
 	17 : '144p/3gpp',
 	// last, just in case "4k" video crashes graphics card's driver
-	38 : "highres/mp4", //1440p variable?
+	38 : 'highres/mp4', //1440p variable?
 	//4? : "highres/webm"
+};
+
+var textToItag = {
+	'1080p/webm' : 46,
+	'1080p/mp4' : 37,
+	'720p/webm' : 45,
+	'720p/mp4' : 22,
+	'480p/webm' : 44,
+	'480p/mp4' : 20,
+	'480p/flv' : 35,
+	'360p/webm' : 43,
+	'360p/mp4' : 18,
+	'360p/flv' : 34,
+	'240p/flv' : 5,
+	'180p/3gpp' : 36,
+	'144p/3gpp' : 17,
+	'highres/mp4' : 38,
 };
 
 var headers = {'User-agent': 'Mozilla/5.0 (compatible) Greasemonkey',
@@ -347,6 +367,8 @@ ScriptInstance.prototype = {
 	thumb: null, //thumbnail node
 	moviePlayer: null,
 	moviePlayerEvents: null,
+	quality: null,
+	qualityLevels: [],
 };
 
 ScriptInstance.prototype.initVars = function(){
@@ -487,10 +509,9 @@ ScriptInstance.prototype.saveSettings = function(ev){
 	this.saveVolume();
 
 	//GM_setValue('vlc_http-caching', unsafeWindow['vlc_controls'].options.get("http-caching"));
-	if(this.fmtChanged)
+	if(this.fmtChanged && this.selectNode)
 	{
-		var sel = this.$(vlc_id+'_select');
-		GM_setValue('ytquality', sel.options[sel.selectedIndex].innerHTML);
+		GM_setValue('ytquality', this.selectNode.options[sel.selectedIndex].getAttribute('name'));
 	}
 }
 
@@ -706,7 +727,7 @@ ScriptInstance.prototype.addScript = function(src) {
 ScriptInstance.prototype.putCSS = function(){
 
 	var css = "#"+ vlc_id + "-holder {overflow: hidden;}\
-	#movie_player_vlc select {padding: 5px 0;}\
+	.movie_player_vlc select {padding: 5px 0;}\
 	a.vlclink { color:#438BC5; margin:5px;}\
 	.vlc_hidden { display:none; }\
 	.vlccontrols {padding:2px 5px; color: #333333;}\
@@ -740,7 +761,7 @@ ScriptInstance.prototype.putCSS = function(){
 	#ratebar .knob {background: rgba(0,153,51,0.8);}\
 	.vlc-volume-holder { display:inline-block; } \
 	#vlcvol:after {content: '%';}\
-	#movie_player_vlc { background: white;}\
+	.movie_player_vlc { background: white;}\
 	.progress-radial { /*would like without float :/ */ \
 		/*float:left; */ \
 		background-repeat: no-repeat; \
@@ -804,7 +825,7 @@ ScriptInstance.prototype.putCSS = function(){
 
 	if(this.bdarkTheme) //TODO maybe set to some dark colors instead
 		this.addCSS(".vlc-scrollbar{border: 1px solid #EEE;background: transparent;color: #EEE;}\
-		#movie_player_vlc {background:transparent;} .vlccontrols {color: #EEE;}");
+		.movie_player_vlc {background:transparent;} .vlccontrols {color: #EEE;}");
 
 	//blurry shadow was assome
 	this.addCSS(".yt-uix-button:focus, .yt-uix-button:focus:hover, .yt-uix-button-focused, .yt-uix-button-focused:hover {box-shadow: 0 0 2px 1px rgba(27, 127, 204, 0.4);}");
@@ -1311,7 +1332,7 @@ VLCObj.prototype = {
 				this.$('vlclink').setAttribute("download", this.instance.ytplayer.config.args.title + "-" + fmt.replace("/", "."));
 			}catch(e){}
 		}
-		if(this.instance.bresumePlay) this.seekTo(time);//craps out probably if doAdd loops
+		if(this.instance.bresumePlay) this._seekTo(time);//craps out probably if doAdd loops
 	},
 	emitValue:function(sb, pos, instant){
 		//try{
@@ -1375,9 +1396,11 @@ VLCObj.prototype = {
 	removeEventListener: function(event, func, bubble){
 		console.log("Tried to remove event listener for:", event);
 	},
-	seekTo: function(pos){ //Make yuutuub comments 'time links' work
+	_seekTo: function(pos){ //Make yuutuub comments 'time links' work
 		if(this.vlc.input)
 			this.vlc.input.time = pos * 1000;
+	},
+	seekTo: function(pos){ // Gets overriden by YT
 	},
 	getCurrentTime: function(){ //Make yuutuub share work, randomly stops :/
 		if(this.vlc.input)
@@ -1398,10 +1421,36 @@ VLCObj.prototype = {
 	getDuration: function(){
 		return this.vlc.input.length / 1000;
 	},
-	getPlaybackQuality: function() //random at the moment
+	getAvailableQualityLevels: function() //Yt uses 'large', 'medium', etc?
 	{
-		console.log("getPlaybackQuality");
-		return "44";
+		var q = [];
+		for(i in this.instance.qualityLevels)
+			q.push(itagToText[this.instance.qualityLevels[i]]);
+		return q;
+	},
+	getPlaybackQuality: function() //Yt uses 'large', 'medium', etc?
+	{
+		return itagToText[this.instance.quality];
+	},
+	setPlaybackQuality: function(q)
+	{
+		if(q in textToItag)
+		{
+			var opt = this.instance.selectNode.options.namedItem(textToItag[q]);
+			this.instance.fmtChanged = true;
+			opt.selected = true;
+			this.instance.onFmtChange(null, opt);
+		}
+	},
+	getVolume: function()
+	{
+		try{ return this.vlc.audio.volume; }
+		catch(e){ return 0; }
+	},
+	setVolume: function(e)
+	{
+		try{ this.vlc.audio.volume = e; this.scrollbarVol.setValue(this.vlc.audio.volume);}
+		catch(e){}
 	},
 	//End of Youtube stuff
 	setTimes: function(cur, dur){
@@ -1552,7 +1601,7 @@ ScriptInstance.prototype.setPlayerSize = function(wide, subs)
 	}
 
 	var w = this.width, h = this.height;
-	var vlc = this.$("movie_player_vlc");
+	var vlc = this.$(gMoviePlayerID);
 
 	if(this.isPopup) this.widthWide = "100%";
 
@@ -1655,11 +1704,12 @@ ScriptInstance.prototype.onFmtChange = function(ev, opt)
 {
 	var n = opt || ev.target.options[ev.target.selectedIndex];
 
-	if(ev) this.fmtChanged = true;//so doAdd would play only if user changed format
+	if(ev) this.fmtChanged = true;//if false, skip initial add so doAdd would play only if user changed format
 	//this.VLCObj.add(n.value);
 	if(this.buseFallbackHost && n.getAttribute("fallback"))
 		n.value = this.setUriHost(n.value, n.getAttribute("fallback"));
-	this.myvlc.add(n.value, itagToText[n.getAttribute("name")]);
+	this.quality = n.getAttribute("name");
+	this.myvlc.add(n.value, itagToText[this.quality]);
 }
 
 ScriptInstance.prototype.onWideClick = function(ev)
@@ -1712,7 +1762,7 @@ ScriptInstance.prototype.onHashChange = function(ev)
 	else
 		off = match[1];
 
-	this.myvlc.seekTo(off);
+	this.myvlc._seekTo(off);
 }
 
 ScriptInstance.prototype.onSetCC = function(name, lang)
@@ -1829,6 +1879,8 @@ ScriptInstance.prototype.pullYTVars = function()
 
 		if(!this.swf_args)
 			this.swf_args = this.yt.getConfig('PLAYER_CONFIG',null) ['args'];
+		unsafeWindow['yt'].playerConfig = function(){}
+		unsafeWindow['yt'].playerConfig.args = this.swf_args;
 
 		this.isWide = (this.ytplayer.config.args.player_wide == 1) ||
 			GM_getValue("vlc-wide", false) || //Only wide if clicked on "Wide" button
@@ -1977,7 +2029,8 @@ ScriptInstance.prototype.generateDOM = function(options)
 		auto = gd(options, 'auto', true), dl = gd(options, 'dl', true), popup = gd(options, 'popup', this.busePopups);
 	var that = this;
 	var vlc = this.doc.createElement('div');
-	vlc.id = "movie_player_vlc";
+	vlc.id = gMoviePlayerID;
+	vlc.className = "movie_player_vlc";
 
 	this.moviePlayer = vlc;
 
@@ -2477,7 +2530,8 @@ ScriptInstance.prototype.makeDraggable = function() {
 ScriptInstance.prototype.parseUrlMap = function(urls)
 {
 	var that = this;
-	var stream_map = [];
+	this.selectNode = this.selectNode || this.$(vlc_id+"_select") || this.doc.createElement('select');
+	removeChildren(this.selectNode, true);
 	urls.split(',').forEach(function(map){
 		var params = map.split('&');
 		var kv = {};
@@ -2496,11 +2550,16 @@ ScriptInstance.prototype.parseUrlMap = function(urls)
 			var type = kv['type'].split(';')[0].split('/')[1];
 			if(that.bdiscardFLVs && type == 'x-flv')
 				return;
-			stream_map.push([
-					kv['itag'],
-					kv['url'] + "&fallback_host=" + kv['fallback_host'] + "&signature=" + (kv['sig'] || DecryptSignature(kv['s'])),
-					kv
-				]);
+			var url = kv['url'] + "&fallback_host=" + kv['fallback_host'] + "&signature=" + (kv['sig'] || DecryptSignature(kv['s']));
+			var option = that.doc.createElement("option");
+			option.setAttribute("name",  kv['itag']);
+			option.setAttribute("value", url);
+			if('fallback_host' in kv)
+				option.setAttribute("fallback", kv['fallback_host']);
+			option.textContent = (kv['itag'] in itagToText ? itagToText[kv['itag']] : kv['itag']);
+			if(kv['stereo3d']) option.textContent += '/stereo3D';
+			that.selectNode.appendChild(option);
+			that.qualityLevels.push(kv['itag']);
 		}
 		else if(!that.weirdstreams)
 		{
@@ -2512,29 +2571,14 @@ ScriptInstance.prototype.parseUrlMap = function(urls)
 	});
 
 	//try again
-	if(stream_map.length == 0 && this.bdiscardFLVs)
+	if(!this.selectNode.hasChildNodes() && this.bdiscardFLVs)
 	{
 		console.log("now with FLVs");
 		this.bdiscardFLVs = false;
 		return this.parseUrlMap(urls);
 	}
 
-	//var selectNode = this.$(vlc_id+"_select");
-	this.selectNode = this.$(vlc_id+"_select") || this.doc.createElement('select');
-	removeChildren(this.selectNode, true);
-	for(var i=0; i<stream_map.length; i++)
-	{
-		var option = this.doc.createElement("option");
-		option.setAttribute("name",     stream_map[i][0])
-		option.setAttribute("value",    stream_map[i][1]);
-		if('fallback_host' in stream_map[i][2])
-			option.setAttribute("fallback", stream_map[i][2]['fallback_host']);
-		option.textContent = (stream_map[i][0] in itagToText ? itagToText[stream_map[i][0]] : stream_map[i][0]) +
-			(stream_map[i][2]['stereo3d'] ? '/stereo3D' : '');
-		this.selectNode.appendChild(option);
-	}
-
-	if(stream_map.length == 0)
+	if(!this.selectNode.hasChildNodes())
 	{
 		console.log("no stream maps");
 		return false;
@@ -2610,7 +2654,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode)
 									gPlayerApiID+"-vlc"; //Use youtube CSS and also so that JS would work
 
 	//just in case
-	//removeChildren(this.player);
+	removeChildren(this.player, true);
 	var vlcNode = this.generateDOM();
 	this.player.appendChild(vlcNode);
 	this.makeDraggable();
@@ -2664,6 +2708,7 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 					//set global width/height before generation
 					that.width = "100%";
 					that.height = that.doc.body.clientHeight;
+					removeChildren(player, true);
 					var vlcNode = that.generateDOM({wide:false, dl:false});
 					vlcNode.style.height = "100%";
 
@@ -2678,10 +2723,10 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 						that.$("vlc_controls_div").style.display = "block";//Show so that clientHeight is calculated
 						that.$("vlc_controls_div").style.top = -that.$("vlc_controls_div").clientHeight + "px";
 						that.$("vlc_controls_div").style.display = '';//Reset to CSS or none if using javascript
-						that.$(vlc_id+"-holder").style.height = (that.$("movie_player_vlc").clientHeight - spacer.clientHeight) + "px";
+						that.$(vlc_id+"-holder").style.height = (that.$(gMoviePlayerID).clientHeight - spacer.clientHeight) + "px";
 					}
 					else
-						that.$(vlc_id+"-holder").style.height = (that.$("movie_player_vlc").clientHeight - that.$("vlc_controls_div").clientHeight) + "px";
+						that.$(vlc_id+"-holder").style.height = (that.$(gMoviePlayerID).clientHeight - that.$("vlc_controls_div").clientHeight) + "px";
 
 					that.setupVLC();
 
@@ -2842,12 +2887,18 @@ ScriptInstance.prototype.setupVLC = function()
 		}
 	}
 
-	this.moviePlayer.wrappedJSObject.seekTo = function(e){that.myvlc.seekTo(e);};
-	this.moviePlayer.wrappedJSObject.pauseVideo = function(e){that.myvlc.pauseVideo();};
-	this.moviePlayer.wrappedJSObject.playVideo = function(e){that.myvlc.playVideo();};
-	this.moviePlayer.wrappedJSObject.stopVideo = function(e){that.myvlc.stopVideo();};
-	this.moviePlayer.wrappedJSObject.getCurrentTime = function(e){ return that.myvlc.getCurrentTime();};
-	this.moviePlayer.wrappedJSObject.getDuration = function(e){ return that.myvlc.getDuration();};
+	this.moviePlayer.wrappedJSObject.seekTo = function(e){that.myvlc._seekTo(e);}
+	this.moviePlayer.wrappedJSObject.pauseVideo = function(){that.myvlc.pauseVideo();}
+	this.moviePlayer.wrappedJSObject.playVideo = function(){that.myvlc.playVideo();}
+	this.moviePlayer.wrappedJSObject.stopVideo = function(){that.myvlc.stopVideo();}
+	this.moviePlayer.wrappedJSObject.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
+	this.moviePlayer.wrappedJSObject.getDuration = function(){return that.myvlc.getDuration();}
+	this.moviePlayer.wrappedJSObject.getAvailableQualityLevels = function(){return that.myvlc.getAvailableQualityLevels();}
+	this.moviePlayer.wrappedJSObject.getPlaybackQuality = function(){return that.myvlc.getPlaybackQuality();}
+	this.moviePlayer.wrappedJSObject.setPlaybackQuality = function(e){that.myvlc.setPlaybackQuality(e);}
+	this.moviePlayer.wrappedJSObject.getVolume = function(){return that.myvlc.getVolume();}
+	this.moviePlayer.wrappedJSObject.setVolume = function(e){that.myvlc.setVolume(e);}
+	this.moviePlayer.wrappedJSObject.isMuted = function(){return false;}
 
 	//Fake hashchange
 	//FIXME timing issues, seeks to timecode but jumps back to start most times now
@@ -2905,10 +2956,14 @@ ScriptInstance.prototype.overrideRef = function()
 		else
 			this.hasSettled = 0;
 		this.yt.setConfig('PLAYER_REFERENCE', this.myvlc);
+		this.yt.www.watch.player = this.myvlc;
+		//restore seekTo
+		this.yt.www.watch.player.seekTo = this.myvlc._seekTo;
 
-		//TODO cleaner version, hook into '#player-api' before js runs maybe, ugh nasty
+		//TODO cleaner version
 		var _yt_www = unsafeWindow['_yt_www'];
 		//for(i in _yt_www)
+		if(false)
 		{
 			try
 			{
@@ -2916,7 +2971,7 @@ ScriptInstance.prototype.overrideRef = function()
 				{
 					//var ytfuncs = ['seekTo','getCurrentTime','pauseVideo','playVideo','stopVideo','getDuration','getPlaybackQuality'];
 					var api = this.yt.player.embed(gPlayerApiID);
-					api.seekTo = function(e){that.myvlc.seekTo(e);};
+					api.seekTo = function(e){that.myvlc._seekTo(e);};
 					api.pauseVideo = function(e){that.myvlc.pauseVideo();};
 					api.playVideo = function(e){that.myvlc.playVideo();};
 					api.stopVideo = function(e){that.myvlc.stopVideo();};
@@ -2995,7 +3050,7 @@ function loadPlayerOnLoad(win, oldNode)
 		var inst = new ScriptInstance(win, false, oldNode);
 		win.addEventListener('DOMNodeInserted', function(e){inst.DOMevent_xhr(e);}, true);
 		win.addEventListener('beforeunload', function(e){inst.saveSettings();}, true);
-		//win.addEventListener('unload', function(e){inst.saveSettings();}, true);
+		win.addEventListener('unload', function(e){inst.saveSettings();}, true);
 	}, false);
 }
 
