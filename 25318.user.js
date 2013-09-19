@@ -5,6 +5,7 @@
 // @include        *://youtube.tld/watch*
 // @include        *://*.youtube.tld/watch*
 // @include        *://*.youtube.tld/embed/*
+// @include        *://*.youtube.tld/user/*
 // @include        *://*.youtube-nocookie.tld/embed/*
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -1247,6 +1248,8 @@ VLCObj.prototype = {
 		vsTxt = false;
 		this.clearUpdate();
 		this.instance.moviePlayerEvents.fire('onStateChange', this.instance.moviePlayer, 0);
+		if(this.instance.matchEmbed)
+			this.$('cued-embed').classList.remove('hid');
 	},
 	eventEnded: function(){
 		this.eventStopped();
@@ -1301,11 +1304,10 @@ VLCObj.prototype = {
 								);
 
 		//unsafe option "audio-filter" has been ignored for security reasons, dammit
-		/*if(this.instance.bnormVol)
-		{
+		//if(this.instance.bnormVol){
 			//--audio-filter normvol,equalizer --equalizer-preset largehall
 			options.push(":audio-filter=volnorm", ":norm-max-level=" + GM_getValue('vlc-volume-norm', 2.0));
-		}*/
+		//}
 
 		var id = this.vlc.playlist.add(src, 'muuvi', options);
 		vsTxt = false;
@@ -1335,36 +1337,31 @@ VLCObj.prototype = {
 		if(this.instance.bresumePlay) this._seekTo(time);//craps out probably if doAdd loops
 	},
 	emitValue:function(sb, pos, instant){
-		//try{
-			if(this.scrollbarPos == sb)
+		if(this.scrollbarPos == sb)
+		{
+			if(instant)
+				this.setTimes(this.vlc.input.length * (pos/sb.maxValue), this.vlc.input.length);
+			else
 			{
-				if(instant)
-					this.setTimes(this.vlc.input.length * (pos/sb.maxValue), this.vlc.input.length);
-				else
-				{
-					pos = pos/sb.maxValue;
-					//workaround for NPVariant type being INT32 if pos is 0 or 1
-					//and then npapi plugin returning invalid value error
-					if(pos < 0.000001) pos = 0.000001;
-					else if(pos > 0.999999) pos = 0.999999;
-					this.vlc.input.position = pos;
-				}
+				pos = pos/sb.maxValue;
+				//workaround for NPVariant type being INT32 if pos is 0 or 1
+				//and then npapi plugin returning invalid value error
+				if(pos < 0.000001) pos = 0.000001;
+				else if(pos > 0.999999) pos = 0.999999;
+				this.vlc.input.position = pos;
 			}
-			else if(this.scrollbarVol == sb)
-			{
-				this.vlc.audio.volume = pos;
-				this.instance.saveVolume();
-				//this.scrollbarVol.bar.children.namedItem('vlcvol').innerHTML = Math.round(pos);
-			}
-			else if(this.scrollbarRate == sb)
-			{
-				this.vlc.input.rate = pos;
-				//this.scrollbarRate.bar.children.namedItem('vlcrate').innerHTML = pos.toFixed(3);
-			}
-
-		/*}catch(e){
-			if(console) console.log("emitValue:"+e);
-		}*/
+		}
+		else if(this.scrollbarVol == sb)
+		{
+			this.vlc.audio.volume = pos;
+			//this.instance.saveVolume();//messes with player in another tab
+			//this.scrollbarVol.bar.children.namedItem('vlcvol').innerHTML = Math.round(pos);
+		}
+		else if(this.scrollbarRate == sb)
+		{
+			this.vlc.input.rate = pos;
+			//this.scrollbarRate.bar.children.namedItem('vlcrate').innerHTML = pos.toFixed(3);
+		}
 	},
 	//Button click events
 	play: function(){
@@ -1383,8 +1380,8 @@ VLCObj.prototype = {
 	stop: function(){
 		var _vlcobj = this.wrappedJSObject.VLCObj;
 		_vlcobj.vlc.playlist.stop();
-		if(_vlcobj.instance.matchEmbed)
-			_vlcobj.$('cued-embed').classList.remove('hid');
+		//if(_vlcobj.instance.matchEmbed)
+		//	_vlcobj.$('cued-embed').classList.remove('hid');
 	},
 	fs: function(){
 		this.wrappedJSObject.VLCObj.vlc.video.toggleFullscreen();
@@ -1556,6 +1553,7 @@ ScriptInstance.prototype.setSideBar = function(wide)
 {
 	if(this.isPopup) return;
 	var el = this.$('watch7-container');
+	if(!el) return;
 
 	var ply = this.$(gPlayerID);
 	var plbtn = this.$('watch7-playlist-bar-toggle-button');
@@ -1864,23 +1862,31 @@ ScriptInstance.prototype.pullYTVars = function()
 		// unsafeWindow is deprecated but...
 		this.yt = unsafeWindow['yt'];
 		this.ytplayer = unsafeWindow['ytplayer'];
-		if(this.matchEmbed)
+		if(this.matchEmbed && this.yt)
 		{
 			this.swf_args = this.yt.config_.PLAYER_CONFIG.args;
 			return;
 		}
-		else
+		else if(this.ytplayer)
 			this.swf_args = this.ytplayer.config.args;
 		var index = -1;//0-indexed, while html seems to be 1-indexed :S
 
 		//Stuff below will err out on embed page
-		if(this.playlist)
+		if(this.playlist && this.ytplayer)
 			index = this.ytplayer.config.args.index;
+
+		//unsafeWindow['yt'].playerConfig = function(){}
+		//unsafeWindow['yt'].playerConfig.args = this.swf_args;
+		if(/\/user\//.test(this.win.location.href) &&
+			(upsell = this.$('upsell-video')) && (str = upsell.getAttribute('data-swf-config')))
+		{
+			var json = JSON.parse(str.replace(/&quot;/g, "\""));
+			this.swf_args = json['args'];
+			this.ytplayer = {config: {args: this.swf_args}};
+		}
 
 		if(!this.swf_args)
 			this.swf_args = this.yt.getConfig('PLAYER_CONFIG',null) ['args'];
-		unsafeWindow['yt'].playerConfig = function(){}
-		unsafeWindow['yt'].playerConfig.args = this.swf_args;
 
 		this.isWide = (this.ytplayer.config.args.player_wide == 1) ||
 			GM_getValue("vlc-wide", false) || //Only wide if clicked on "Wide" button
@@ -2037,20 +2043,32 @@ ScriptInstance.prototype.generateDOM = function(options)
 	var holder = this.doc.createElement("div");
 	holder.id = vlc_id + "-holder";
 	//set controls="yes" to show plugins controls by default
-	holder.innerHTML = '<img id="vlc-thumbnail"><embed type="application/x-vlc-plugin" pluginspage="http://www.videolan.org" \
+	if(options.userPage)
+	{
+		holder.innerHTML = '<img id="vlc-thumbnail">';
+		vlc.style.width = vlc.style.height =
+			holder.style.width = holder.style.height = '100%';
+	}
+	else
+		holder.innerHTML = '<img id="vlc-thumbnail"><embed type="application/x-vlc-plugin" pluginspage="http://www.videolan.org" \
 						version="VideoLAN.VLCPlugin.2" controls="no" autoplay="no" \
 						width="100%" height="100%" id="'+ vlc_id +'" name="'+ vlc_id +'"/>';
-
+	vlc.appendChild(holder);
 	this.thumb = this.doc.querySelector("span[itemprop='thumbnail'] link[itemprop='url']");
 
-	if(this.thumb && this.buseThumbnail)
+	if((this.thumb && this.buseThumbnail) || options.userPage)
 	{
 		holder.childNodes[0].setAttribute('src', this.thumb.href);
-		holder.childNodes[0].addEventListener('click', function(ev){ that.myvlc.playVideo(); }, false);
+		if(options.userPage)
+			holder.childNodes[0].addEventListener('click', function(ev){ that.win.location.pathname = '/watch?v=' + that.swf_args.video_id; }, false);
+		else
+			holder.childNodes[0].addEventListener('click', function(ev){ that.myvlc.playVideo(); }, false);
 	}
 	else
 		holder.childNodes[0].classList.add("vlc_hidden");//perma hide
 
+	//TODO little space, return just the channel thumbnail
+	if(options.userPage) return vlc;
 
 	var controls = this.doc.createElement("div");
 	{
@@ -2423,8 +2441,6 @@ ScriptInstance.prototype.generateDOM = function(options)
 
 	}
 
-	vlc.appendChild(holder);
-
 	var spacer;
 	//TODO Caveat is that controls don't get updated when hidden so prepare for inconsistencies
 	if(this.buseHoverControls && this.matchEmbed)
@@ -2591,10 +2607,11 @@ ScriptInstance.prototype.parseUrlMap = function(urls)
 ScriptInstance.prototype.onMainPage = function(oldNode)
 {
 	var that = this;
+	var userPage = /\/user\//.test(this.win.location.href);
 	this.pullYTVars();
 
 	if(this.swf_args == null) {
-		this.insertYTmessage ('VLCTube: Unable to find video source');
+		if(!userPage) this.insertYTmessage ('VLCTube: Unable to find video source');
 		return false;
 	}
 	if(!this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map']))
@@ -2617,7 +2634,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode)
 		this.exterminate();
 
 	/* Player */
-	this.player = this.$(gPlayerApiID) || this.$(gPlayerApiID+"-vlc");
+	this.player = this.$('upsell-video') || this.$(gPlayerApiID) || this.$(gPlayerApiID+"-vlc");
 	this.playlist = this.$('watch7-playlist-tray-container');//if in playlist mode
 
 	if(!this.player)
@@ -2655,7 +2672,8 @@ ScriptInstance.prototype.onMainPage = function(oldNode)
 
 	//just in case
 	removeChildren(this.player, true);
-	var vlcNode = this.generateDOM();
+
+	var vlcNode = that.generateDOM({userPage:userPage, wide:!userPage, dl:!userPage});
 	this.player.appendChild(vlcNode);
 	this.makeDraggable();
 
@@ -2663,7 +2681,6 @@ ScriptInstance.prototype.onMainPage = function(oldNode)
 	if(this.bscrollToPlayer) this.player.scrollIntoView(true);
 	return true;
 }
-
 
 ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 {
@@ -2876,17 +2893,6 @@ ScriptInstance.prototype.setupVLC = function()
 	this.moviePlayer.wrappedJSObject.addEventListener = function(event, fun, bubble) {that.moviePlayerEvents.addListener(event, fun);}
 
 	//Compatibility functions
-	this.moviePlayer.wrappedJSObject.getPlayerState = function(){
-		switch(that.myvlc.vlc.input.state)
-		{
-			case 0,1,2:
-			case 5,6,7:
-				return 0;
-			case 3: return 1;
-			case 4: return 2;
-		}
-	}
-
 	this.moviePlayer.wrappedJSObject.seekTo = function(e){that.myvlc._seekTo(e);}
 	this.moviePlayer.wrappedJSObject.pauseVideo = function(){that.myvlc.pauseVideo();}
 	this.moviePlayer.wrappedJSObject.playVideo = function(){that.myvlc.playVideo();}
@@ -2899,10 +2905,20 @@ ScriptInstance.prototype.setupVLC = function()
 	this.moviePlayer.wrappedJSObject.getVolume = function(){return that.myvlc.getVolume();}
 	this.moviePlayer.wrappedJSObject.setVolume = function(e){that.myvlc.setVolume(e);}
 	this.moviePlayer.wrappedJSObject.isMuted = function(){return false;}
+	this.moviePlayer.wrappedJSObject.getPlayerState = function(){
+		switch(that.myvlc.input.state){
+			case 0: case 7: return -1;//idle, error
+			case 1: return 5;//opening
+			case 2: return 3;//buffering
+			case 3: return 1;//playing
+			case 4: return 2;//paused
+			case 5: case 6: return 0;//stopped, ended
+		}
+	}
 
 	//Fake hashchange
 	//FIXME timing issues, seeks to timecode but jumps back to start most times now
-	this.onHashChange(this.win.location.href);
+	setTimeout(function(e){that.onHashChange(that.win.location.href);}, 500);
 
 	//console.log("Has CC:" + (swf_args.has_cc||swf_args.cc_asr));
 	GM_xmlhttpRequest({
@@ -3087,4 +3103,7 @@ function DOMevent(e)
 	}
 }
 
-/Chrome/.test(navigator.userAgent) && /\/embed\//.test(window.location.href) ? loadPlayer(window) : window.addEventListener('DOMNodeInserted', DOMevent, true);
+if(/\/user\//.test(window.location))
+	loadPlayerOnLoad(window);
+else
+	/Chrome/.test(navigator.userAgent) && /\/embed\//.test(window.location.href) ? loadPlayer(window) : window.addEventListener('DOMNodeInserted', DOMevent, true);
