@@ -13,12 +13,13 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        39.2
+// @version        40
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx23+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
+//2013-09-20 Not fully realized user page mode. Signature decipher for sig with 93 length (?)
 //2013-09-13 #movie_player ID as global var, changed back to #movie_player for compat. 
 //           with other scripts etc + more funcs. Fix saving selected format.
 //2013-09-10 Fix if video only has one flv stream and "discard FLVs" is selected
@@ -664,6 +665,19 @@ function DecryptSignature(sig)
 
 		case 92:
 			sig = Decode(sig, [ -2, 0, -3, 9, -3, 43, -3, 0, 23 ]);
+			break;
+		case 93:
+			sig = sig.split("");
+			sig = clone(sig, 3);
+			sig = Reverse(sig);
+			sig = clone(sig, 1);
+			sig = Reverse(sig);
+			sig = clone(sig, 3);
+			sig = Reverse(sig);
+			sig = clone(sig, 3);
+			sig = Swap(sig, 59);
+			sig = clone(sig, 2);
+			sig = sig.join("");
 			break;
 	}
 
