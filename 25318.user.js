@@ -13,13 +13,14 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        41.4
+// @version        41.5
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx24+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
 //2013-10-02 More test for widescreen video
+//           Fix: set player wide again with xhr
 //2013-09-30 Another decipher for 83 chars long signature
 //           Widescreen hack
 //2013-09-30 Temporary hack fix until VLC starts to work again
@@ -1552,8 +1553,8 @@ VLCObj.prototype = {
 				//this.controls.children.namedItem('vlcstate').innerHTML = VLC_status[this.vlc.input.state];
 				this.instance.doc.querySelector('#progress-radial').innerHTML = VLC_status[this.vlc.input.state][0];
 				this.instance.doc.querySelector('#progress-radial').title = VLC_status[this.vlc.input.state];
-				//if(this.vlc.input.state == 7 && typeof this.reloading == 'undefined') 
-				//	this.reloading = setTimeout(function(){window.location.reload();}, 3000);
+				if(this.vlc.input.state == 7 && typeof this.reloading == 'undefined') 
+					this.reloading = setTimeout(function(){window.location.reload();}, 3000);
 				this.setTimes(this.vlc.input.time,
 					this.vlc.input.length > 0 ? this.vlc.input.length : (this.instance.ytplayer ? 1000*this.instance.ytplayer.config.args.length_seconds : 0));
 			}
@@ -3164,7 +3165,7 @@ ScriptInstance.prototype.softReloadPlayer = function()
 		this.myvlc.stopVideo();
 		this.restoreSettings();
 		this.overrideRef();
-		this.setPlayerSize();
+		this.setPlayerSize(this.isWide);
 	}
 }
 
@@ -3191,11 +3192,11 @@ ScriptInstance.prototype.DOMevent_xhr = function (e)
 {
 	if(e.target.id == 'progress')
 	{
-		this.chromeLoading = true;
+		this.xhrLoading = true;
 	}
-	else if(this.chromeLoading && e.target.tagName == 'SCRIPT' && /VIDEO_ID/.test(e.target.innerHTML))
+	else if(this.xhrLoading && e.target.tagName == 'SCRIPT' && /VIDEO_ID/.test(e.target.innerHTML))
 	{
-		this.chromeLoading = false;
+		this.xhrLoading = false;
 		console.log('VLCTube: reloading player');
 		this.softReloadPlayer();
 	}
