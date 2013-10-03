@@ -13,14 +13,17 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        41.5
+// @version        41.9
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx24+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
+//2013-10-03 Fix subtitle <select/> with softReloadPlayer
+//           Also setSideBar
 //2013-10-02 More test for widescreen video
 //           Fix: set player wide again with xhr
+//           GM_getValue returns nothing?
 //2013-09-30 Another decipher for 83 chars long signature
 //           Widescreen hack
 //2013-09-30 Temporary hack fix until VLC starts to work again
@@ -1902,6 +1905,12 @@ ScriptInstance.prototype.parseCCList = function(responseDetails) {
 				{
 					var tl = xmlDoc.firstChild;
 					var ccselect = this.$(vlc_id+"_ccselect");
+					removeChildren(ccselect, true);
+					var nullopt = this.doc.createElement("option");
+					nullopt.setAttribute("name", "lang");
+					nullopt.setAttribute("value", "null");
+					ccselect.appendChild(nullopt);
+					nullopt.innerHTML = _("NONE");
 					for(var i = 0;  i < tl.childNodes.length; i++)
 					{
 						var option = this.doc.createElement('option');
@@ -2285,12 +2294,6 @@ ScriptInstance.prototype.generateDOM = function(options)
 		{
 			ccsel.id = vlc_id + '_ccselect';
 			ccsel.className = "vlc_hidden yt-uix-button yt-uix-button-default";
-
-			var nullopt = this.doc.createElement("option");
-			nullopt.setAttribute("name", "lang");
-			nullopt.setAttribute("value", "null");
-			nullopt.innerHTML = _("NONE");
-			ccsel.appendChild(nullopt);
 			buttons.appendChild(ccsel);
 		}
 
@@ -3038,6 +3041,12 @@ ScriptInstance.prototype.setupVLC = function()
 	setTimeout(function(e){that.onHashChange(that.win.location.href);}, 500);
 
 	//console.log("Has CC:" + (swf_args.has_cc||swf_args.cc_asr));
+	this.queryCC();
+}
+
+ScriptInstance.prototype.queryCC = function()
+{
+	var that = this;
 	GM_xmlhttpRequest({
 			method: 'GET',
 			url: this.getListUrl(),
@@ -3136,37 +3145,38 @@ ScriptInstance.prototype.reloadPlayer = function()
 
 ScriptInstance.prototype.softReloadPlayer = function()
 {
-	if(!this.matchEmbed)
-	{
-		var that = this;
-		this.pullYTVars();
-		if(this.swf_args == null) {
-			this.insertYTmessage ('VLCTube: Unable to find video source');
-			return false;
-		}
+	if(this.matchEmbed) return;
 
-		if(!this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map']))
-		{
-			this.insertYTmessage ('VLCTube: Unable to find video streams');
-			return false;
-		}
-
-		this.thumb = this.doc.querySelector("span[itemprop='thumbnail'] link[itemprop='url']");
-		var holder = this.doc.querySelector("#" + vlc_id + "-holder");
-		if(this.thumb && this.buseThumbnail)
-		{
-			holder.childNodes[0].setAttribute('src', this.thumb.href);
-			holder.childNodes[0].addEventListener('click', function(ev){ that.myvlc.playVideo(); }, false);
-		}
-		else
-			holder.childNodes[0].classList.add("vlc_hidden");//perma hide
-
-		//this.restoreVolume();//eventPlaying should, but sometimes doesn't???
-		this.myvlc.stopVideo();
-		this.restoreSettings();
-		this.overrideRef();
-		this.setPlayerSize(this.isWide);
+	var that = this;
+	this.pullYTVars();
+	if(this.swf_args == null) {
+		this.insertYTmessage ('VLCTube: Unable to find video source');
+		return false;
 	}
+
+	if(!this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map']))
+	{
+		this.insertYTmessage ('VLCTube: Unable to find video streams');
+		return false;
+	}
+
+	this.thumb = this.doc.querySelector("span[itemprop='thumbnail'] link[itemprop='url']");
+	var holder = this.doc.querySelector("#" + vlc_id + "-holder");
+	if(this.thumb && this.buseThumbnail)
+	{
+		holder.childNodes[0].setAttribute('src', this.thumb.href);
+		holder.childNodes[0].addEventListener('click', function(ev){ that.myvlc.playVideo(); }, false);
+	}
+	else
+		holder.childNodes[0].classList.add("vlc_hidden");//perma hide
+
+	//this.restoreVolume();//eventPlaying should, but sometimes doesn't???
+	this.myvlc.stopVideo();
+	this.win.setTimeout(function(){that.restoreSettings(); that.queryCC();}, 10); //Hm, GM_getValue otherwise fails ??
+	this.overrideRef();
+	this.setPlayerSize(this.isWide);
+	this.setSideBar(this.isWide);
+	this.$(vlc_id+'_ccselect').classList.add('vlc_hidden');
 }
 
 function loadPlayer(win, oldNode)
