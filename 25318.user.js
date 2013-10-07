@@ -13,12 +13,13 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        41.9
+// @version        41.10
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx24+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
+//2013-10-07 Fix subtitles. Download link has a title for filename?
 //2013-10-03 Fix subtitle <select/> with softReloadPlayer
 //           Also setSideBar
 //2013-10-02 More test for widescreen video
@@ -1408,12 +1409,17 @@ VLCObj.prototype = {
 		this.doAdd(src, 0);
 		if(this.$('vlclink'))
 		{
-			this.$('vlclink').href = src;
-			//Just in case firefox respects the html5 "download" attribute
-			//but content-disposition probably overrides this with useless "videoplayback" anyway
+			var title;
 			try{
-				this.$('vlclink').setAttribute("download", this.instance.ytplayer.config.args.title + "-" + fmt.replace("/", "."));
+				title = this.instance.ytplayer.config.args.title;
+				//Seems to work with Firefox
+				src += "&title=" + title.replace("&", "%26");
+				//Just in case firefox respects the html5 "download" attribute
+				//but content-disposition probably overrides this with useless "videoplayback" anyway
+				this.$('vlclink').setAttribute("download", title + "-" + fmt.replace("/", "."));
 			}catch(e){}
+
+			this.$('vlclink').href = src;
 		}
 		if(this.instance.bresumePlay) this._seekTo(time);//craps out probably if doAdd loops
 	},
@@ -3177,6 +3183,7 @@ ScriptInstance.prototype.softReloadPlayer = function()
 	this.setPlayerSize(this.isWide);
 	this.setSideBar(this.isWide);
 	this.$(vlc_id+'_ccselect').classList.add('vlc_hidden');
+	this.myvlc.ccObj = null;
 }
 
 function loadPlayer(win, oldNode)
