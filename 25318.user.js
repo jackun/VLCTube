@@ -13,13 +13,14 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        41.13
+// @version        42
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx24+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2013-10-16 Adaptive formats. Comments load with softReload?
 //2013-10-09 Option to only autoplay playlists
 //2013-10-07 Fix subtitles. Download link has a title for filename? 
 //           Another sig decipher
@@ -118,6 +119,7 @@ var gLangs = {
 		'vlc-config-discard-flvs' : ['Discard FLV formats', 'Don\'t add FLV formats as selectable.'],
 		'vlc-config-dark-theme' : ['Dark theme', 'Make a little friendlier for dark themes.'],
 		'vlc-config-autoplay-pl' : ['Autoplay playlists', ''],
+		'vlc-config-adaptives' : ['Add adaptive formats', 'Video only or audio only streams. Currently kinda useless.'],
 		},
 	"et": {
 		'LANG'  : 'Eesti',
@@ -287,15 +289,15 @@ var itagPrio = [
 ];
 
 var itagToText = {
-	160: '144p/mp4',
-	141: '141/mp4',
-	140: '140/mp4',
-	139: '139/mp4',
-	137: '1080p/mp4',
-	136: '720p/mp4',
-	135: '480p/mp4',
-	134: '360p/mp4',
-	133: '240p/mp4',
+	160: '144p/mp4v',
+	141: '256kbps/mp4a',
+	140: '128kbps/mp4a',
+	139: '48kbps/mp4a',
+	137: '1080p/mp4v',
+	136: '720p/mp4v',
+	135: '480p/mp4v',
+	134: '360p/mp4v',
+	133: '240p/mp4v',
 	120: '720p/flv',
 	102: '720p/webm/3D',
 	101: '360p/webmH/3D',
@@ -324,15 +326,15 @@ var itagToText = {
 
 //TODO generate programmatically this....
 var textToItag = {
-	'144p/mp4' : 160,
-	'141/mp4' : 141,
-	'140/mp4' : 140,
-	'139/mp4' : 139,
-	'1080p/mp4' : 137,
-	'720p/mp4' : 136,
-	'480p/mp4' : 135,
-	'360p/mp4' : 134,
-	'240p/mp4' : 133,
+	'144p/mp4v' : 160,
+	'256kbps/mp4a' : 141,
+	'128kbps/mp4a' : 140,
+	'48kbps/mp4a' : 139,
+	'1080p/mp4v' : 137,
+	'720p/mp4v' : 136,
+	'480p/mp4v' : 135,
+	'360p/mp4v' : 134,
+	'240p/mp4v' : 133,
 	'720p/flv' : 120,
 	'720p/webm/3D' : 102,
 	'360p/webmH/3D' : 101,
@@ -459,6 +461,7 @@ ScriptInstance.prototype.initVars = function(){
 	this.setDefault("bdiscardFLVs", true);
 	//make a bit friendlier for dark themes
 	this.setDefault("bdarkTheme", false);
+	this.setDefault("badaptiveFmts", false);
 }
 
 /// Helpers
@@ -1808,6 +1811,7 @@ ScriptInstance.prototype.setPlayerSize = function(wide, subs)
 ScriptInstance.prototype.setBuffer = function(i)
 {
 	var b = "#2f3439",f = "#ff6347",el = document.querySelector('#'+vlc_id+'_controls .progress-radial');
+	if(!el) return; //sometimes null for some reason
 	var step = 1, loops = Math.round(100/ step), increment = (360 / loops), half = Math.round(loops / 2);
 	if (i < half)
 	{
@@ -2594,6 +2598,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-uri-fallback", 'buseFallbackHost'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-discard-flvs", 'bdiscardFLVs'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-dark-theme", 'bdarkTheme'));
+		chkboxes.appendChild(this._makeCheckbox("vlc-config-adaptives", 'badaptiveFmts'));
 		config.appendChild(chkboxes);
 
 	}
@@ -2731,7 +2736,7 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 			option.setAttribute("value", url);
 			if('fallback_host' in kv)
 				option.setAttribute("fallback", kv['fallback_host']);
-			option.textContent = (kv['itag'] in itagToText ? itagToText[kv['itag']] : kv['itag']);
+			option.textContent = (kv['itag'] in itagToText ? itagToText[kv['itag']] : "Fmt " + kv['itag']);
 			//if(kv['stereo3d']) option.textContent += '/stereo3D';
 			that.selectNode.appendChild(option);
 			that.qualityLevels.push(kv['itag']);
@@ -2742,7 +2747,7 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 			that.insertYTmessage("VLCTube: " + ( 'conn' in kv && kv['conn'].indexOf('rtmpe') > -1 ? "Sorry, encrypted rtmp stream." : "Weird stream map"));
 			return;
 		}
-		//console.log(kv);
+		//console.log(kv['itag'], kv['type'], kv);
 	});
 
 	//try again
@@ -2785,7 +2790,9 @@ ScriptInstance.prototype.onMainPage = function(oldNode)
 		if(oldNode) this.$(gPlayerApiID).appendChild(oldNode);
 		return false;
 	}
-	this.parseUrlMap(this.swf_args['adaptive_fmts'])
+
+	if(this.badaptiveFmts)
+		this.parseUrlMap(this.swf_args['adaptive_fmts'])
 
 	//FIXME Already removed, but html5 player element doesn't get the hint
 	if(oldNode)
@@ -2850,7 +2857,6 @@ ScriptInstance.prototype.onMainPage = function(oldNode)
 ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 {
 	var that = this;
-	xheaders = headers;
 	GM_xmlhttpRequest({
 		method: 'GET',
 		//chrom{e, ium} defaults to https if <iframe src="//...">? and tampermonkey uses top window protocol or something. Ok force it.
@@ -3139,10 +3145,7 @@ ScriptInstance.prototype.overrideRef = function()
 		{
 			this.hasSettled++;
 			if(this.hasSettled>10)
-			{
-				this.hasSettled = 0;
 				return;
-			}
 		}
 		else
 			this.hasSettled = 0;
@@ -3150,29 +3153,6 @@ ScriptInstance.prototype.overrideRef = function()
 		this.yt.www.watch.player = this.myvlc;
 		//restore seekTo
 		this.yt.www.watch.player.seekTo = this.myvlc._seekTo;
-
-		//TODO cleaner version
-		var _yt_www = unsafeWindow['_yt_www'];
-		//for(i in _yt_www)
-		if(false)
-		{
-			try
-			{
-				//if(typeof _yt_www[i] === 'function' && _yt_www[i] == this.yt.player.embed && unsafeWindow['_yt_www'][i](gPlayerApiID).seekTo == undefined)
-				{
-					//var ytfuncs = ['seekTo','getCurrentTime','pauseVideo','playVideo','stopVideo','getDuration','getPlaybackQuality'];
-					var api = this.yt.player.embed(gPlayerApiID);
-					api.seekTo = function(e){that.myvlc._seekTo(e);};
-					api.pauseVideo = function(e){that.myvlc.pauseVideo();};
-					api.playVideo = function(e){that.myvlc.playVideo();};
-					api.stopVideo = function(e){that.myvlc.stopVideo();};
-					api.getCurrentTime = function(e){ return that.myvlc.getCurrentTime();};
-					api.getDuration = function(e){ return that.myvlc.getDuration();};
-					return;
-				}
-			}catch(e){}
-		}
-
 	}catch(e){ console.log(e); }
 
 	this.win.setTimeout(function(e){that.overrideRef();}, 1000);
@@ -3197,38 +3177,46 @@ ScriptInstance.prototype.softReloadPlayer = function()
 	if(this.matchEmbed) return;
 
 	var that = this;
-	this.pullYTVars();
-	if(this.swf_args == null) {
-		this.insertYTmessage ('VLCTube: Unable to find video source');
-		return false;
-	}
-
-	if(!this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map']))
-	{
-		this.insertYTmessage ('VLCTube: Unable to find video streams');
-		return false;
-	}
-	this.parseUrlMap(this.swf_args['adaptive_fmts']);
-
-	this.thumb = this.doc.querySelector("span[itemprop='thumbnail'] link[itemprop='url']");
-	var holder = this.doc.querySelector("#" + vlc_id + "-holder");
-	if(this.thumb && this.buseThumbnail)
-	{
-		holder.childNodes[0].setAttribute('src', this.thumb.href);
-		holder.childNodes[0].addEventListener('click', function(ev){ that.myvlc.playVideo(); }, false);
-	}
-	else
-		holder.childNodes[0].classList.add("vlc_hidden");//perma hide
 
 	//this.restoreVolume();//eventPlaying should, but sometimes doesn't???
-	this.myvlc.stopVideo();
+	this.$(vlc_id+'_ccselect').classList.add('vlc_hidden');
 	this.myvlc.ccObj = null;
+	this.myvlc.stopVideo();
 	this.setBuffer(0);
-	this.win.setTimeout(function(){that.restoreSettings(); that.queryCC();}, 10); //Hm, GM_getValue otherwise fails ??
-	this.overrideRef();
 	this.setPlayerSize(this.isWide);
 	this.setSideBar(this.isWide);
-	this.$(vlc_id+'_ccselect').classList.add('vlc_hidden');
+
+	this.win.setTimeout(function(){
+		that.pullYTVars();
+		if(that.swf_args == null) {
+			that.insertYTmessage ('VLCTube: Unable to find video source');
+			return false;
+		}
+
+		if(!that.parseUrlMap(that.swf_args['url_encoded_fmt_stream_map'], true))
+		{
+			that.insertYTmessage ('VLCTube: Unable to find video streams');
+			return false;
+		}
+
+		if(that.badaptiveFmts)
+			that.parseUrlMap(that.swf_args['adaptive_fmts']);
+
+		that.thumb = that.doc.querySelector("span[itemprop='thumbnail'] link[itemprop='url']");
+		var holder = that.doc.querySelector("#" + vlc_id + "-holder");
+		if(that.thumb && that.buseThumbnail)
+		{
+			holder.childNodes[0].setAttribute('src', that.thumb.href);
+			holder.childNodes[0].addEventListener('click', function(ev){ that.myvlc.playVideo(); }, false);
+		}
+		else
+			holder.childNodes[0].classList.add("vlc_hidden");//perma hide
+
+		that.restoreSettings(); 
+		that.queryCC();
+		that.overrideRef();
+	}, 100);
+
 }
 
 function loadPlayer(win, oldNode)
