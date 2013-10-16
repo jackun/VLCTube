@@ -13,13 +13,16 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        41.10
+// @version        41.13
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx24+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
-//2013-10-07 Fix subtitles. Download link has a title for filename?
+//TODO cleanup on aisle 3
+//2013-10-09 Option to only autoplay playlists
+//2013-10-07 Fix subtitles. Download link has a title for filename? 
+//           Another sig decipher
 //2013-10-03 Fix subtitle <select/> with softReloadPlayer
 //           Also setSideBar
 //2013-10-02 More test for widescreen video
@@ -114,6 +117,7 @@ var gLangs = {
 		'vlc-config-uri-fallback' : ['Use fallback host for URIs', 'Use alternative server for videos if available.'],
 		'vlc-config-discard-flvs' : ['Discard FLV formats', 'Don\'t add FLV formats as selectable.'],
 		'vlc-config-dark-theme' : ['Dark theme', 'Make a little friendlier for dark themes.'],
+		'vlc-config-autoplay-pl' : ['Autoplay playlists', ''],
 		},
 	"et": {
 		'LANG'  : 'Eesti',
@@ -404,7 +408,7 @@ ScriptInstance.prototype = {
 	widthWide: GM_getValue('vlc-wide-width', '86%'), //854; //Supports plain numbers as pixels or string as percentages
 	minWidthWide: 854, //min width with percentages
 	height: 480,
-	window: null, doc: null, myvlc: null, playlist: null,
+	window: null, doc: null, myvlc: null,
 	yt: null, ytplayer: null, swf_args: null, matchEmbed: false,
 	scroll1: null, scroll2: null, scroll3:null,
 	isPopup: false,
@@ -423,6 +427,7 @@ ScriptInstance.prototype = {
 ScriptInstance.prototype.initVars = function(){
 	///User configurable booleans
 	this.setDefault("bautoplay", true);
+	this.setDefault("bautoplayPL", true);
 	//Some formats don't seek so well :(
 	this.setDefault("bresumePlay", false);
 	//Maybe obsolete, // TODO should make controls take up just one "line"
@@ -599,7 +604,7 @@ function removeChildren(node, keepThis)
 }
 
 ///
-///	<Signature decryption>
+///	<Signature decipher>
 ///
 function clone(a, len){
 	return (a.slice(len));
@@ -658,9 +663,10 @@ function Reverse(str)
 
 function DecryptSignature(sig)
 {
+	if(!sig) return;
 	switch (sig.length)
 	{
-		case 82:
+		/*case 82:
 			{
 				var sigA = Reverse(sig.substr(34, 48));
 				var sigB = Reverse(sig.substr(0, 33));
@@ -670,7 +676,7 @@ function DecryptSignature(sig)
 					sigA.substr(44, 1) + sigA.substr(46, 1) + sigB.substr(31, 1) + sigA.substr(14, 1) +
 					sigB.substr(0, 32) + sigA.substr(47, 1);
 			}
-			break;
+			break;*/
 
 		case 83:
 			//sig = Decode(sig, [ 24, 53, -2, 31, 4 ]);
@@ -738,13 +744,27 @@ function DecryptSignature(sig)
 			sig = clone(sig, 2);
 			sig = sig.join("");
 			break;
+
+		default:
+			if(ytplayer && ytplayer.config)
+				switch(ytplayer.config.sts) //signature timestamp
+				{
+				case 15981:
+					sig = sig.split("");
+					sig = Swap(sig, 7);
+					sig = Swap(sig, 37);
+					sig = Reverse(sig);
+					sig = clone(sig, 1);
+					return sig.join("");
+				}
+		break;
 	}
 
 	return sig;
 }
 
 ///
-///	</Signature decryption>
+///	</Signature decipher>
 ///
 
 ScriptInstance.prototype.insertYTmessage = function(message){
@@ -902,7 +922,7 @@ ScriptInstance.prototype.putCSS = function(){
 		.movie_player_vlc {background:transparent;} .vlccontrols {color: #EEE;}");
 
 	//blurry shadow was assome
-	this.addCSS(".yt-uix-button:focus, .yt-uix-button:focus:hover, .yt-uix-button-focused, .yt-uix-button-focused:hover {box-shadow: 0 0 2px 1px rgba(27, 127, 204, 0.4);}");
+	this.addCSS(".yt-uix-button:focus, .yt-uix-button:focus:hover, .yt-uix-button-focused, .yt-uix-button-focused:hover {box-shadow: 0 0 2px 1px rgba(27, 127, 204, 0.4); border: 1px solid rgba(27, 127, 204, 0.7);}");
 
 	/* configuration div to be more like a drop-down menu */
 	if(this.bconfigDropdown)
@@ -1395,8 +1415,7 @@ VLCObj.prototype = {
 		vsTxt = false;
 
 		if(this.instance.fmtChanged || // user changed format
-			((GM_getValue('bautoplay', true) || (this.instance.isPopup && this.instance.bpopupAutoplay))
-				&& !this.instance.matchEmbed)) //on embedded, ignore autoplay
+			this.instance.canAutoplay()) //on embedded, ignore autoplay
 		{
 			this.vlc.playlist.playItem(id);
 			if(this.instance.usingSubs) this.setupMarquee();
@@ -1571,7 +1590,7 @@ VLCObj.prototype = {
 			if(this.ccObj) this.ccObj.update(this.vlc.input.time/ 1000, this.vlc);
 
 			if(!this.instance.nextFailed && this.vlc.input.state == 6 && this.instance.yt &&
-				this.instance.ytplayer && //this.instance.yt.getConfig("LIST_AUTO_PLAY_ON", false)
+				this.instance.ytplayer && //this.instance.yt.getConfig("LIST_AUTO_PLAY_VALUE", false)
 				GM_getValue('vlc-pl-autonext', false)
 				)
 			{
@@ -1615,6 +1634,16 @@ VLCObj.prototype = {
 	},
 };
 
+
+ScriptInstance.prototype.canAutoplay = function(){
+
+	if(this.getPL() && GM_getValue('bautoplayPL', true))
+		return true;
+
+	return ((GM_getValue('bautoplay', true) || (this.isPopup && this.bpopupAutoplay))
+				&& !this.matchEmbed);
+}
+
 ScriptInstance.prototype.removeListener = function(type, listener){
 	if (this.listeners[type] instanceof Array){
 		var listeners = this.listeners[type];
@@ -1652,7 +1681,7 @@ ScriptInstance.prototype.setSideBar = function(wide)
 		if(plbtn) plbtn.style.display = "none";
 		el.classList.remove('watch-wide');
 
-		if(this.playlist)
+		if(this.getPL())
 		{
 			//uncollapses playlist
 			ply.classList.remove('watch-playlist-collapsed');
@@ -1664,7 +1693,7 @@ ScriptInstance.prototype.setSideBar = function(wide)
 	{
 		if(plbtn) plbtn.style.display = "inline";
 		el.classList.add('watch-wide');
-		if(this.playlist)
+		if(this.getPL())
 		{
 			ply.classList.add('watch-playlist-collapsed');
 			ply.classList.add('watch-medium');
@@ -1673,7 +1702,7 @@ ScriptInstance.prototype.setSideBar = function(wide)
 
 	var branded = this.$('player-branded-banner');
 	var sidebar = this.$('watch7-sidebar');
-	if(!this.playlist && sidebar)
+	if(!this.getPL() && sidebar)
 	{
 		sidebar.style.marginTop = (-this.player.clientHeight - (branded?branded.clientHeight:0)) + "px";
 	}
@@ -1744,19 +1773,20 @@ ScriptInstance.prototype.setPlayerSize = function(wide, subs)
 		this.$('scrollbar1').style.width = cw + 'px';
 	}
 
-	if(this.playlist)
+	playlist = this.getPL();
+	if(playlist)
 	{
 		var el = this.doc.querySelector('div#watch7-playlist-data div.watch7-playlist-bar-left');
 		if(!wide)
 		{
-			this.playlist.style.height = (vlc.clientHeight) + 'px';
-			this.playlist.style.left = '';
+			playlist.style.height = (vlc.clientHeight) + 'px';
+			playlist.style.left = '';
 			if(el) el.style.width = '';
 		}
 		else
 		{
-			this.playlist.style.height = (h) + 'px';
-			this.playlist.style.left = (vlc.clientWidth - this.playlist.clientWidth) + 'px';
+			playlist.style.height = (h) + 'px';
+			playlist.style.left = (vlc.clientWidth - playlist.clientWidth) + 'px';
 			if(el) el.style.width = (vlc.clientWidth-275) + "px";
 		}
 	}
@@ -1978,7 +2008,7 @@ ScriptInstance.prototype.pullYTVars = function()
 		var index = -1;//0-indexed, while html seems to be 1-indexed :S
 
 		//Stuff below will err out on embed page
-		if(this.playlist && this.ytplayer)
+		if(this.getPL() && this.ytplayer)
 			index = this.ytplayer.config.args.index;
 
 		//unsafeWindow['yt'].playerConfig = function(){}
@@ -2540,6 +2570,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		chkboxes.id = "vlc-config-checkboxes";
 		/// Autoplay button
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-autoplay", 'bautoplay'));
+		chkboxes.appendChild(this._makeCheckbox("vlc-config-autoplay-pl", 'bautoplayPL'));
 		/// menu settings
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-repeat",   'buseRepeat'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-priomap",  'balwaysBestFormat'));
@@ -2669,11 +2700,12 @@ ScriptInstance.prototype.makeDraggable = function() {
 	});
 }
 
-ScriptInstance.prototype.parseUrlMap = function(urls)
+ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 {
+	if(!urls) return;
 	var that = this;
 	this.selectNode = this.selectNode || this.$(vlc_id+"_select") || this.doc.createElement('select');
-	removeChildren(this.selectNode, true);
+	if(clean) removeChildren(this.selectNode, true);
 	urls.split(',').forEach(function(map){
 		var params = map.split('&');
 		var kv = {};
@@ -2692,7 +2724,8 @@ ScriptInstance.prototype.parseUrlMap = function(urls)
 			var type = kv['type'].split(';')[0].split('/')[1];
 			if(that.bdiscardFLVs && type == 'x-flv')
 				return;
-			var url = kv['url'] + "&fallback_host=" + kv['fallback_host'] + "&signature=" + (kv['sig'] || DecryptSignature(kv['s']));
+			var url = kv['url'] + "&fallback_host=" + kv['fallback_host'] + 
+				(kv['url'].indexOf('signature') > -1 ? '' : "&signature=" + (kv['sig'] || DecryptSignature(kv['s'])) );
 			var option = that.doc.createElement("option");
 			option.setAttribute("name",  kv['itag']);
 			option.setAttribute("value", url);
@@ -2729,6 +2762,12 @@ ScriptInstance.prototype.parseUrlMap = function(urls)
 	return true;
 }
 
+
+ScriptInstance.prototype.getPL = function()
+{
+	return this.$('watch7-playlist-tray-container');//if in playlist mode
+}
+
 ///On 'watch' page
 ScriptInstance.prototype.onMainPage = function(oldNode)
 {
@@ -2740,12 +2779,13 @@ ScriptInstance.prototype.onMainPage = function(oldNode)
 		if(!userPage) this.insertYTmessage ('VLCTube: Unable to find video source');
 		return false;
 	}
-	if(!this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map']))
+	if(!this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map'], true))
 	{
 		//TODO maybe can just ignore to reappend and let YT js use .write()
 		if(oldNode) this.$(gPlayerApiID).appendChild(oldNode);
 		return false;
 	}
+	this.parseUrlMap(this.swf_args['adaptive_fmts'])
 
 	//FIXME Already removed, but html5 player element doesn't get the hint
 	if(oldNode)
@@ -2761,7 +2801,6 @@ ScriptInstance.prototype.onMainPage = function(oldNode)
 
 	/* Player */
 	this.player = this.$('upsell-video') || this.$(gPlayerApiID) || this.$(gPlayerApiID+"-vlc") || this.$('p');
-	this.playlist = this.$('watch7-playlist-tray-container');//if in playlist mode
 
 	if(!this.player)
 	{
@@ -2811,6 +2850,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode)
 ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 {
 	var that = this;
+	xheaders = headers;
 	GM_xmlhttpRequest({
 		method: 'GET',
 		//chrom{e, ium} defaults to https if <iframe src="//...">? and tampermonkey uses top window protocol or something. Ok force it.
@@ -2846,7 +2886,7 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 								decodeURIComponent(param_map['title']).replace(/\+/g,' ')));
 					}catch(e){}
 
-					that.parseUrlMap(decodeURIComponent(param_map['url_encoded_fmt_stream_map']));
+					that.parseUrlMap(decodeURIComponent(param_map['url_encoded_fmt_stream_map']), true);
 
 					//set global width/height before generation
 					that.width = "100%";
@@ -3099,7 +3139,10 @@ ScriptInstance.prototype.overrideRef = function()
 		{
 			this.hasSettled++;
 			if(this.hasSettled>10)
+			{
+				this.hasSettled = 0;
 				return;
+			}
 		}
 		else
 			this.hasSettled = 0;
@@ -3165,6 +3208,7 @@ ScriptInstance.prototype.softReloadPlayer = function()
 		this.insertYTmessage ('VLCTube: Unable to find video streams');
 		return false;
 	}
+	this.parseUrlMap(this.swf_args['adaptive_fmts']);
 
 	this.thumb = this.doc.querySelector("span[itemprop='thumbnail'] link[itemprop='url']");
 	var holder = this.doc.querySelector("#" + vlc_id + "-holder");
@@ -3178,12 +3222,13 @@ ScriptInstance.prototype.softReloadPlayer = function()
 
 	//this.restoreVolume();//eventPlaying should, but sometimes doesn't???
 	this.myvlc.stopVideo();
+	this.myvlc.ccObj = null;
+	this.setBuffer(0);
 	this.win.setTimeout(function(){that.restoreSettings(); that.queryCC();}, 10); //Hm, GM_getValue otherwise fails ??
 	this.overrideRef();
 	this.setPlayerSize(this.isWide);
 	this.setSideBar(this.isWide);
 	this.$(vlc_id+'_ccselect').classList.add('vlc_hidden');
-	this.myvlc.ccObj = null;
 }
 
 function loadPlayer(win, oldNode)
