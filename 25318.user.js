@@ -13,13 +13,15 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        42
+// @version        42.2
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx24+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2013-10-20 Sig decipher. Cleanup deciphering code. Using animationStart event
+//2013-10-16 Vorbis only webms and misc fixes
 //2013-10-16 Adaptive formats. Comments load with softReload?
 //2013-10-09 Option to only autoplay playlists
 //2013-10-07 Fix subtitles. Download link has a title for filename? 
@@ -289,10 +291,21 @@ var itagPrio = [
 ];
 
 var itagToText = {
+	264: '1440p/mp4v',
+	248: '1080p/webm',
+	247: '720p/webm',
+	246: '480p/webm',
+	245: '480p/webm',
+	244: '480p/webm',
+	243: '360p/webm',
+	242: '240p/webm',
+	172: '160kbps/webm',
+	171: '96kbps/webm',
 	160: '144p/mp4v',
 	141: '256kbps/mp4a',
 	140: '128kbps/mp4a',
 	139: '48kbps/mp4a',
+	138: 'hires/mp4v',
 	137: '1080p/mp4v',
 	136: '720p/mp4v',
 	135: '480p/mp4v',
@@ -324,12 +337,23 @@ var itagToText = {
 	//4? : "highres/webm"
 };
 
-//TODO generate programmatically this....
+//TODO generate this programmatically....
 var textToItag = {
+	'1440p/mp4v' : 264,
+	'1080p/webm' : 248,
+	'720p/webm' : 247,
+	'480p/webm' : 246,
+	'480p/webm' : 245,
+	'480p/webm' : 244,
+	'360p/webm' : 243,
+	'240p/webm' : 242,
+	'160kbps/webm' : 172,
+	'96kbps/webm' : 171,
 	'144p/mp4v' : 160,
 	'256kbps/mp4a' : 141,
 	'128kbps/mp4a' : 140,
 	'48kbps/mp4a' : 139,
+	'hires/mp4v' : 138,
 	'1080p/mp4v' : 137,
 	'720p/mp4v' : 136,
 	'480p/mp4v' : 135,
@@ -612,19 +636,6 @@ function removeChildren(node, keepThis)
 function clone(a, len){
 	return (a.slice(len));
 }
-function decipher(str){
-	var arr = str.split("");
-	arr = Reverse(arr);
-	arr = Swap(arr, 12);
-	arr = Swap(arr, 32);
-	arr = Reverse(arr);
-	arr = Swap(arr, 34);
-	arr = clone(arr, 3);
-	arr = Swap(arr, 35);
-	arr = Swap(arr, 42);
-	arr = clone(arr, 2);
-	return arr.join("");
-}
 
 function Decode(sig, arr)
 {
@@ -635,6 +646,18 @@ function Decode(sig, arr)
 	}
 
 	return sig;
+}
+
+function Decode2(sig, arr)
+{
+	sig = sig.split('')
+	for (i in arr)
+	{
+		i = arr[i];
+		sig = (i > 0) ? Swap(sig, i) : ((i == 0) ? Reverse(sig) : sig.slice(-i));
+	}
+
+	return sig.join('');
 }
 
 function Slice(source, start)
@@ -666,7 +689,10 @@ function Reverse(str)
 
 function DecryptSignature(sig)
 {
+	sts = 0;
 	if(!sig) return;
+	if(ytplayer && ytplayer.config)
+		sts = ytplayer.config.sts;
 	switch (sig.length)
 	{
 		/*case 82:
@@ -683,13 +709,15 @@ function DecryptSignature(sig)
 
 		case 83:
 			//sig = Decode(sig, [ 24, 53, -2, 31, 4 ]);
-			sig = sig.split("");
-			sig = Reverse(sig);
-			sig = clone(sig, 2);
-			sig = Reverse(sig);
-			sig = Swap(sig, 63);
-			sig = Reverse(sig);
-			sig = sig.join("");
+			switch(sts)
+			{
+			case 15995:
+				sig = Decode2(sig, [0,9,0,-1,51,27,0,-1,0])
+				break;
+			default:
+				sig = Decode2(sig, [0,-2,0,63,0])
+				break;
+			}
 			break;
 
 		case 84:
@@ -703,7 +731,7 @@ function DecryptSignature(sig)
 			break;
 
 		case 85:
-			sig = Decode(sig, [ 0, -2, 17, 61, 0, -1, 7, -1 ]);
+			sig = Decode2(sig, [ 0, -2, 17, 61, 0, -1, 7, -1 ]);
 			break;
 
 		case 86:
@@ -712,7 +740,7 @@ function DecryptSignature(sig)
 				//var sigB = sig.substr(43, 40);
 
 				//sig = sigA + sig.substr(42, 1) + sigB.substr(0, 20) + sigB.substr(39, 1) + sigB.substr(21, 18) + sigB.substr(20, 1);
-				sig = decipher(sig);
+				sig = Decode2(sig, [0,12,32,0,34,-3,35,42,-2]);
 			}
 			break;
 
@@ -727,40 +755,25 @@ function DecryptSignature(sig)
 			break;
 
 		case 88:
-			sig = Decode(sig, [ -2, 1, 10, 0, -2, 23, -3, 15, 34 ]);
+			sig = Decode2(sig, [ -2, 1, 10, 0, -2, 23, -3, 15, 34 ]);
 			break;
 
 		case 92:
-			sig = Decode(sig, [ -2, 0, -3, 9, -3, 43, -3, 0, 23 ]);
+			sig = Decode2(sig, [ -2, 0, -3, 9, -3, 43, -3, 0, 23 ]);
 			break;
 
 		case 93:
-			sig = sig.split("");
-			sig = clone(sig, 3);
-			sig = Reverse(sig);
-			sig = clone(sig, 1);
-			sig = Reverse(sig);
-			sig = clone(sig, 3);
-			sig = Reverse(sig);
-			sig = clone(sig, 3);
-			sig = Swap(sig, 59);
-			sig = clone(sig, 2);
-			sig = sig.join("");
+			sig = Decode2(sig, [-3,0,-1,0,-3,0-3,59,-2])
 			break;
 
 		default:
-			if(ytplayer && ytplayer.config)
-				switch(ytplayer.config.sts) //signature timestamp
-				{
-				case 15981:
-					sig = sig.split("");
-					sig = Swap(sig, 7);
-					sig = Swap(sig, 37);
-					sig = Reverse(sig);
-					sig = clone(sig, 1);
-					return sig.join("");
-				}
-		break;
+			switch(sts) //signature timestamp
+			{
+			case 15981:
+				sig = Decode2(sig, [7,37,0,-1])
+				break;
+			}
+			break;
 	}
 
 	return sig;
@@ -1401,17 +1414,21 @@ VLCObj.prototype = {
 			return;
 		}
 
+		//sel = this.$(vlc_id+'_select');
+		//sel && (opt = sel.options.namedItem('141'));
+
 		var caching = tryParseFloat(GM_getValue('vlc-cache', '5'), 5) * 1000;
 		var options = new Array(':http-caching=' + caching, //pre v2.0?, in v2.0 'unsafe option "http-caching" has been ignored for security reasons'
 								':network-caching=' + caching,
 								':live-caching=' + caching
+								//,':input-slave=' + (opt ? opt.value : '')
 								//, ':aspect-ratio=4:3'
 								);
 
 		//unsafe option "audio-filter" has been ignored for security reasons, dammit
 		//if(this.instance.bnormVol){
 			//--audio-filter normvol,equalizer --equalizer-preset largehall
-			options.push(":audio-filter=volnorm", ":norm-max-level=" + GM_getValue('vlc-volume-norm', 2.0));
+			options.push(":audio-filter=normvol", ":norm-max-level=" + GM_getValue('vlc-volume-norm', 2.0));
 		//}
 
 		var id = this.vlc.playlist.add(src, 'muuvi', options);
@@ -1434,7 +1451,7 @@ VLCObj.prototype = {
 			var title;
 			try{
 				title = this.instance.ytplayer.config.args.title;
-				//Seems to work with Firefox
+				// Youtube server sends content-disposition header then
 				src += "&title=" + title.replace("&", "%26");
 				//Just in case firefox respects the html5 "download" attribute
 				//but content-disposition probably overrides this with useless "videoplayback" anyway
@@ -1502,7 +1519,7 @@ VLCObj.prototype = {
 	removeEventListener: function(event, func, bubble){
 		console.log("Tried to remove event listener for:", event);
 	},
-	_seekTo: function(pos){ //Make yuutuub comments 'time links' work
+	_seekTo: function(pos){ //Make yuutuub comments' timestamps work
 		if(this.vlc.input)
 			this.vlc.input.time = pos * 1000;
 	},
@@ -1584,8 +1601,9 @@ VLCObj.prototype = {
 				//this.controls.children.namedItem('vlcstate').innerHTML = VLC_status[this.vlc.input.state];
 				this.instance.doc.querySelector('#progress-radial').innerHTML = VLC_status[this.vlc.input.state][0];
 				this.instance.doc.querySelector('#progress-radial').title = VLC_status[this.vlc.input.state];
-				if(this.vlc.input.state == 7 && typeof this.reloading == 'undefined') 
-					this.reloading = setTimeout(function(){window.location.reload();}, 3000);
+				//TODO Reloading on error or not if #vlc-error is in url already
+				if(this.vlc.input.state == 7 && typeof this.reloading == 'undefined' && !/#vlc-error/.test(window.location)) 
+					this.reloading = setTimeout(function(){window.location += "#vlc-error"; window.location.reload();}, 3000);
 				this.setTimes(this.vlc.input.time,
 					this.vlc.input.length > 0 ? this.vlc.input.length : (this.instance.ytplayer ? 1000*this.instance.ytplayer.config.args.length_seconds : 0));
 			}
@@ -2085,7 +2103,10 @@ function cleanFormats(frmts_dirty)
 		for(j in itagfrmts)
 		{
 			if(itagPrio[i] == itagfrmts[j])
+			{
 				missing = false;
+				break;
+			}
 		}
 
 		if(missing) frmts.push(itagPrio[i]);
@@ -3153,7 +3174,9 @@ ScriptInstance.prototype.overrideRef = function()
 		this.yt.www.watch.player = this.myvlc;
 		//restore seekTo
 		this.yt.www.watch.player.seekTo = this.myvlc._seekTo;
-	}catch(e){ console.log(e); }
+	}catch(e){ 
+		//console.log(e); 
+	}
 
 	this.win.setTimeout(function(e){that.overrideRef();}, 1000);
 }
@@ -3185,6 +3208,7 @@ ScriptInstance.prototype.softReloadPlayer = function()
 	this.setBuffer(0);
 	this.setPlayerSize(this.isWide);
 	this.setSideBar(this.isWide);
+	this.qualityLevels = [];
 
 	this.win.setTimeout(function(){
 		that.pullYTVars();
@@ -3222,7 +3246,17 @@ ScriptInstance.prototype.softReloadPlayer = function()
 function loadPlayer(win, oldNode)
 {
 	var inst = new ScriptInstance(win, false, oldNode);
-	win.addEventListener('DOMNodeInserted', function(e){inst.DOMevent_xhr(e);}, true);
+	//win.addEventListener('DOMNodeInserted', function(e){inst.DOMevent_xhr(e);}, true);
+
+	document.addEventListener('animationstart', function(event){
+		//console.log(event.animationName, event);
+		//DT, DD
+		if (event.animationName == 'pulse' && event.target.tagName == "DD"){
+			console.log('VLCTube: reloading player');
+			inst.softReloadPlayer();
+		}
+	}, true);
+
 	//TODO which works the best
 	win.addEventListener('beforeunload', function(e){inst.saveSettings();}, true);
 	win.addEventListener('unload', function(e){inst.saveSettings();}, true);
