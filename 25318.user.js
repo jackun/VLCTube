@@ -13,7 +13,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        42.2
+// @version        42.999
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
@@ -54,6 +54,8 @@
 //2013-08-26 More compatible with tampermonkey
 
 //TODO https://www.youtube.com/watch?v=IHGEdi6HblI  rtmpe
+//unavail https://www.youtube.com/watch?v=gSEzGDzZ1dY
+//has/had non-dash 1080p http://www.youtube.com/watch?v=-MJiR5IksEk
 //subtitle test https://www.youtube.com/watch?v=7_RbPb98lAg
 //subtitle test https://www.youtube.com/watch?v=sqll1Rib93g
 //state play: 1, pause: 2, stop/end: 0
@@ -291,7 +293,7 @@ var itagPrio = [
 ];
 
 var itagToText = {
-	264: '1440p/mp4v',
+	264: 'hires/mp4v',
 	248: '1080p/webm',
 	247: '720p/webm',
 	246: '480p/webm',
@@ -339,7 +341,7 @@ var itagToText = {
 
 //TODO generate this programmatically....
 var textToItag = {
-	'1440p/mp4v' : 264,
+	'hires/mp4v' : 264,
 	'1080p/webm' : 248,
 	'720p/webm' : 247,
 	'480p/webm' : 246,
@@ -389,6 +391,36 @@ var headers = {'User-agent': 'Mozilla/5.0 (compatible) Greasemonkey',
 /// Script instance to allow popup windows live separately. Works?
 function ScriptInstance(_win, popup, oldNode)
 {
+	this.gTimeout = null;
+	this.width = 640;
+	this.widthWide = GM_getValue('vlc-wide-width', '86%'); //854; //Supports plain numbers as pixels or string as percentages
+	this.minWidthWide = 854; //min width with percentages
+	this.height = 480;
+	this.window = null; 
+	this.doc = null; 
+	this.myvlc = null;
+	this.yt = null; 
+	this.ytplayer = null; 
+	this.swf_args = null; 
+	this.matchEmbed = false;
+	this.scroll1 = null; 
+	this.scroll2 = null; 
+	this.scroll3 =null;
+	this.isPopup = false;
+	// User didn't change format etc so don't save the settings
+	this.fmtChanged = false;
+	this.isWide = false;
+	this.usingSubs = false;
+	this.nextFailed = false; //Failed to get next video in playlist
+	this.thumb = null; //thumbnail node
+	this.moviePlayer = null;
+	this.moviePlayerEvents = null;
+	this.quality = null;
+	this.qualityLevels = [];
+	this.isCiphered = false;
+	this.sigDecodeParam = null;
+	this.storyboard = null;
+
 	this.isPopup = popup;
 	this.win = _win;
 	this.doc = _win.document;
@@ -427,28 +459,6 @@ function ScriptInstance(_win, popup, oldNode)
 	var that = this;
 	if(popup) this.win.addEventListener('resize', function(e){ that.setPlayerSize(); }, false);
 }
-
-ScriptInstance.prototype = {
-	gTimeout: null,
-	width: 640,
-	widthWide: GM_getValue('vlc-wide-width', '86%'), //854; //Supports plain numbers as pixels or string as percentages
-	minWidthWide: 854, //min width with percentages
-	height: 480,
-	window: null, doc: null, myvlc: null,
-	yt: null, ytplayer: null, swf_args: null, matchEmbed: false,
-	scroll1: null, scroll2: null, scroll3:null,
-	isPopup: false,
-	// User didn't change format etc so don't save the settings
-	fmtChanged: false,
-	isWide: false,
-	usingSubs: false,
-	nextFailed: false, //Failed to get next video in playlist
-	thumb: null, //thumbnail node
-	moviePlayer: null,
-	moviePlayerEvents: null,
-	quality: null,
-	qualityLevels: [],
-};
 
 ScriptInstance.prototype.initVars = function(){
 	///User configurable booleans
@@ -521,7 +531,7 @@ function fmttime(time)
 	return (h>0?ft(h)+':':'') + ft(m) +':'+ ft(s);
 }
 
-//eh, vlc not restoring volume so brute force it. timing issues?
+//eh, vlc not restoring volume so brute force it. timing issues? also greasemonkey access violation?
 ScriptInstance.prototype.saveVolume = function()
 {
 	if(this.myvlc && this.myvlc.vlc && this.myvlc.vlc.audio)
@@ -585,7 +595,7 @@ ScriptInstance.prototype.restoreSettings = function(ev){
 	if (opt)
 	{
 		opt.selected = true;
-		this.onFmtChange(null, opt);
+		//this.onFmtChange(null, opt);
 	}
 	return true;
 }
@@ -593,7 +603,6 @@ ScriptInstance.prototype.restoreSettings = function(ev){
 ScriptInstance.prototype.saveSettings = function(ev){
 	this.saveVolume();
 
-	//GM_setValue('vlc_http-caching', unsafeWindow['vlc_controls'].options.get("http-caching"));
 	if(this.fmtChanged && this.selectNode)
 	{
 		GM_setValue('ytquality', this.selectNode.options[this.selectNode.selectedIndex].getAttribute('name'));
@@ -633,42 +642,17 @@ function removeChildren(node, keepThis)
 ///
 ///	<Signature decipher>
 ///
-function clone(a, len){
-	return (a.slice(len));
-}
-
 function Decode(sig, arr)
-{
-	for (i in arr)
-	{
-		i = arr[i];
-		sig = (i > 0) ? Swap(sig.split(''), i).join('') : ((i == 0) ? Reverse(sig) : Slice(sig.split(''), -i).join(''));
-	}
-
-	return sig;
-}
-
-function Decode2(sig, arr)
 {
 	sig = sig.split('')
 	for (i in arr)
 	{
 		i = arr[i];
+		// + swap, - slice, 0 reverse
 		sig = (i > 0) ? Swap(sig, i) : ((i == 0) ? Reverse(sig) : sig.slice(-i));
 	}
 
 	return sig.join('');
-}
-
-function Slice(source, start)
-{
-	var len = source.length - start;
-	var res = Array(len);
-	for (i = 0; i < len; i++)
-	{
-		res[i] = source[i + start];
-	}
-	return res;//source.slice(start, len);
 }
 
 function Swap(a, b)
@@ -687,6 +671,39 @@ function Reverse(str)
 		return str.reverse();
 }
 
+//Parse html5 player js (ytplayer.config.assets.js) and feed it to Decode
+//sig.length == 81 special case?
+function GetDecodeParam(str)
+{
+	var arr = [], m;
+	if((m = str.match(/\.signature=(\w+)/)))
+	{
+		rFuncCode = new RegExp('function '+m[1]+'\\((\\w+)\\){(.*?)}');
+		m = rFuncCode.exec(str);
+		if(!m) return null;
+
+		funcParam = m[1];
+		funcCodeLines = m[2].split(';');
+
+		rSwap = new RegExp(funcParam+'=\\w+\\('+funcParam+',(\\d+)');
+		rSlice = new RegExp(funcParam+'.slice\\((\\d+)');
+		rReverse = new RegExp(funcParam+'.reverse');
+
+		for(i=0;i<funcCodeLines.length;i++)
+		{
+			if((m = rSwap.exec(funcCodeLines[i])))
+				arr.push(parseInt(m[1]));
+			else if((m = rSlice.exec(funcCodeLines[i])))
+				arr.push(-parseInt(m[1]));
+			else if(rReverse.test(funcCodeLines[i]))
+				arr.push(0);
+		}
+	}
+	return arr.length ? arr : null;
+}
+
+//Fallback internal decipherer
+//TODO also fallback to this if GetDecodeParam->Decode fails
 function DecryptSignature(sig)
 {
 	sts = 0;
@@ -712,10 +729,10 @@ function DecryptSignature(sig)
 			switch(sts)
 			{
 			case 15995:
-				sig = Decode2(sig, [0,9,0,-1,51,27,0,-1,0])
+				sig = Decode(sig, [0,9,0,-1,51,27,0,-1,0])
 				break;
 			default:
-				sig = Decode2(sig, [0,-2,0,63,0])
+				sig = Decode(sig, [0,-2,0,63,0])
 				break;
 			}
 			break;
@@ -731,7 +748,7 @@ function DecryptSignature(sig)
 			break;
 
 		case 85:
-			sig = Decode2(sig, [ 0, -2, 17, 61, 0, -1, 7, -1 ]);
+			sig = Decode(sig, [ 0, -2, 17, 61, 0, -1, 7, -1 ]);
 			break;
 
 		case 86:
@@ -740,7 +757,7 @@ function DecryptSignature(sig)
 				//var sigB = sig.substr(43, 40);
 
 				//sig = sigA + sig.substr(42, 1) + sigB.substr(0, 20) + sigB.substr(39, 1) + sigB.substr(21, 18) + sigB.substr(20, 1);
-				sig = Decode2(sig, [0,12,32,0,34,-3,35,42,-2]);
+				sig = Decode(sig, [0,12,32,0,34,-3,35,42,-2]);
 			}
 			break;
 
@@ -755,22 +772,22 @@ function DecryptSignature(sig)
 			break;
 
 		case 88:
-			sig = Decode2(sig, [ -2, 1, 10, 0, -2, 23, -3, 15, 34 ]);
+			sig = Decode(sig, [ -2, 1, 10, 0, -2, 23, -3, 15, 34 ]);
 			break;
 
 		case 92:
-			sig = Decode2(sig, [ -2, 0, -3, 9, -3, 43, -3, 0, 23 ]);
+			sig = Decode(sig, [ -2, 0, -3, 9, -3, 43, -3, 0, 23 ]);
 			break;
 
 		case 93:
-			sig = Decode2(sig, [-3,0,-1,0,-3,0-3,59,-2])
+			sig = Decode(sig, [-3,0,-1,0,-3,0-3,59,-2])
 			break;
 
 		default:
 			switch(sts) //signature timestamp
 			{
 			case 15981:
-				sig = Decode2(sig, [7,37,0,-1])
+				sig = Decode(sig, [7,37,0,-1])
 				break;
 			}
 			break;
@@ -839,7 +856,7 @@ ScriptInstance.prototype.putCSS = function(){
 	var css = "#"+ vlc_id + "-holder {overflow: hidden;}\
 	.movie_player_vlc select {padding: 5px 0;}\
 	a.vlclink { color:#438BC5; margin:5px;}\
-	.vlc_hidden { display:none; }\
+	.vlc_hidden { display:none !important; }\
 	.vlccontrols {padding:2px 5px; color: #333333;}\
 	.vlccontrols div {margin-right:5px; /*display: inline;*/ }\
 	.vlc-scrollbar{\
@@ -878,6 +895,23 @@ ScriptInstance.prototype.putCSS = function(){
 		line-height: 16px; text-align: center; color: #EEE; font-size: 12px; \
 		display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #2f3439; background-color: tomato;}\
 	#vlc-thumbnail { width: 100%; height: 100%; cursor: pointer; }\
+	#vlc-sb-tooltip { background: #000 no-repeat; width: 80px; height: 45px; \
+		position: relative; border-radius: 3px;left: -100%;top: -55px; \
+		/* flip in and flip out version */ \
+		display:none; \
+		/* nice fading version */\
+		/*** display: none does not work ***/\
+		/*height: 0; opacity: 0;\
+		transition: opacity 200ms ease, height 0ms 200ms linear;*/ /*wait 200ms before setting height to 0*/ \
+	}\
+	#scrollbar1:active #vlc-sb-tooltip, .knob:active #vlc-sb-tooltip {\
+		/* flip in and flip out version */\
+		display: block;\
+		/* nice fading version */\
+		/*opacity: 1;height: 50px;transition: opacity 200ms ease;*/}\
+	#scrollbar1:active #vlc-sb-tooltip.hid, .knob:active #vlc-sb-tooltip.hid { display:none; }\
+	#vlc-sb-tooltip:before {border: 7px solid transparent;border-top: 7px solid #000;content: '';display: inline-block;\
+		left: 45%; position: absolute; bottom: -14px;}\
 	#vlc_buttons_div {text-align:left; padding: 5px; color:#333333; clear:both;}\
 	#vlc_buttons_div button, #vlc_buttons_div select { margin-right: 2px;}\
 	#vlc_buttons_div input[type='checkbox']{vertical-align: middle;}\
@@ -915,7 +949,7 @@ ScriptInstance.prototype.putCSS = function(){
 
 	if(this.bcompactVolume)
 	{
-		css = "#scrollbar2 { position: relative; top: -65px; width: 100%; height: 80px; display: none; }\
+		this.addCSS("#scrollbar2 { position: relative; top: -65px; width: 100%; height: 80px; display: none; }\
 			#scrollbar2 .knob {width: 100%; left: 0px;} \
 			.vlc-volume-holder { margin-right: 2px; height: 26px; /* hm otherwise 2px higher than buttons */}\
 			.vlc-volume-holder > span { \
@@ -923,9 +957,7 @@ ScriptInstance.prototype.putCSS = function(){
 			background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAIWSURBVDiNpZM/aFNRFIe/k/ceRWqymfqyhIYMWsqrVGPAJQpditKhYDJKt24d6ya2kxQ7lgx2S0DCGwNODkKlCCIS6tTSxTYxpFZMyZ9H+jwu70ms7VC8cIZzz7nf/d17zhFV5X9W5DLJInJNRKaG98wLcg3AH/Kv7+7uJoGrwBURqatqCwBVPWsJVZ0K/aOjoxtjY2MV27Zf5/P5CeAR8ACIqOo/T7DHx8dfBMoiW1tbuWq1+rDVaqUbjUbacZw7hmH8BEYBO1QQUVVHVTOpVGoT+Kiqd4vFYt40zfcLCwvrs7Oz68DbZDL5anp6ejJQcTNUMGma5qaIlPf39yeAJkCpVMqcnp52K5VKslAoHAL94+Nj5ufnQ9WxsAqW7/vfgB2gAXiAv7Ky8gU46fV6Zi6X8wCv2+1G5+bmrGFAWIWTs2XY29vzgP7IyIjX6XR8oG9ZVm8wGPyVFwEGtm3/CG4OzSoWi7cAL5vNfi+VSjHAS6fTTdd1Q0I7BOzU6/XPqlpbXV39GgDMxcXFw2g02l5aWuq4rhsHPMdx2uVy2R8GnO2Be2tra89V9baq2gcHB09d130mImXTNF/WarUnhmHkgiokVBU5ZxayQCf41NHt7e37y8vLmZmZmUGz2XyzsbGRCOLvVPXXeQAAAcKA5Xne43a73Y/H4x3AAj6ErXwR4DygiEgKiKnqpz+By46ziIgOHfoN2CIPv8Rm1e4AAAAASUVORK5CYII=') no-repeat scroll 50% 50%; \
 			display: block; width: 16px; height: 26px;} \
 			.vlc-volume-holder:hover #scrollbar2 { display:block; } \
-			#vlcvol {display: block; position: relative; top: 40%; transform: rotate(-90deg); }";
-
-		this.addCSS(css);
+			#vlcvol {display: block; position: relative; top: 40%; transform: rotate(-90deg); }");
 	}
 
 	if(!this.buseWidePosBar)
@@ -1002,23 +1034,26 @@ CustomEvent.prototype = {
 };
 
 // Controls
-function ScrollBar (instance) { this.instance = instance; }
+function ScrollBar (instance) { 
+	this.instance = instance; //greasemonkey script instance
+	this.formatter = null;
+	this.offX = 0;
+	this.offY = 0;
+	this.value = 0;
+	this.minValue = 0.0;
+	this.maxValue = 100.0;
+	this.type = 0;//0 - hor, 1 - vert
+	this.bar = null;
+	this.knob = null;
+	this.userSeeking = false;
+	this.instant = false;
+	this.events = [];
+}
+
 //https://developer.mozilla.org/en-US/docs/XPConnect_wrappers
 ScrollBar.__exposedProps__ = { };
 ScrollBar.prototype = {
-	instance: null, //greasemonkey script instance
-	formatter: null,
-	offX: 0,
-	offY: 0,
-	value: 0,
-	minValue: 0.0,
-	maxValue: 100.0,
-	type: 0,//0 - hor, 1 - vert
-	bar: null,
-	knob: null,
-	userSeeking: false,
-	instant: false,
-	events: new Array(),
+	constructor: ScrollBar,
 	$: function(id){ return this.instance.doc.getElementById(id); },
 	init: function(barId, knobId, type, minval, maxval, insta, formatter){
 		if(typeof(type) == 'undefined') type = 0;
@@ -1048,6 +1083,17 @@ ScrollBar.prototype = {
 	register: function(ev)
 	{
 		this.events.push(ev);
+	},
+	unregister: function(ev)
+	{
+		for(i=0;i<this.events.length;i++)
+		{
+			if(this.events[i] == ev)
+			{
+				this.events.splice(i,1);
+				break;
+			}
+		}
 	},
 	emitValue:function(instant){
 		for(var i in this.events){
@@ -1251,6 +1297,121 @@ ccTimer.prototype =
 		this._e.innerHTML = input;
 		return this._e.childNodes.length === 0 ? "" : this._e.childNodes[0].nodeValue;
 	}
+}
+
+function Storyboard(el, sb)
+{
+	this.element = null;
+	this.thumbs = [];
+	this.oldThumb = null;
+	this.tOut = null;
+	this.onetimeonly = true;
+	this.story_spec_url = null;
+	this.wait = 25;
+	this.element = el;
+	spec = sb.split('|');
+	this.story_spec_url = spec[0];
+	spec = spec.slice(1);
+
+	var that = this;
+	spec.forEach(function(a){
+		a = a.split('#');
+		that.thumbs.push({
+			w : a[0],
+			h : a[1],
+			count : a[2],
+			gridX : a[3],
+			gridY : a[4],
+			//unknown : a[5],
+			n_param : a[6],
+			sigh : a[7],
+		});
+	});
+}
+
+Storyboard.prototype = {
+	Cmp: function(a,b)
+	{
+		if(!a || !b) return false;
+		return 
+			a.page == b.page && 
+			//a.src == b.src && 
+			a.x == b.x && a.y == b.y;
+	},
+
+	//pos is normalized to 0..1
+	getStoryBoard: function(pos, i)
+	{
+		if(i<0) return null;
+		uri = this.story_spec_url.replace('$L', i).
+			replace('$N', this.thumbs[i].n_param) 
+			+ "?sigh=" 
+			+ this.thumbs[i].sigh;
+
+		pages = this.thumbs[i].count / (this.thumbs[i].gridX * this.thumbs[i].gridY);
+		//if(this.thumbs[i].count % (this.thumbs[i].gridX * this.thumbs[i].gridY))
+		//	pages++;
+
+		page = Math.floor(pos * pages);
+		if(page < 0 || page > pages)
+			page = 0;
+		//thumbnail's index
+		image = Math.floor(pos * this.thumbs[i].count);
+		//thumbnail's index on current image page
+		image -= page * this.thumbs[i].gridX * this.thumbs[i].gridY;
+		
+		//thumbnail's x,y on current image page
+		image_x = this.thumbs[i].w * (image % this.thumbs[i].gridX);
+		image_y = this.thumbs[i].h * (Math.floor(image / this.thumbs[i].gridX));
+
+		n_param = this.thumbs[i].n_param.split('$');
+		if(n_param.length>1)
+			n_param = '$' + n_param[1];
+		else
+			n_param = n_param[0]; //special case 'default'
+
+		return {
+			'src': n_param == 'default' ? uri : uri.replace(n_param, page),
+			'page': page,
+			'x': -image_x,
+			'y': -image_y,
+			'w': this.thumbs[i].w,
+			'h': this.thumbs[i].h,
+			};
+	},
+
+	_setImg: function(pos)
+	{
+		img = this.getStoryBoard(pos, Math.min(2, this.thumbs.length-1));
+		if(!img) return;
+		if(!this.Cmp(img, this.oldThumb))
+		{
+			if(this.onetimeonly)
+			{
+				this.element.style.width = img.w+"px";
+				this.element.style.height = img.h+"px";
+				this.element.style.top = (-img.h-5)+"px";
+				this.element.style.left = (-img.w/2 + 5) + "px";
+				this.onetimeonly = false;
+			}
+			this.element.style.backgroundImage = "url('"+img.src+"') ";
+			this.element.style.backgroundPosition = img.x+"px "+img.y+"px";
+			this.oldThumb = img;
+		}
+	},
+
+	setImg: function(pos)
+	{
+		if(!this.tOut) this._setImg(pos);
+		clearTimeout(this.tOut);
+		var that = this;
+		this.tOut = setTimeout(function(){that._setImg(pos);}, this.wait);
+	},
+
+	//ScrollBar callback
+	emitValue: function(sb, pos, instant){
+		this.setImg(pos);
+	},
 }
 
 function VLCObj (instance){ this.instance = instance;}
@@ -1852,13 +2013,27 @@ ScriptInstance.prototype.setUriHost = function(uri, host)
 ScriptInstance.prototype.onFmtChange = function(ev, opt)
 {
 	var n = opt || ev.target.options[ev.target.selectedIndex];
+	var uri = n.value;
+	var fb = n.getAttribute("fallback");
 
 	if(ev) this.fmtChanged = true;//if false, skip initial add so doAdd would play only if user changed format
 	//this.VLCObj.add(n.value);
-	if(this.buseFallbackHost && n.getAttribute("fallback"))
-		n.value = this.setUriHost(n.value, n.getAttribute("fallback"));
+	if(this.buseFallbackHost && fb)
+		uri = this.setUriHost(uri, fb);
 	this.quality = n.getAttribute("name");
-	this.myvlc.add(n.value, itagToText[this.quality]);
+
+	sig = n.getAttribute("s");
+
+	if(sig)
+		sig = this.sigDecodeParam && Decode(sig, this.sigDecodeParam) || DecryptSignature(sig);
+	else
+		sig = n.getAttribute("sig");
+
+	if(sig) uri += "&signature=" + sig;
+	if(fb)  uri += "&fallback_host=" + fb;
+	this.saveSettings();
+
+	this.myvlc.add(uri, itagToText[this.quality]);
 }
 
 ScriptInstance.prototype.onWideClick = function(ev)
@@ -2227,7 +2402,6 @@ ScriptInstance.prototype.generateDOM = function(options)
 
 	var holder = this.doc.createElement("div");
 	holder.id = vlc_id + "-holder";
-	//set controls="yes" to show plugins controls by default
 	if(options.userPage)
 	{
 		holder.innerHTML = '<img id="vlc-thumbnail">';
@@ -2235,6 +2409,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			holder.style.width = holder.style.height = '100%';
 	}
 	else
+		//set controls="yes" to show plugin's own controls by default
 		holder.innerHTML = '<img id="vlc-thumbnail"><embed type="application/x-vlc-plugin" pluginspage="http://www.videolan.org" \
 						version="VideoLAN.VLCPlugin.2" controls="no" autoplay="no" \
 						width="100%" height="100%" id="'+ vlc_id +'" name="'+ vlc_id +'"/>';
@@ -2278,7 +2453,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			el.className = 'vlc-scrollbar';
 			el.title = _("POSITION");
 			if(this.bembedControls && this.matchEmbed) el.style.width = '125px';
-			el.innerHTML = '<div class="knob"></div><span id="vlctime">00:00/00:00</span>';
+			el.innerHTML = '<div class="knob"><div id="vlc-sb-tooltip"></div></div><span id="vlctime">00:00/00:00</span>';
 			sliders.appendChild(el);
 
 			volbar = this.doc.createElement("div");
@@ -2354,7 +2529,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		var ccsel = this.doc.createElement("select");
 		{
 			ccsel.id = vlc_id + '_ccselect';
-			ccsel.className = "vlc_hidden yt-uix-button yt-uix-button-default";
+			ccsel.className = "yt-uix-button yt-uix-button-default vlc_hidden";
 			buttons.appendChild(ccsel);
 		}
 
@@ -2732,14 +2907,14 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 	var that = this;
 	this.selectNode = this.selectNode || this.$(vlc_id+"_select") || this.doc.createElement('select');
 	if(clean) removeChildren(this.selectNode, true);
+	this.sigDecodeParam = null;
 	urls.split(',').forEach(function(map){
-		var params = map.split('&');
 		var kv = {};
-		for(var i=0; i<params.length; i++)
+		map.split('&').forEach(function(a)
 		{
-			var t = params[i].split('=');
+			var t = a.split('=');
 			kv[t[0]] = unescape(t[1]);
-		}
+		});
 
 		if(!that.badd3DFormats && kv['stereo3d'])
 		{
@@ -2750,11 +2925,18 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 			var type = kv['type'].split(';')[0].split('/')[1];
 			if(that.bdiscardFLVs && type == 'x-flv')
 				return;
-			var url = kv['url'] + "&fallback_host=" + kv['fallback_host'] + 
-				(kv['url'].indexOf('signature') > -1 ? '' : "&signature=" + (kv['sig'] || DecryptSignature(kv['s'])) );
+			var url = kv['url'];
 			var option = that.doc.createElement("option");
 			option.setAttribute("name",  kv['itag']);
 			option.setAttribute("value", url);
+			if('s' in kv)
+			{
+				option.setAttribute("s", kv['s']);
+				that.isCiphered = true;
+			}
+			else
+				option.setAttribute("sig", kv['sig']);
+
 			if('fallback_host' in kv)
 				option.setAttribute("fallback", kv['fallback_host']);
 			option.textContent = (kv['itag'] in itagToText ? itagToText[kv['itag']] : "Fmt " + kv['itag']);
@@ -3043,6 +3225,64 @@ ScriptInstance.prototype.onEmbedPage = function()
 	}
 }
 
+
+//ytplayer.config.args.storyboard_spec
+ScriptInstance.prototype.setupStoryboard = function()
+{
+	if(this.storyboard)
+		this.scroll1.unregister(this.storyboard);
+	this.storyboard = null;
+	el = this.doc.querySelector('#vlc-sb-tooltip');
+	//hide/reset
+	el.style.backgroundImage = '';
+	el.classList.add('hid');
+	if(this.ytplayer && this.ytplayer.config.args.storyboard_spec)
+	{
+		this.storyboard = new Storyboard(el, this.ytplayer.config.args.storyboard_spec);
+		this.scroll1.register(this.storyboard);
+		this.storyboard.setImg(0);
+		el.classList.remove('hid');
+	}
+}
+
+ScriptInstance.prototype.initialAddToPlaylist = function(dohash)
+{
+	var that = this;
+	function helperPlay()
+	{
+		sel = that.$(vlc_id+'_select');
+		opt = sel.options.item(sel.selectedIndex);
+		that.onFmtChange(null, opt);
+		//Fake hashchange
+		//FIXME jump when video plays for vlc to seek to
+		if(dohash)
+			setTimeout(function(e){that.onHashChange(that.win.location.href);}, 500);
+	}
+
+	if(this.restoreSettings())
+	{
+		if(this.isCiphered && this.ytplayer && this.ytplayer.config.assets.js)
+		{
+			GM_xmlhttpRequest({
+				method: 'GET',
+				url: this.ytplayer.config.assets.js,
+				headers: headers,
+				onload: function(r){
+					if(r.readyState === 4 && r.status === 200) {
+						that.sigDecodeParam = GetDecodeParam(r.responseText);
+						console.log("sigDecodeParam:",that.sigDecodeParam);
+						helperPlay();
+					}
+				}
+			});
+		}
+		else
+			helperPlay();
+		return true;
+	}
+	return false;
+}
+
 ScriptInstance.prototype.setupVLC = function()
 {
 	var that = this;
@@ -3069,9 +3309,9 @@ ScriptInstance.prototype.setupVLC = function()
 	}
 
 	this.myvlc.init(this.scroll1, this.scroll2, this.scroll3);
-	this.myvlc.add("");//Or else 'no mediaplayer' error
-	this.restoreSettings();
+	//this.myvlc.add("");//Or else 'no mediaplayer' error, vlc < 2.0
 	this.setBuffer(0);
+	this.setupStoryboard();
 
 	if(!this.matchEmbed)
 	{
@@ -3109,12 +3349,9 @@ ScriptInstance.prototype.setupVLC = function()
 		}
 	}
 
-	//Fake hashchange
-	//FIXME timing issues, seeks to timecode but jumps back to start most times now
-	setTimeout(function(e){that.onHashChange(that.win.location.href);}, 500);
-
 	//console.log("Has CC:" + (swf_args.has_cc||swf_args.cc_asr));
 	this.queryCC();
+	this.initialAddToPlaylist(true);
 }
 
 ScriptInstance.prototype.queryCC = function()
@@ -3204,7 +3441,9 @@ ScriptInstance.prototype.softReloadPlayer = function()
 	//this.restoreVolume();//eventPlaying should, but sometimes doesn't???
 	this.$(vlc_id+'_ccselect').classList.add('vlc_hidden');
 	this.myvlc.ccObj = null;
-	this.myvlc.stopVideo();
+	//too much flipping between vlc, old thumbnail, new thumbnail
+	//this.setThumbnailVisible(true);
+	//this.myvlc.stopVideo();
 	this.setBuffer(0);
 	this.setPlayerSize(this.isWide);
 	this.setSideBar(this.isWide);
@@ -3236,9 +3475,12 @@ ScriptInstance.prototype.softReloadPlayer = function()
 		else
 			holder.childNodes[0].classList.add("vlc_hidden");//perma hide
 
-		that.restoreSettings(); 
+		//that.setThumbnailVisible(true);
+		that.myvlc.stopVideo();
+		that.initialAddToPlaylist();
 		that.queryCC();
 		that.overrideRef();
+		that.setupStoryboard();
 	}, 100);
 
 }
