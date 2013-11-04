@@ -20,6 +20,8 @@
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx24+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2013-11-01 Less leaky preload?
+//2013-11-01 BETAish: storyboard when seeking. Playlist uses ajax/spf. Playlist can has shuffle?
 //2013-10-20 Sig decipher. Cleanup deciphering code. Using animationStart event
 //2013-10-16 Vorbis only webms and misc fixes
 //2013-10-16 Adaptive formats. Comments load with softReload?
@@ -339,51 +341,8 @@ var itagToText = {
 	//4? : "highres/webm"
 };
 
-//TODO generate this programmatically....
-var textToItag = {
-	'hires/mp4v' : 264,
-	'1080p/webm' : 248,
-	'720p/webm' : 247,
-	'480p/webm' : 246,
-	'480p/webm' : 245,
-	'480p/webm' : 244,
-	'360p/webm' : 243,
-	'240p/webm' : 242,
-	'160kbps/webm' : 172,
-	'96kbps/webm' : 171,
-	'144p/mp4v' : 160,
-	'256kbps/mp4a' : 141,
-	'128kbps/mp4a' : 140,
-	'48kbps/mp4a' : 139,
-	'hires/mp4v' : 138,
-	'1080p/mp4v' : 137,
-	'720p/mp4v' : 136,
-	'480p/mp4v' : 135,
-	'360p/mp4v' : 134,
-	'240p/mp4v' : 133,
-	'720p/flv' : 120,
-	'720p/webm/3D' : 102,
-	'360p/webmH/3D' : 101,
-	'360p/webmL/3D' : 100,
-	'520p/mp4/3D' : 85,
-	'720p/mp4/3D' : 84,
-	'240p/mp4/3D' : 83,
-	'360p/mp4/3D' : 82,
-	'1080p/webm' : 46,
-	'1080p/mp4' : 37,
-	'720p/webm' : 45,
-	'720p/mp4' : 22,
-	'480p/webm' : 44,
-	'480p/mp4' : 20,
-	'480p/flv' : 35,
-	'360p/webm' : 43,
-	'360p/mp4' : 18,
-	'360p/flv' : 34,
-	'240p/flv' : 5,
-	'180p/3gpp' : 36,
-	'144p/3gpp' : 17,
-	'highres/mp4' : 38,
-};
+//generates this programmatically
+var textToItag = {};
 
 var headers = {'User-agent': 'Mozilla/5.0 (compatible) Greasemonkey',
 				'Accept': 'text/xml'};
@@ -441,13 +400,9 @@ function ScriptInstance(_win, popup, oldNode)
 	if(!this.matchEmbed || popup)
 	{
 		if(this.onMainPage(oldNode))
-		{
 			this.overrideRef();
-		}
 		else
-		{
 			return;
-		}
 	}
 	else
 	{
@@ -458,6 +413,11 @@ function ScriptInstance(_win, popup, oldNode)
 	//Trouble setting size through CSS so just force it for now atleast
 	var that = this;
 	if(popup) this.win.addEventListener('resize', function(e){ that.setPlayerSize(); }, false);
+
+	for(i in itagToText)
+	{
+		textToItag[itagToText[i]] = parseInt(i);
+	}
 }
 
 ScriptInstance.prototype.initVars = function(){
@@ -853,7 +813,8 @@ ScriptInstance.prototype.addScript = function(src) {
 
 ScriptInstance.prototype.putCSS = function(){
 
-	var css = "#"+ vlc_id + "-holder {overflow: hidden;}\
+	var css = ".player-api {overflow: visible;} /*for storyboard tooltip*/\
+	#"+ vlc_id + "-holder {overflow: hidden;}\
 	.movie_player_vlc select {padding: 5px 0;}\
 	a.vlclink { color:#438BC5; margin:5px;}\
 	.vlc_hidden { display:none !important; }\
@@ -874,7 +835,7 @@ ScriptInstance.prototype.putCSS = function(){
 	}\
 	/*.vlc-scrollbar span {position:absolute;}*/\
 	/* volume and rate bar need absolute sizes */ \
-	#scrollbar2 { width: 80px; } \
+	#sbVol { width: 80px; } \
 	#ratebar { width: 150px; } \
 	.vlc-scrollbar .knob {\
 		left: 0px;\
@@ -884,8 +845,9 @@ ScriptInstance.prototype.putCSS = function(){
 		height: 15px;\
 		background: rgba(175,43,38,0.8);\
 	}\
-	#scrollbar2 .knob {background: rgba(0,51,153,0.8);}\
+	#sbVol .knob {background: rgba(0,51,153,0.8);}\
 	#ratebar .knob {background: rgba(0,153,51,0.8);}\
+	.sb-narrow { width: 125px; }\
 	.vlc-volume-holder { display:inline-block; } \
 	#vlcvol:after {content: '%';}\
 	.movie_player_vlc { background: white;}\
@@ -895,23 +857,26 @@ ScriptInstance.prototype.putCSS = function(){
 		line-height: 16px; text-align: center; color: #EEE; font-size: 12px; \
 		display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #2f3439; background-color: tomato;}\
 	#vlc-thumbnail { width: 100%; height: 100%; cursor: pointer; }\
-	#vlc-sb-tooltip { background: #000 no-repeat; width: 80px; height: 45px; \
-		position: relative; border-radius: 3px;left: -100%;top: -55px; \
-		/* flip in and flip out version */ \
-		display:none; \
+	#vlc-sb-tooltip { background: #000 no-repeat; z-index:999; width: 80px; height: 45px; \
+		position: relative; border-radius: 3px;left: -100%;top: 24px; \
+		/* flip in and out version */ \
+		/*display:none;*/ \
 		/* nice fading version */\
 		/*** display: none does not work ***/\
-		/*height: 0; opacity: 0;\
-		transition: opacity 200ms ease, height 0ms 200ms linear;*/ /*wait 200ms before setting height to 0*/ \
+		opacity: 0;\
+		transform: scaleY(0);\
+		transition: opacity 200ms 0ms ease, transform 0ms 200ms linear; /*wait before transforming*/ \
 	}\
-	#scrollbar1:active #vlc-sb-tooltip, .knob:active #vlc-sb-tooltip {\
-		/* flip in and flip out version */\
-		display: block;\
+	#sbSeek:active #vlc-sb-tooltip, \
+	.knob:active #vlc-sb-tooltip {\
+		/* flip in and out version */\
+		/*display: block;*/\
 		/* nice fading version */\
-		/*opacity: 1;height: 50px;transition: opacity 200ms ease;*/}\
-	#scrollbar1:active #vlc-sb-tooltip.hid, .knob:active #vlc-sb-tooltip.hid { display:none; }\
-	#vlc-sb-tooltip:before {border: 7px solid transparent;border-top: 7px solid #000;content: '';display: inline-block;\
-		left: 45%; position: absolute; bottom: -14px;}\
+		transform: scaleY(1); /*using scaleY so el.style.height can be set from js*/\
+		opacity: 1;transition: opacity 200ms 200ms ease, transform 0ms 0ms linear;}\
+	#sbSeek:active #vlc-sb-tooltip.hid, .knob:active #vlc-sb-tooltip.hid { display:none; }\
+	/*#sbSeek:active {border: 2px dashed red;}*//*wtf, .knob make active, #vlctime doesn't */\
+	#vlc-sb-tooltip:before {border: 7px solid transparent;border-bottom: 7px solid #000;content: '';display: inline-block;left: 45%; position: absolute; top: -14px;}\
 	#vlc_buttons_div {text-align:left; padding: 5px; color:#333333; clear:both;}\
 	#vlc_buttons_div button, #vlc_buttons_div select { margin-right: 2px;}\
 	#vlc_buttons_div input[type='checkbox']{vertical-align: middle;}\
@@ -949,21 +914,21 @@ ScriptInstance.prototype.putCSS = function(){
 
 	if(this.bcompactVolume)
 	{
-		this.addCSS("#scrollbar2 { position: relative; top: -65px; width: 100%; height: 80px; display: none; }\
-			#scrollbar2 .knob {width: 100%; left: 0px;} \
+		this.addCSS("#sbVol { position: relative; top: -65px; width: 100%; height: 80px; display: none; }\
+			#sbVol .knob {width: 100%; left: 0px;} \
 			.vlc-volume-holder { margin-right: 2px; height: 26px; /* hm otherwise 2px higher than buttons */}\
 			.vlc-volume-holder > span { \
 			/* Faenza 16px audio-volume-medium.png */ \
 			background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAIWSURBVDiNpZM/aFNRFIe/k/ceRWqymfqyhIYMWsqrVGPAJQpditKhYDJKt24d6ya2kxQ7lgx2S0DCGwNODkKlCCIS6tTSxTYxpFZMyZ9H+jwu70ms7VC8cIZzz7nf/d17zhFV5X9W5DLJInJNRKaG98wLcg3AH/Kv7+7uJoGrwBURqatqCwBVPWsJVZ0K/aOjoxtjY2MV27Zf5/P5CeAR8ACIqOo/T7DHx8dfBMoiW1tbuWq1+rDVaqUbjUbacZw7hmH8BEYBO1QQUVVHVTOpVGoT+Kiqd4vFYt40zfcLCwvrs7Oz68DbZDL5anp6ejJQcTNUMGma5qaIlPf39yeAJkCpVMqcnp52K5VKslAoHAL94+Nj5ufnQ9WxsAqW7/vfgB2gAXiAv7Ky8gU46fV6Zi6X8wCv2+1G5+bmrGFAWIWTs2XY29vzgP7IyIjX6XR8oG9ZVm8wGPyVFwEGtm3/CG4OzSoWi7cAL5vNfi+VSjHAS6fTTdd1Q0I7BOzU6/XPqlpbXV39GgDMxcXFw2g02l5aWuq4rhsHPMdx2uVy2R8GnO2Be2tra89V9baq2gcHB09d130mImXTNF/WarUnhmHkgiokVBU5ZxayQCf41NHt7e37y8vLmZmZmUGz2XyzsbGRCOLvVPXXeQAAAcKA5Xne43a73Y/H4x3AAj6ErXwR4DygiEgKiKnqpz+By46ziIgOHfoN2CIPv8Rm1e4AAAAASUVORK5CYII=') no-repeat scroll 50% 50%; \
 			display: block; width: 16px; height: 26px;} \
-			.vlc-volume-holder:hover #scrollbar2 { display:block; } \
+			.vlc-volume-holder:hover #sbVol { display:block; } \
 			#vlcvol {display: block; position: relative; top: 40%; transform: rotate(-90deg); }");
 	}
 
 	if(!this.buseWidePosBar)
-		this.addCSS("#scrollbar1 { width: 250px; }");
+		this.addCSS("#sbSeek { width: 250px; }");
 	else if(this.bshowRate)
-		this.addCSS("#scrollbar1 { width: 60%; }");
+		this.addCSS("#sbSeek { width: 60%; }");
 
 	if(this.bdarkTheme) //TODO maybe set to some dark colors instead
 		this.addCSS(".vlc-scrollbar{border: 1px solid #EEE;background: transparent;color: #EEE;}\
@@ -1307,7 +1272,7 @@ function Storyboard(el, sb)
 	this.tOut = null;
 	this.onetimeonly = true;
 	this.story_spec_url = null;
-	this.wait = 25;
+	this.wait = 5; //reduce cpu load
 	this.element = el;
 	spec = sb.split('|');
 	this.story_spec_url = spec[0];
@@ -1339,14 +1304,27 @@ Storyboard.prototype = {
 			a.x == b.x && a.y == b.y;
 	},
 
-	//pos is normalized to 0..1
-	getStoryBoard: function(pos, i)
+	getStoryBoardSrc: function(page, i)
 	{
 		if(i<0) return null;
 		uri = this.story_spec_url.replace('$L', i).
 			replace('$N', this.thumbs[i].n_param) 
 			+ "?sigh=" 
 			+ this.thumbs[i].sigh;
+
+		n_param = this.thumbs[i].n_param.split('$');
+		if(n_param.length>1)
+			n_param = '$' + n_param[1];
+		else
+			n_param = n_param[0]; //special case 'default'
+
+		return (n_param == 'default' ? uri : uri.replace(n_param, page));
+	},
+
+	//pos is normalized to 0..1
+	getStoryBoardAtPos: function(pos, i)
+	{
+		if(i<0) return null;
 
 		pages = this.thumbs[i].count / (this.thumbs[i].gridX * this.thumbs[i].gridY);
 		//if(this.thumbs[i].count % (this.thumbs[i].gridX * this.thumbs[i].gridY))
@@ -1359,20 +1337,16 @@ Storyboard.prototype = {
 		image = Math.floor(pos * this.thumbs[i].count);
 		//thumbnail's index on current image page
 		image -= page * this.thumbs[i].gridX * this.thumbs[i].gridY;
-		
+
 		//thumbnail's x,y on current image page
 		image_x = this.thumbs[i].w * (image % this.thumbs[i].gridX);
 		image_y = this.thumbs[i].h * (Math.floor(image / this.thumbs[i].gridX));
 
-		n_param = this.thumbs[i].n_param.split('$');
-		if(n_param.length>1)
-			n_param = '$' + n_param[1];
-		else
-			n_param = n_param[0]; //special case 'default'
 
 		return {
-			'src': n_param == 'default' ? uri : uri.replace(n_param, page),
+			'src': this.getStoryBoardSrc(page, i),
 			'page': page,
+			'pages': pages,
 			'x': -image_x,
 			'y': -image_y,
 			'w': this.thumbs[i].w,
@@ -1382,7 +1356,8 @@ Storyboard.prototype = {
 
 	_setImg: function(pos)
 	{
-		img = this.getStoryBoard(pos, Math.min(2, this.thumbs.length-1));
+		q = Math.min(2, this.thumbs.length-1);
+		img = this.getStoryBoardAtPos(pos, q);
 		if(!img) return;
 		if(!this.Cmp(img, this.oldThumb))
 		{
@@ -1390,9 +1365,22 @@ Storyboard.prototype = {
 			{
 				this.element.style.width = img.w+"px";
 				this.element.style.height = img.h+"px";
-				this.element.style.top = (-img.h-5)+"px";
 				this.element.style.left = (-img.w/2 + 5) + "px";
+				//above
+				//this.element.style.top = (-img.h-7)+"px";
 				this.onetimeonly = false;
+				//Preload
+				preloads = [];
+				preloads.count = 0;
+				preloads.preload = function(src) {
+					var img = new Image();
+					var count = ++preloads.count;
+					preloads[count] = img;
+					img.onload = img.onerror = function() {delete preloads[count];}
+					img.src = src;
+				}
+				for(i=0;i<img.pages;i++)
+					preloads.preload(this.getStoryBoardSrc(i, q));
 			}
 			this.element.style.backgroundImage = "url('"+img.src+"') ";
 			this.element.style.backgroundPosition = img.x+"px "+img.y+"px";
@@ -1718,13 +1706,14 @@ VLCObj.prototype = {
 	},
 	setPlaybackQuality: function(q)
 	{
+		itag = q;
 		if(q in textToItag)
-		{
-			var opt = this.instance.selectNode.options.namedItem(textToItag[q]);
-			this.instance.fmtChanged = true;
-			opt.selected = true;
-			this.instance.onFmtChange(null, opt);
-		}
+			itag = textToItag[q];
+		var opt = this.instance.selectNode.options.namedItem(itag);
+		if(!opt) return;
+		this.instance.fmtChanged = true;
+		opt.selected = true;
+		this.instance.onFmtChange(null, opt);
 	},
 	getVolume: function()
 	{
@@ -1755,6 +1744,17 @@ VLCObj.prototype = {
 		if(!this.stopUpdate)
 			that.updateTimer = that.instance.win.setTimeout(function(e){that.updateTick();}, stateUpdateFreq);
 	},
+	goto: function(link)
+	{
+		win = this.instance.win.wrappedJSObject;
+		shuf = this.instance.doc.querySelector('#watch7-playlist-bar-shuffle-button');
+		link += shuf && shuf.classList.contains('yt-uix-button-toggled') && !link.match(/shuffle/i) ? 
+					"&shuffle="+this.instance.yt.getConfig('SHUFFLE_VALUE', 0) : "";
+		if(win.spf && win.spf.navigate)
+			win.spf.navigate(link)
+		else
+			this.instance.win.location = link;
+	},
 	stateUpdate: function(){
 		try{
 			if(this.vlc.input && !this.scrollbarPos.userSeeking){
@@ -1769,7 +1769,7 @@ VLCObj.prototype = {
 					this.vlc.input.length > 0 ? this.vlc.input.length : (this.instance.ytplayer ? 1000*this.instance.ytplayer.config.args.length_seconds : 0));
 			}
 
-			if(this.ccObj) this.ccObj.update(this.vlc.input.time/ 1000, this.vlc);
+			if(this.ccObj) this.ccObj.update(this.vlc.input.time / 1000, this.vlc);
 
 			if(!this.instance.nextFailed && this.vlc.input.state == 6 && this.instance.yt &&
 				this.instance.ytplayer && //this.instance.yt.getConfig("LIST_AUTO_PLAY_VALUE", false)
@@ -1779,20 +1779,17 @@ VLCObj.prototype = {
 				//Uncomment if you want some delay before next starts to play
 				//setTimeout(function(){
 
-					var list = this.instance.doc.evaluate("//li[@data-index='" +(this.instance.ytplayer.config.args.index+2)+ "']/a", this.instance.doc, null,
-						XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null);
-
-					if(list.snapshotLength)
+					var next = this.instance.doc.querySelector('li[data-index="'+(this.instance.ytplayer.config.args.index+1)+'"] ~ li a');
+					if(next)
 					{
 						console.log("going to play next one.");
-						this.instance.win.location = list.snapshotItem(0).href;
+						this.goto(next.href);
 						return;//Skip stateUpdate, if not called from setTimeout
 					}
-					else if((list = this.instance.doc.evaluate("//li[@data-index='1']/a", this.instance.doc, null,
-							XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null)).snapshotLength)
+					else if((next = this.instance.doc.querySelector('#watch7-playlist-tray li a'))) //first
 					{
 						console.log("from the top.");
-						this.instance.win.location = list.snapshotItem(0).href;
+						this.goto(next.href);
 						return;//Skip stateUpdate, if not called from setTimeout
 					}
 					else
@@ -1945,14 +1942,14 @@ ScriptInstance.prototype.setPlayerSize = function(wide, subs)
 
 	/// Calculate position seekbar's width
 	// Fixed-width CSS should work also for now if you want
-	if(/*buseWidePosBar && */ this.$('scrollbar1'))
+	if(/*buseWidePosBar && */ this.$('sbSeek'))
 	{
 		// Hardcoded for 50px wide #vlcstate
 		// Mystery 22/7/2px (margins+paddings+border sizes?) and 5px for margin
 		var cw = w /*- this.$('vlcstate').clientWidth*/ - 22 - 26;
-		if(!this.buseWidePosBar && !this.bcompactVolume) cw -= this.$('scrollbar2').clientWidth + 7 + 5;
+		if(!this.buseWidePosBar && !this.bcompactVolume) cw -= this.$('sbVol').clientWidth + 7 + 5;
 		if(this.bshowRate) cw -= this.$('ratebar').clientWidth + 2 + 5;
-		this.$('scrollbar1').style.width = cw + 'px';
+		this.$('sbSeek').style.width = cw + 'px';
 	}
 
 	playlist = this.getPL();
@@ -2449,17 +2446,18 @@ ScriptInstance.prototype.generateDOM = function(options)
 			sliders.appendChild(el);
 
 			el = this.doc.createElement("div");
-			el.id = 'scrollbar1';
+			el.id = 'sbSeek';
 			el.className = 'vlc-scrollbar';
 			el.title = _("POSITION");
-			if(this.bembedControls && this.matchEmbed) el.style.width = '125px';
-			el.innerHTML = '<div class="knob"><div id="vlc-sb-tooltip"></div></div><span id="vlctime">00:00/00:00</span>';
+			if(this.bembedControls && this.matchEmbed)
+				el.classList.add('sb-narrow');
+			el.innerHTML = '<div class="knob"><div id="vlc-sb-tooltip"></div></div><div id="vlctime">00:00/00:00</div>';
 			sliders.appendChild(el);
 
 			volbar = this.doc.createElement("div");
 			volbar.className = 'vlc-volume-holder';
 			volbar.title = _("VOLUME");
-			volbar.innerHTML = '<span class="yt-uix-button-content"><div id="scrollbar2" class="vlc-scrollbar"><span id="vlcvol">0</span><div class="knob"/></div></span>';
+			volbar.innerHTML = '<span class="yt-uix-button-content"><div id="sbVol" class="vlc-scrollbar"><span id="vlcvol">0</span><div class="knob"/></div></span>';
 
 			if(!this.bcompactVolume && !this.buseWidePosBar)
 				sliders.appendChild(volbar);
@@ -3289,13 +3287,13 @@ ScriptInstance.prototype.setupVLC = function()
 	this.myvlc = new VLCObj(this);
 	this.yt.setConfig('PLAYER_REFERENCE', this.myvlc);
 	this.scroll1 = new ScrollBar(this);
-	this.scroll1.init('#scrollbar1', '#scrollbar1 div.knob', 0, 0, 1, true);
+	this.scroll1.init('#sbSeek', '#sbSeek div.knob', 0, 0, 1, true);
 
 	var maxvolume = tryParseFloat(GM_getValue('vlc-volume-max', "100"), 100.0).toFixed(0);
 	if(maxvolume < 100) maxvolume = 100;
 
 	this.scroll2 = new ScrollBar(this);
-	this.scroll2.init('#scrollbar2', '#scrollbar2 div.knob', bcompactVolume?1:0, 0, maxvolume, true, function(pos){this.bar.children.namedItem('vlcvol').innerHTML = Math.round(pos);});
+	this.scroll2.init('#sbVol', '#sbVol div.knob', bcompactVolume?1:0, 0, maxvolume, true, function(pos){this.bar.children.namedItem('vlcvol').innerHTML = Math.round(pos);});
 
 	if(this.bshowRate)
 	{
