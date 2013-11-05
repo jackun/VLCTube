@@ -13,13 +13,14 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        42.999
+// @version        42.1000
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx24+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2013-11-05 Mess with audio
 //2013-11-01 Less leaky preload?
 //2013-11-01 BETAish: storyboard when seeking. Playlist uses ajax/spf. Playlist can has shuffle?
 //2013-10-20 Sig decipher. Cleanup deciphering code. Using animationStart event
@@ -492,12 +493,17 @@ function fmttime(time)
 }
 
 //eh, vlc not restoring volume so brute force it. timing issues? also greasemonkey access violation?
-ScriptInstance.prototype.saveVolume = function()
+ScriptInstance.prototype.saveVolume = function(sbVol)
 {
 	if(this.myvlc && this.myvlc.vlc && this.myvlc.vlc.audio)
 	{
 		var vol = this.myvlc.vlc.audio.volume;
-		if(vol > -1) GM_setValue('vlc_vol', vol);
+		if(vol > -1)
+			GM_setValue('vlc_vol', vol);
+		else if(sbVol)
+		{
+			GM_setValue('vlc_vol', Math.round(sbVol));
+		}
 	}
 }
 
@@ -506,10 +512,10 @@ ScriptInstance.prototype.restoreVolume = function()
 	if(!this.myvlc.vlc.audio) return;
 	var that = this;
 	//Desktop app might have volume over 100%
-	var vol = Math.min(GM_getValue('vlc_vol', 100), 100);
-	if(vol < 0) GM_setValue('vlc_vol', 100); //fix bad save
+	var volSaved = Math.min(GM_getValue('vlc_vol', 100), 100);
+	if(volSaved < 0) GM_setValue('vlc_vol', 100); //fix bad save
 	//if(!bignoreVol)
-		this.myvlc.vlc.audio.volume = vol;
+		this.myvlc.vlc.audio.volume = volSaved;
 
 	function setVol(vol)
 	{
@@ -521,12 +527,12 @@ ScriptInstance.prototype.restoreVolume = function()
 
 	if(this.scroll2)
 	{
-		setVol(vol); //Set to what it should be
-		vol = this.myvlc.vlc.audio.volume;
+		setVol(volSaved); //Set to what it should be
+		vol = Math.min(this.myvlc.vlc.audio.volume, volSaved);
 		if(vol>-1){
 			setVol(vol);//Set to what it is
-		}else{
-			//setTimeout(function(e){that.restoreVolume();}, 100);
+		}else if(this.myvlc.vlc.input.state == 3){
+			setTimeout(function(e){that.restoreVolume();}, 100);
 		}
 	}
 }
@@ -1402,21 +1408,24 @@ Storyboard.prototype = {
 	},
 }
 
-function VLCObj (instance){ this.instance = instance;}
+function VLCObj (instance){ 
+	this.instance = instance;
+	this.prevState = 0;
+	this.ccObj = null;
+	this.vlc = null;
+	this.controls = null;
+	this.scrollbarPos = null;
+	this.scrollbarVol = null;
+	this.scrollbarRate = null;
+	this.uri = null;
+	this.updateTimer = null; //probably can do without but whatever
+	this.repeatTimer = null;
+	this.stopUpdate = true; //true by default so that stateUpdate() would update only once
+}
+
 //https://developer.mozilla.org/en-US/docs/XPConnect_wrappers???
 VLCObj.__exposedProps__ = { };
 VLCObj.prototype = {
-	instance: null, //greasemonkey script instance
-	ccObj:null,
-	vlc:null,
-	controls:null,
-	scrollbarPos: null,
-	scrollbarVol: null,
-	scrollbarRate: null,
-	uri: null,
-	updateTimer: null, //probably can do without but whatever
-	repeatTimer: null,
-	stopUpdate: true, //true by default so that stateUpdate() would update only once
 	$: function(id){
 		return this.instance.doc.getElementById(id);
 	},
@@ -1505,18 +1514,20 @@ VLCObj.prototype = {
 	eventBuffering: function(e){
 		if(e != undefined) this.instance.setBuffer(e);
 		this.instance.moviePlayerEvents.fire('onStateChange', this.instance.moviePlayer, 2);
+		this.prevState = 2;
 	},
 	eventStopped: function(){
 		var play = this._getBtn("_play");
 		if(play) play.innerHTML = _("PLAY");
 		this.instance.setThumbnailVisible(true);
-		if(this.vlc && this.vlc.audio && this.vlc.audio.volume > 100 && !this.instance.buseRepeat)
+		if(this.vlc && this.vlc.audio /*&& this.vlc.audio.volume > 100*/ && !this.instance.buseRepeat)
 			this.instance.restoreVolume();
 		vsTxt = false;
 		this.clearUpdate();
 		this.instance.moviePlayerEvents.fire('onStateChange', this.instance.moviePlayer, 0);
 		if(this.instance.matchEmbed)
 			this.$('cued-embed').classList.remove('hid');
+		this.prevState = 5;
 	},
 	eventEnded: function(){
 		this.eventStopped();
@@ -1526,10 +1537,11 @@ VLCObj.prototype = {
 			var that = this;
 			this.repeatTimer = that.instance.win.setTimeout(function(e){that.repeatTimer = null; that.playVideo();}, wait*1000);
 		}
+		this.prevState = 6;
 	},
 	eventPlaying: function(){
 		if(this.instance.usingSubs) this.setupMarquee();
-		this.instance.restoreVolume();
+		if(this.prevState != 4) this.instance.restoreVolume();
 		var play = this._getBtn("_play");
 		if(play) play.innerHTML = _("PAUSE");
 		this.instance.setThumbnailVisible(false);
@@ -1540,11 +1552,13 @@ VLCObj.prototype = {
 			this.repeatTimer = null;
 		}
 		this.instance.moviePlayerEvents.fire('onStateChange', this.instance.moviePlayer, 1);
+		this.prevState = 3;
 	},
 	eventPaused: function(){
 		var play = this._getBtn("_play");
 		if(play) play.innerHTML = _("PLAY");
 		this.instance.moviePlayerEvents.fire('onStateChange', this.instance.moviePlayer, 2);
+		this.prevState = 4;
 	},
 	doAdd: function(src, waitCount){
 		//Browser has probably blocked the plugin, wait for user confirmation.
@@ -1629,7 +1643,7 @@ VLCObj.prototype = {
 		else if(this.scrollbarVol == sb)
 		{
 			this.vlc.audio.volume = pos;
-			this.instance.saveVolume(); //messes with a player in another tab
+			this.instance.saveVolume(pos); //messes with a player in another tab
 			//this.scrollbarVol.bar.children.namedItem('vlcvol').innerHTML = Math.round(pos);
 		}
 		else if(this.scrollbarRate == sb)
