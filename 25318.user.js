@@ -3164,27 +3164,29 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 					//set global width/height before generation
 					that.width = "100%";
 					that.height = that.doc.body.clientHeight;
-					removeChildren(player, true);
-					var vlcNode = that.generateDOM({wide:false, dl:false});
-					vlcNode.style.height = "100%";
+					removeChildren(that.player, true);
+					function insertPlayer() {
+						var vlcNode = that.generateDOM({wide:false, dl:false});
+						vlcNode.style.height = "100%";
 
-					var player = that.$('player');
-					player.appendChild(vlcNode);
+						var player = that.$('player');
+						player.appendChild(vlcNode);
 
-					//Now fix the height
-					var spacer = that.$('vlc-spacer');
+						//Now fix the height
+						var spacer = that.$('vlc-spacer');
 
-					if(spacer)
-					{
-						that.$("vlc_controls_div").style.display = "block";//Show so that clientHeight is calculated
-						that.$("vlc_controls_div").style.top = -that.$("vlc_controls_div").clientHeight + "px";
-						that.$("vlc_controls_div").style.display = '';//Reset to CSS or none if using javascript
-						that.$(vlc_id+"-holder").style.height = (that.$(gMoviePlayerID).clientHeight - spacer.clientHeight) + "px";
+						if(spacer)
+						{
+							that.$("vlc_controls_div").style.display = "block";//Show so that clientHeight is calculated
+							that.$("vlc_controls_div").style.top = -that.$("vlc_controls_div").clientHeight + "px";
+							that.$("vlc_controls_div").style.display = '';//Reset to CSS or none if using javascript
+							that.$(vlc_id+"-holder").style.height = (that.$(gMoviePlayerID).clientHeight - spacer.clientHeight) + "px";
+						}
+						else
+							that.$(vlc_id+"-holder").style.height = (that.$(gMoviePlayerID).clientHeight - that.$("vlc_controls_div").clientHeight) + "px";
+
+						that.setupVLC();
 					}
-					else
-						that.$(vlc_id+"-holder").style.height = (that.$(gMoviePlayerID).clientHeight - that.$("vlc_controls_div").clientHeight) + "px";
-
-					that.setupVLC();
 
 					var embed = that.$('cued-embed');
 					if(embed)
@@ -3195,9 +3197,15 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 							_vid = thumb[0];
 
 						function playEmbed(ev){
+							insertPlayer();
 							embed.classList.add('hid');
+							var player = that.$('player');
 							player.style.width = "100%";
 							player.style.height = "100%";
+							that.initialAddToPlaylist();
+							that.queryCC();
+							that.overrideRef();
+							that.setupStoryboard();
 							that.myvlc.playVideo();
 							that.onHashChange(that.win.location.href);
 						}
