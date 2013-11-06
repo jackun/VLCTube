@@ -400,10 +400,7 @@ function ScriptInstance(_win, popup, oldNode)
 
 	if(!this.matchEmbed || popup)
 	{
-		if(this.onMainPage(oldNode))
-			this.overrideRef();
-		else
-			return;
+		this.onMainPage(oldNode);
 	}
 	else
 	{
@@ -501,9 +498,7 @@ ScriptInstance.prototype.saveVolume = function(sbVol)
 		if(vol > -1)
 			GM_setValue('vlc_vol', vol);
 		else if(sbVol)
-		{
 			GM_setValue('vlc_vol', Math.round(sbVol));
-		}
 	}
 }
 
@@ -942,6 +937,10 @@ ScriptInstance.prototype.putCSS = function(){
 
 	//blurry shadow was assome
 	this.addCSS(".yt-uix-button:focus, .yt-uix-button:focus:hover, .yt-uix-button-focused, .yt-uix-button-focused:hover {box-shadow: 0 0 2px 1px rgba(27, 127, 204, 0.4); border: 1px solid rgba(27, 127, 204, 0.7);}");
+	//Optional button style: Make it round
+	this.addCSS("#vlc_buttons_div .yt-uix-button {border-radius: 0; margin: 0;} \
+				#vlc_buttons_div .yt-uix-button:first-child {border-radius: 5px 0 0 5px;} \
+				#vlc_buttons_div .yt-uix-button:last-child {border-radius: 0 5px 5px 0;}");
 
 	/* configuration div to be more like a drop-down menu */
 	if(this.bconfigDropdown)
@@ -2571,8 +2570,8 @@ ScriptInstance.prototype.generateDOM = function(options)
 		var link = this.doc.createElement("A");
 		{
 			link.id = "vlclink";
-			//link.className = "yt-uix-button yt-uix-button-default"; //might confuse some
-			link.className = "vlclink";//#player a overrides
+			link.className = "yt-uix-button yt-uix-button-default"; //might confuse some
+			//link.className = "vlclink";//#player a overrides
 			link.title = _("LINKSAVE");
 			link.setAttribute("href", "#");
 			link.setAttribute("target", "_new");
@@ -2982,53 +2981,74 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 	return true;
 }
 
-
 ScriptInstance.prototype.getPL = function()
 {
 	return this.$('watch7-playlist-tray-container');//if in playlist mode
 }
 
 ///On 'watch' page
-ScriptInstance.prototype.onMainPage = function(oldNode)
+ScriptInstance.prototype.onMainPage = function(oldNode, spfNav)
 {
 	var that = this;
 	var userPage = /\/user\//.test(this.win.location.href);
-	this.pullYTVars();
 
-	if(this.swf_args == null) {
-		if(!userPage) this.insertYTmessage ('VLCTube: Unable to find video source');
-		return false;
-	}
-	if(!this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map'], true))
+	if(!spfNav)
 	{
-		//TODO maybe can just ignore to reappend and let YT js use .write()
-		if(oldNode) this.$(gPlayerApiID).appendChild(oldNode);
-		return false;
-	}
-
-	if(this.badaptiveFmts)
-		this.parseUrlMap(this.swf_args['adaptive_fmts'])
-
-	//FIXME Already removed, but html5 player element doesn't get the hint
-	if(oldNode)
-	{
-		if(oldNode.querySelector('video')) oldNode.querySelector('video').src = '';
-		for(i=0;i<oldNode.childNodes.length;i++)
-		{
-			removeChildren(oldNode.childNodes[i]);
+		//Keeping it here for early bail
+		this.pullYTVars();
+		if(this.swf_args == null) {
+			if(!userPage) this.insertYTmessage ('VLCTube: Unable to find video source');
+			return false;
 		}
-	}
-	else
-		this.exterminate();
+		if(!this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map'], true))
+		{
+			//TODO maybe can just ignore to reappend and let YT js use .write()
+			if(oldNode) this.$(gPlayerApiID).appendChild(oldNode);
+			return false;
+		}
 
-	/* Player */
-	this.player = this.$('upsell-video') || this.$(gPlayerApiID) || this.$(gPlayerApiID+"-vlc") || this.$('p');
+		if(this.badaptiveFmts)
+			this.parseUrlMap(this.swf_args['adaptive_fmts']);
 
-	if(!this.player)
-	{
-		this.insertYTmessage("VLCTube: Failed, no player element.");
-		return;
+		//FIXME Already removed, but html5 player element doesn't get the hint
+		if(oldNode)
+		{
+			if(oldNode.querySelector('video')) oldNode.querySelector('video').src = '';
+			for(i=0;i<oldNode.childNodes.length;i++)
+			{
+				removeChildren(oldNode.childNodes[i]);
+			}
+		}
+		else
+			this.exterminate();
+
+		/* Player */
+		this.player = this.$('upsell-video') || this.$(gPlayerApiID) || this.$(gPlayerApiID+"-vlc") || this.$('p');
+
+		if(!this.player)
+		{
+			this.insertYTmessage("VLCTube: Failed, no player element.");
+			return;
+		}
+
+		//this.player.innerHTML="";
+		this.player.classList.remove('player-width');
+		this.player.classList.remove('player-height');
+		this.player.id = //"NotFlashPlayer"; //so youtube CSS doesn't interfere
+														 //but set player div width manually
+										gPlayerApiID+"-vlc"; //Use youtube CSS and also so that JS would work
+
+		//just in case
+		removeChildren(this.player, true);
+
+		var vlcNode = this.generateDOM({userPage:userPage, wide:!userPage, dl:!userPage});
+		this.player.appendChild(vlcNode);
+		this.makeDraggable();
+
+		this.setupVLC();
 	}
+
+	if(this.bscrollToPlayer) this.player.scrollIntoView(true);
 
 	var pltrim = this.$('watch7-playlist-tray-trim');
 	if(pltrim) pltrim.parentNode.removeChild(pltrim);
@@ -3050,22 +3070,54 @@ ScriptInstance.prototype.onMainPage = function(oldNode)
 		plbtn.addEventListener('click', togglePLNext, false);
 	}
 
-	//this.player.innerHTML="";
-	this.player.classList.remove('player-width');
-	this.player.classList.remove('player-height');
-	this.player.id = //"NotFlashPlayer"; //so youtube CSS doesn't interfere
-													 //but set player div width manually
-									gPlayerApiID+"-vlc"; //Use youtube CSS and also so that JS would work
+	//this.restoreVolume();//eventPlaying should, but sometimes doesn't???
+	this.$(vlc_id+'_ccselect').classList.add('vlc_hidden');
+	this.myvlc.ccObj = null;
+	//too much flipping between vlc, old thumbnail, new thumbnail
+	//this.setThumbnailVisible(true);
+	//this.myvlc.stopVideo();
+	this.setBuffer(0);
+	this.setPlayerSize(this.isWide);
+	this.setSideBar(this.isWide);
+	this.qualityLevels = [];
 
-	//just in case
-	removeChildren(this.player, true);
+	// wait or GM_s/getValue return garbage
+	this.win.setTimeout(function(){
+		if(spfNav)
+		{
+			that.pullYTVars();
+			if(that.swf_args == null) {
+				that.insertYTmessage ('VLCTube: Unable to find video source');
+				return;
+			}
 
-	var vlcNode = this.generateDOM({userPage:userPage, wide:!userPage, dl:!userPage});
-	this.player.appendChild(vlcNode);
-	this.makeDraggable();
+			if(!that.parseUrlMap(that.swf_args['url_encoded_fmt_stream_map'], true))
+			{
+				that.insertYTmessage ('VLCTube: Unable to find video streams');
+				return;
+			}
 
-	this.setupVLC();
-	if(this.bscrollToPlayer) this.player.scrollIntoView(true);
+			if(that.badaptiveFmts)
+				that.parseUrlMap(that.swf_args['adaptive_fmts']);
+
+			that.thumb = that.doc.querySelector("span[itemprop='thumbnail'] link[itemprop='url']");
+			var holder = that.doc.querySelector("#" + vlc_id + "-holder");
+			if(that.thumb && that.buseThumbnail)
+			{
+				holder.childNodes[0].setAttribute('src', that.thumb.href);
+				holder.childNodes[0].addEventListener('click', function(ev){ that.myvlc.playVideo(); }, false);
+			}
+			else
+				holder.childNodes[0].classList.add("vlc_hidden");//perma hide
+		}
+		//that.setThumbnailVisible(true);
+		that.myvlc.stopVideo();
+		that.initialAddToPlaylist();
+		that.queryCC();
+		that.overrideRef();
+		that.setupStoryboard();
+	}, 100);
+	
 	return true;
 }
 
@@ -3322,13 +3374,9 @@ ScriptInstance.prototype.setupVLC = function()
 
 	this.myvlc.init(this.scroll1, this.scroll2, this.scroll3);
 	//this.myvlc.add("");//Or else 'no mediaplayer' error, vlc < 2.0
-	this.setBuffer(0);
-	this.setupStoryboard();
 
 	if(!this.matchEmbed)
 	{
-		this.setPlayerSize(this.isWide);
-		this.setSideBar(this.isWide);
 		this.win.addEventListener('hashchange', function(e){that.onHashChange(e);}, false);
 		if(this.$(vlc_id + '_wide'))
 			this.$(vlc_id + '_wide').addEventListener('click', function(e){that.onWideClick(e);}, false);
@@ -3360,14 +3408,11 @@ ScriptInstance.prototype.setupVLC = function()
 			case 5: case 6: return 0;//stopped, ended
 		}
 	}
-
-	//console.log("Has CC:" + (swf_args.has_cc||swf_args.cc_asr));
-	this.queryCC();
-	this.initialAddToPlaylist(true);
 }
 
 ScriptInstance.prototype.queryCC = function()
 {
+	//console.log("Has CC:" + (swf_args.has_cc||swf_args.cc_asr));
 	var that = this;
 	GM_xmlhttpRequest({
 			method: 'GET',
@@ -3444,59 +3489,6 @@ ScriptInstance.prototype.reloadPlayer = function()
 	}
 }
 
-ScriptInstance.prototype.softReloadPlayer = function()
-{
-	if(this.matchEmbed) return;
-
-	var that = this;
-
-	//this.restoreVolume();//eventPlaying should, but sometimes doesn't???
-	this.$(vlc_id+'_ccselect').classList.add('vlc_hidden');
-	this.myvlc.ccObj = null;
-	//too much flipping between vlc, old thumbnail, new thumbnail
-	//this.setThumbnailVisible(true);
-	//this.myvlc.stopVideo();
-	this.setBuffer(0);
-	this.setPlayerSize(this.isWide);
-	this.setSideBar(this.isWide);
-	this.qualityLevels = [];
-
-	this.win.setTimeout(function(){
-		that.pullYTVars();
-		if(that.swf_args == null) {
-			that.insertYTmessage ('VLCTube: Unable to find video source');
-			return false;
-		}
-
-		if(!that.parseUrlMap(that.swf_args['url_encoded_fmt_stream_map'], true))
-		{
-			that.insertYTmessage ('VLCTube: Unable to find video streams');
-			return false;
-		}
-
-		if(that.badaptiveFmts)
-			that.parseUrlMap(that.swf_args['adaptive_fmts']);
-
-		that.thumb = that.doc.querySelector("span[itemprop='thumbnail'] link[itemprop='url']");
-		var holder = that.doc.querySelector("#" + vlc_id + "-holder");
-		if(that.thumb && that.buseThumbnail)
-		{
-			holder.childNodes[0].setAttribute('src', that.thumb.href);
-			holder.childNodes[0].addEventListener('click', function(ev){ that.myvlc.playVideo(); }, false);
-		}
-		else
-			holder.childNodes[0].classList.add("vlc_hidden");//perma hide
-
-		//that.setThumbnailVisible(true);
-		that.myvlc.stopVideo();
-		that.initialAddToPlaylist();
-		that.queryCC();
-		that.overrideRef();
-		that.setupStoryboard();
-	}, 100);
-
-}
-
 function loadPlayer(win, oldNode)
 {
 	var inst = new ScriptInstance(win, false, oldNode);
@@ -3507,7 +3499,7 @@ function loadPlayer(win, oldNode)
 		//DT, DD
 		if (event.animationName == 'pulse' && event.target.tagName == "DD"){
 			console.log('VLCTube: reloading player');
-			inst.softReloadPlayer();
+			inst.onMainPage(null, true);
 		}
 	}, true);
 
@@ -3536,7 +3528,7 @@ ScriptInstance.prototype.DOMevent_xhr = function (e)
 	{
 		this.xhrLoading = false;
 		console.log('VLCTube: reloading player');
-		this.softReloadPlayer();
+		this.onMainPage();
 	}
 }
 
