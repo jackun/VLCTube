@@ -3327,7 +3327,7 @@ ScriptInstance.prototype.initialAddToPlaylist = function(dohash)
 		that.onFmtChange(null, opt);
 		//Fake hashchange
 		//FIXME jump when video plays for vlc to seek to
-		if(dohash)
+		//if(dohash)
 			setTimeout(function(e){that.onHashChange(that.win.location.href);}, 500);
 	}
 
@@ -3540,32 +3540,47 @@ ScriptInstance.prototype.DOMevent_xhr = function (e)
 	}
 }
 
-function DOMevent(e)
+var domObserver;
+function DOMevent(mutations)
 {
-	//FIXME hackish
-	if(unsafeWindow["fbetatoken"])
-	{
-		//console.log("feather mode");
-		window.removeEventListener('DOMNodeInserted', arguments.callee, true);
-		loadPlayer(window);
-	}
-	else if((e.target.id == 'movie_player' &&
-	   (e.target.getAttribute('flashvars') || /html5-video-player/.test(e.target.className)) && //not us
-	   e.target.parentNode) ||
-	   (/embed/.test(window.location.href) && e.target.id == 'player1')) //embedded
-	{
-		removeChildren(e.target); //FIXME fallback player
-		var oldNode;// = e.target;
-		//oldNode.parentNode.removeChild(oldNode);
-		window.removeEventListener('DOMNodeInserted', arguments.callee, true);
-		//FIXME
-		/Chrome/.test(navigator.userAgent) && /\/embed\//.test(window.location.href) ? loadPlayer(window, oldNode) :
-			loadPlayerOnLoad(window, oldNode);
-	}
+	//is this better ? :/
+	mutations.forEach(function(mutation) {
+		//console.log(mutation.type, mutation.target.id);
+		if(mutation.target.id == "player-api")
+		{
+			Array.prototype.forEach.call(mutation.target.childNodes, function(e) {
+				//FIXME hackish
+				if(unsafeWindow["fbetatoken"])
+				{
+					//console.log("feather mode");
+					//window.removeEventListener('DOMNodeInserted', arguments.callee, true);
+					domObserver.disconnect();
+					loadPlayer(window);
+				}
+				else if((e.id == 'movie_player' &&
+				   (e.getAttribute('flashvars') || /html5-video-player/.test(e.className)) && //not us
+				   e.parentNode) ||
+				   (/embed/.test(window.location.href) && e.id == 'player1')) //embedded
+				{
+					removeChildren(e); //FIXME fallback player
+					var oldNode;// = e.target;
+					//oldNode.parentNode.removeChild(oldNode);
+					//window.removeEventListener('DOMNodeInserted', arguments.callee, true);
+					domObserver.disconnect();
+					//FIXME
+					/Chrome/.test(navigator.userAgent) && /\/embed\//.test(window.location.href) ? loadPlayer(window, oldNode) :
+						loadPlayerOnLoad(window, oldNode);
+				}
+			});
+		}
+  });  
 }
 
 if(/\/user\//.test(window.location))
 	loadPlayerOnLoad(window);
 else
 	/Chrome/.test(navigator.userAgent) && /\/embed\//.test(window.location.href) ? loadPlayer(window) :
-		window.addEventListener('DOMNodeInserted', DOMevent, true);
+		(function(){
+				domObserver = new MutationObserver(DOMevent);
+				domObserver.observe(document, {subtree:true, childList:true});
+			})();//window.addEventListener('DOMNodeInserted', DOMevent, true);
