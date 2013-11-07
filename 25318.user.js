@@ -858,7 +858,7 @@ ScriptInstance.prototype.putCSS = function(){
 		line-height: 16px; text-align: center; color: #EEE; font-size: 12px; \
 		display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #2f3439; background-color: tomato;}\
 	#vlc-thumbnail { width: 100%; height: 100%; cursor: pointer; }\
-	#vlc-sb-tooltip { background: #000 no-repeat; z-index:999; width: 80px; height: 45px; \
+	#vlc-sb-tooltip { border: 2px solid black; background: #000 no-repeat; z-index:999; width: 80px; height: 45px; \
 		position: relative; border-radius: 3px;left: -100%;top: 24px; \
 		/* flip in and out version */ \
 		/*display:none;*/ \
@@ -866,6 +866,7 @@ ScriptInstance.prototype.putCSS = function(){
 		/*** display: none does not work ***/\
 		opacity: 0;\
 		transform: scaleY(0);\
+		-webkit-transform: scaleY(0); /*uh, why still*/\
 		transition: opacity 200ms 0ms ease, transform 0ms 200ms linear; /*wait before transforming*/ \
 	}\
 	#sbSeek:active #vlc-sb-tooltip, \
@@ -874,6 +875,7 @@ ScriptInstance.prototype.putCSS = function(){
 		/*display: block;*/\
 		/* nice fading version */\
 		transform: scaleY(1); /*using scaleY so el.style.height can be set from js*/\
+		-webkit-transform: scaleY(1); /*uh, why still*/\
 		opacity: 1;transition: opacity 200ms 200ms ease, transform 0ms 0ms linear;}\
 	#sbSeek:active #vlc-sb-tooltip.hid, .knob:active #vlc-sb-tooltip.hid { display:none; }\
 	/*#sbSeek:active {border: 2px dashed red;}*//*wtf, .knob make active, #vlctime doesn't */\
@@ -1366,11 +1368,21 @@ Storyboard.prototype = {
 		if(!img) return;
 		if(!this.Cmp(img, this.oldThumb))
 		{
+			scale = 1;
+			if(img.w <= 48)
+				scale = 3.333;
+			else if(img.w <= 80)
+				scale = 2;
+
 			if(this.onetimeonly)
 			{
-				this.element.style.width = img.w+"px";
-				this.element.style.height = img.h+"px";
-				this.element.style.left = (-img.w/2 + 5) + "px";
+				//So, position is affected by size
+				if(img.w < 160)
+					this.element.style.backgroundSize = this.thumbs[q].gridX * 100 + "%";
+
+				this.element.style.width = img.w*scale+"px";
+				this.element.style.height = img.h*scale+"px";
+				this.element.style.left = (-(img.w*scale)/2 + 5) + "px";
 				//above
 				//this.element.style.top = (-img.h-7)+"px";
 				this.onetimeonly = false;
@@ -1388,7 +1400,7 @@ Storyboard.prototype = {
 					preloads.preload(this.getStoryBoardSrc(i, q));
 			}
 			this.element.style.backgroundImage = "url('"+img.src+"') ";
-			this.element.style.backgroundPosition = img.x+"px "+img.y+"px";
+			this.element.style.backgroundPosition = img.x*scale+"px "+img.y*scale+"px";
 			this.oldThumb = img;
 		}
 	},
@@ -3502,14 +3514,17 @@ function loadPlayer(win, oldNode)
 	var inst = new ScriptInstance(win, false, oldNode);
 	//win.addEventListener('DOMNodeInserted', function(e){inst.DOMevent_xhr(e);}, true);
 
-	document.addEventListener('animationstart', function(event){
+	function animStart(event){
 		//console.log(event.animationName, event);
 		//DT, DD
 		if (event.animationName == 'pulse' && event.target.tagName == "DD"){
 			console.log('VLCTube: reloading player');
 			inst.onMainPage(null, true);
 		}
-	}, true);
+	}
+	document.addEventListener('animationstart', animStart, true);
+	//wtf chromium
+	document.addEventListener('webkitAnimationStart', animStart, true);
 
 	//TODO which works the best
 	win.addEventListener('beforeunload', function(e){inst.saveSettings();}, true);
