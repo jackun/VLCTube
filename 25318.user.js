@@ -80,7 +80,7 @@ var gLangs = {
 		'PLAY'  : 'Play',
 		'PAUSE' : 'Pause',
 		'STOP'  : 'Stop',
-		'FS'    : 'Fullscreen',
+		'FS'    : 'FS', //'Fullscreen',
 		'WIDE'  : 'Wide',
 		'DND'   : 'Drag and drop to rearrange.',
 		'LINKSAVE' : 'Right click and save.',
@@ -1369,6 +1369,7 @@ Storyboard.prototype = {
 		if(!this.Cmp(img, this.oldThumb))
 		{
 			scale = 1;
+			//scale w to 160px
 			if(img.w <= 48)
 				scale = 3.333;
 			else if(img.w <= 80)
@@ -1376,8 +1377,7 @@ Storyboard.prototype = {
 
 			if(this.onetimeonly)
 			{
-				//So, position is affected by size
-				if(img.w < 160)
+				if(scale > 1)//hmm, actually might need to be set again if gridX changes, but seems to work anyway
 					this.element.style.backgroundSize = this.thumbs[q].gridX * 100 + "%";
 
 				this.element.style.width = img.w*scale+"px";
@@ -2046,12 +2046,16 @@ ScriptInstance.prototype.onFmtChange = function(ev, opt)
 
 	sig = n.getAttribute("s");
 
-	if(sig)
-		sig = this.sigDecodeParam && Decode(sig, this.sigDecodeParam) || DecryptSignature(sig);
-	else
-		sig = n.getAttribute("sig");
+	if(!/signature=/.test(uri))
+	{
+		if(sig)
+			sig = this.sigDecodeParam && Decode(sig, this.sigDecodeParam) || DecryptSignature(sig);
+		else
+			sig = n.getAttribute("sig");
 
-	if(sig) uri += "&signature=" + sig;
+		if(sig) uri += "&signature=" + sig;
+	}
+
 	if(fb)  uri += "&fallback_host=" + fb;
 	this.saveSettings();
 
@@ -2394,6 +2398,95 @@ ScriptInstance.prototype.openPopup = function(w,h)
 	s.win["vlc-instance"] = s; //Keep reference alive. Might be overkill. Seems to work without it too.
 }
 
+function fmtPT(dur)
+{
+	if(dur < 0) dur = 0;
+	var s   = Math.floor(dur % 60);
+	var m   = Math.floor(dur % 3600 / 60);
+	//var m = Math.floor(dur / 60);
+	var h   = Math.floor(dur / 3600);
+	return "PT" 
+		+ (h?h+"H":"")
+		+ (m?m+"M":"")
+		+ s+"S";
+}
+
+function xmlStr(str)
+{
+	return str.replace(/&/g, '&amp;amp;');
+}
+
+ScriptInstance.prototype.generateMPD = function()
+{
+	var repID = 0;
+	var that = this;
+	var mpd = '<?xml version="1.0" encoding="UTF-8"?>\
+<MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\
+     xmlns="urn:mpeg:DASH:schema:MPD:2011"\
+     xsi:schemaLocation="urn:mpeg:DASH:schema:MPD:2011"\
+     profiles="urn:mpeg:dash:profile:isoff-main:2011"\
+     type="static"\
+     mediaPresentationDuration="'+fmtPT(this.ytplayer.config.args.length_seconds)+'"\
+     minBufferTime="PT2.0S">\
+     <Period start="PT0S">\
+          <AdaptationSet bitstreamSwitching="true">';
+	
+	function addSegmentURL(url, range)
+	{
+		mpd += '<SegmentURL \
+			media="' + xmlStr(url) + '&amp;amp;range=' + range + '" \
+			mediaRange="' + range + '" />';
+	}
+
+	Array.prototype.forEach.call(this.selectNode.options, function(node)
+	{
+		kv    = node.wrappedJSObject.kv;
+		
+		if(!kv || !kv.hasOwnProperty('clen')) return;
+		//console.log(kv);
+		pos   = parseInt(kv['index'].split('-')[1]) + 1;
+		clen  = parseInt(kv["clen"]);
+		chunk = parseInt(kv["bitrate"] / 8 * 2); //about 2sec slice
+		types = kv["type"].split(';'); //mime
+		types[1] = types[1].split('=')[1].slice(1,-1); //codec
+		if(kv.hasOwnProperty('size'))
+			size = kv["size"].split('x');
+		else
+			size = null;
+
+		mpd += 
+			'<Representation id="' + (repID++) +
+			'" codecs="' + types[1] +
+			'" mimeType="' + types[0] +
+			(size ? '" width="' + size[0] : '') +
+			(size ? '" height="' + size[1] : '') +
+			'" startWithSAP="1"' +
+			' bandwidth="' + kv["bitrate"] +
+			'">';
+
+		mpd +=
+		'<SegmentBase>' +
+		'    <Initialization sourceURL="' + xmlStr(kv["url"]) +
+			'&amp;amp;range=' + kv["init"] +
+			'" range="' + kv["init"] +
+			'" /></SegmentBase>';
+
+		mpd += '<SegmentList>';
+		//segmentURLs
+		for(;clen > chunk; clen -= chunk)
+		{
+			addSegmentURL(kv["url"], pos + "-" + (pos + chunk));
+			pos += chunk;
+		}
+		//leftovers
+		addSegmentURL(kv["url"], pos + "-" + (pos + clen));
+
+		mpd += '</SegmentList></Representation>';
+	});
+
+	this.txt.innerHTML = mpd + '</AdaptationSet></Period></MPD>';
+}
+
 //hasOwnProperty
 function gd(o, v, d){if(v in o) return o[v]; else return d;}
 
@@ -2612,6 +2705,11 @@ ScriptInstance.prototype.generateDOM = function(options)
 
 		controls.appendChild(buttons);
 	}
+
+	this.txt = this.doc.createElement("TEXTAREA");
+	this.txt.id = "vlc-dash-mpd";
+	controls.appendChild(this.txt);
+
 	//Configurator comes here
 	// appearance is kinda ugly :P
 	var config = this.doc.createElement("div");
@@ -2931,6 +3029,8 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 	this.selectNode = this.selectNode || this.$(vlc_id+"_select") || this.doc.createElement('select');
 	if(clean) removeChildren(this.selectNode, true);
 	this.sigDecodeParam = null;
+	rCLen = new RegExp("clen=(\\d+)");
+	rDur = new RegExp("dur=(\\d+)");
 	urls.split(',').forEach(function(map){
 		var kv = {};
 		map.split('&').forEach(function(a)
@@ -2963,6 +3063,13 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 			if('fallback_host' in kv)
 				option.setAttribute("fallback", kv['fallback_host']);
 			option.textContent = (kv['itag'] in itagToText ? itagToText[kv['itag']] : "Fmt " + kv['itag']);
+
+			if(rCLen.test(url))
+				kv['clen'] = rCLen.exec(url)[1];
+			if(rDur.test(url))
+				kv['dur'] = rDur.exec(url)[1];
+			option.wrappedJSObject.kv = kv;
+
 			//if(kv['stereo3d']) option.textContent += '/stereo3D';
 			that.selectNode.appendChild(option);
 			that.qualityLevels.push(kv['itag']);
@@ -3061,6 +3168,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav)
 	}
 
 	if(this.bscrollToPlayer) this.player.scrollIntoView(true);
+	this.generateMPD();
 
 	var pltrim = this.$('watch7-playlist-tray-trim');
 	if(pltrim) pltrim.parentNode.removeChild(pltrim);
@@ -3561,9 +3669,10 @@ function DOMevent(mutations)
 	//is this better ? :/
 	mutations.forEach(function(mutation) {
 		//console.log(mutation.type, mutation.target.id);
-		if(mutation.target.id == "player-api")
+		if(mutation.target.id == "player-api" || mutation.target.id == "player")
 		{
 			Array.prototype.forEach.call(mutation.target.childNodes, function(e) {
+				//console.log("    child:", e.id);
 				//FIXME hackish
 				if(unsafeWindow["fbetatoken"])
 				{
