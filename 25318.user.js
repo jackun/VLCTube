@@ -66,6 +66,7 @@ var gPlayerApiID = 'player-api';//-legacy';
 var gPlayerID = 'player';//-legacy';
 var gMoviePlayerID = 'movie_player'; ///< Change to something else if flash/html5 player keeps overwriting VLC player
 var vsTxt = false;
+var featherVars;
 var stateUpdateFreq = 250;// 250ms
 var vlc_id = 'mymovie';
 var VLC_status = ["Idle", "Opening", "Buffering", "Playing", "Paused", "Stopped", "ended", "Error"];
@@ -386,7 +387,7 @@ function ScriptInstance(_win, popup, oldNode)
 	this.doc = _win.document;
 	//Is on embedded iframe page?
 	this.matchEmbed = this.win.location.href.match(/\/embed\//i);
-	this.feather = unsafeWindow["fbetatoken"] ? true : false;
+	this.feather = unsafeWindow["fbetatoken"] || this.doc.querySelector("div#lc div#p") ? true : false;
 	this.initVars();
 
 	var unavail = this.$('player-unavailable');
@@ -2246,14 +2247,18 @@ ScriptInstance.prototype.pullYTVars = function()
 
 		if(this.feather)
 		{
-			this.swf_args = {};
-			var vars = this.$('movie_player').getAttribute('flashvars'); //gets flashblock-ed
-
-			vars.split('&').forEach(function(v)
-			{
-				var kv = v.split('=');
-				that.swf_args[kv[0]] = unescape(kv[1]);
-			});
+			if(featherVars) {
+				this.swf_args = featherVars;
+			} else {
+				//shouldn't come here though
+				this.swf_args = {};
+				var vars = this.$('movie_player').getAttribute('flashvars');
+				vars.split('&').forEach(function(v)
+				{
+					var kv = v.split('=');
+					that.swf_args[kv[0]] = unescape(kv[1]);
+				});
+			}
 		}
 		else if(!this.swf_args)
 			this.swf_args = this.yt.getConfig('PLAYER_CONFIG',null) ['args'];
@@ -2419,6 +2424,7 @@ function xmlStr(str)
 ScriptInstance.prototype.generateMPD = function()
 {
 	var repID = 0;
+	var hasAnything = false;
 	var that = this;
 	var mpd = '<?xml version="1.0" encoding="UTF-8"?>\
 <MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\
@@ -2444,6 +2450,7 @@ ScriptInstance.prototype.generateMPD = function()
 		
 		if(!kv || !kv.hasOwnProperty('clen')) return;
 		//console.log(kv);
+		hasAnything = true;
 		pos   = parseInt(kv['index'].split('-')[1]) + 1;
 		clen  = parseInt(kv["clen"]);
 		chunk = parseInt(kv["bitrate"] / 8 * 2); //about 2sec slice
@@ -2484,7 +2491,8 @@ ScriptInstance.prototype.generateMPD = function()
 		mpd += '</SegmentList></Representation>';
 	});
 
-	this.txt.innerHTML = mpd + '</AdaptationSet></Period></MPD>';
+	if(hasAnything)
+		this.txt.innerHTML = mpd + '</AdaptationSet></Period></MPD>';
 }
 
 //hasOwnProperty
@@ -2706,9 +2714,9 @@ ScriptInstance.prototype.generateDOM = function(options)
 		controls.appendChild(buttons);
 	}
 
-	this.txt = this.doc.createElement("TEXTAREA");
-	this.txt.id = "vlc-dash-mpd";
-	controls.appendChild(this.txt);
+	//this.txt = this.doc.createElement("TEXTAREA");
+	//this.txt.id = "vlc-dash-mpd";
+	//controls.appendChild(this.txt);
 
 	//Configurator comes here
 	// appearance is kinda ugly :P
@@ -3168,7 +3176,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav)
 	}
 
 	if(this.bscrollToPlayer) this.player.scrollIntoView(true);
-	this.generateMPD();
+	//this.generateMPD();
 
 	var pltrim = this.$('watch7-playlist-tray-trim');
 	if(pltrim) pltrim.parentNode.removeChild(pltrim);
@@ -3479,7 +3487,6 @@ ScriptInstance.prototype.setupVLC = function()
 {
 	var that = this;
 	this.myvlc = new VLCObj(this);
-	this.yt.setConfig('PLAYER_REFERENCE', this.myvlc);
 	this.scroll1 = new ScrollBar(this);
 	this.scroll1.init('#sbSeek', '#sbSeek div.knob', 0, 0, 1, true);
 
@@ -3642,7 +3649,7 @@ function loadPlayer(win, oldNode)
 function loadPlayerOnLoad(win, oldNode)
 {
 	win.addEventListener('load', function(e){
-		//console.log('load player..', unsafeWindow['yt'] == null ? 'too early!' : '');
+		console.log('load player..', unsafeWindow['yt'] == null ? 'too early!' : '');
 		loadPlayer(win, oldNode);
 	}, false);
 }
@@ -3669,17 +3676,25 @@ function DOMevent(mutations)
 	//is this better ? :/
 	mutations.forEach(function(mutation) {
 		//console.log(mutation.type, mutation.target.id);
-		if(mutation.target.id == "player-api" || mutation.target.id == "player")
+		if(mutation.target.id == "player-api" || mutation.target.id == "player" 
+		|| mutation.target.id == "p" || mutation.target.id == "lc" //feather
+		)
 		{
 			Array.prototype.forEach.call(mutation.target.childNodes, function(e) {
 				//console.log("    child:", e.id);
 				//FIXME hackish
-				if(unsafeWindow["fbetatoken"])
+				if(e.id == "p") //feather, no flashblock
 				{
-					//console.log("feather mode");
-					//window.removeEventListener('DOMNodeInserted', arguments.callee, true);
+					el = e.querySelector("EMBED");
+					//parse early so we get to this before flashblock hopefully
+					featherVars = {};
+					el.getAttribute("flashvars").split('&').forEach(function(v)
+					{
+						var kv = v.split('=');
+						featherVars[kv[0]] = unescape(kv[1]);
+					});
 					domObserver.disconnect();
-					loadPlayer(window);
+					loadPlayerOnLoad(window);
 				}
 				else if((e.id == 'movie_player' &&
 				   (e.getAttribute('flashvars') || /html5-video-player/.test(e.className)) && //not us
