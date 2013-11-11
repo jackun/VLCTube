@@ -945,6 +945,9 @@ ScriptInstance.prototype.putCSS = function(){
 				#vlc_buttons_div .yt-uix-button:first-child {border-radius: 5px 0 0 5px;} \
 				#vlc_buttons_div .yt-uix-button:last-child {border-radius: 0 5px 5px 0;}");
 
+	if(this.feather)
+		this.addCSS("#vlclink {height:26px;line-height:26px;}");
+
 	/* configuration div to be more like a drop-down menu */
 	if(this.bconfigDropdown)
 		this.addCSS("#vlc-config { position: absolute; z-index: 9999; border: 1px solid #CCC;}");
