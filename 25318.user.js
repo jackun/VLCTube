@@ -1954,9 +1954,10 @@ ScriptInstance.prototype.setPlayerSize = function(wide, subs)
 	}catch(e){}
 	
 	//Sometimes IS_WIDESCREEN "lies" that video is not widescreenish
-	if(this.yt.getConfig('IS_WIDESCREEN',false) || 
-		(vw&&vh&&((vw/vh==16/9) || vh == '1080' || vh == '720' || vw == '853')) || 
-		this.bforceWS)
+	if(this.bforceWS || 
+		(this.yt.getConfig && this.yt.getConfig('IS_WIDESCREEN',false)) || 
+		(vw&&vh&&((vw/vh==16/9) || vh == '1080' || vh == '720' || vw == '853'))
+		)
 	{
 		h = Math.floor(w * 9/16);//TODO use video size from vlc?
 	}
@@ -2203,7 +2204,8 @@ ScriptInstance.prototype.parseCCList = function(responseDetails) {
 //fffffff, if no subs load, try to just refresh, grumble grumble...
 ScriptInstance.prototype.getListUrl = function()
 {
-	return "//"+ this.win.location.hostname +"/api/timedtext?type=list&v=" + this.yt.getConfig('VIDEO_ID', '');
+	return "//"+ this.win.location.hostname +"/api/timedtext?type=list&v=" + 
+		(this.yt.getConfig ? this.yt.getConfig('VIDEO_ID', '') : this.swf_args['video_id']);
 }
 
 ScriptInstance.prototype.getTrackUrl = function(lang, name)
@@ -2220,65 +2222,51 @@ ScriptInstance.prototype.pullYTVars = function()
 	if(this.isPopup && this.yt && this.ytplayer) return;
 	var that = this;
 
-	try{
-
-		// unsafeWindow is deprecated but...
-		this.yt = unsafeWindow['yt'];
-		this.ytplayer = unsafeWindow['ytplayer'];
-		if(this.matchEmbed && this.yt)
-		{
-			this.swf_args = this.yt.config_.PLAYER_CONFIG.args;
-			return;
-		}
-		else if(this.ytplayer)
-			this.swf_args = this.ytplayer.config.args;
-		var index = -1;//0-indexed, while html seems to be 1-indexed :S
-
-		//Stuff below will err out on embed page
-		if(this.getPL() && this.ytplayer)
-			index = this.ytplayer.config.args.index;
-
-		//unsafeWindow['yt'].playerConfig = function(){}
-		//unsafeWindow['yt'].playerConfig.args = this.swf_args;
-		if(/\/user\//.test(this.win.location.href) &&
-			(upsell = this.$('upsell-video')) && (str = upsell.getAttribute('data-swf-config')))
-		{
-			var json = JSON.parse(str.replace(/&quot;/g, "\""));
-			this.swf_args = json['args'];
-			this.ytplayer = {config: {args: this.swf_args}};
-		}
-
-		if(this.feather)
-		{
-			if(featherVars) {
-				this.swf_args = featherVars;
-			} else {
-				//shouldn't come here though
-				this.swf_args = {};
-				var vars = this.$('movie_player').getAttribute('flashvars');
-				vars.split('&').forEach(function(v)
-				{
-					var kv = v.split('=');
-					that.swf_args[kv[0]] = unescape(kv[1]);
-				});
-			}
-		}
-		else if(!this.swf_args)
-			this.swf_args = this.yt.getConfig('PLAYER_CONFIG',null) ['args'];
-
-		this.isWide = (this.ytplayer.config.args.player_wide == 1) ||
-			GM_getValue("vlc-wide", false) || //Only wide if clicked on "Wide" button
-			this.bforceWide; //Set wide no matter what
-
-		//Sanity check
-		//var _next = this.yt.getConfig("LIST_AUTO_PLAY_ON", undefined);
-		//if(_next == undefined)
-		//    this.yt.setConfig("LIST_AUTO_PLAY_ON", this.ytplayer.config.args.playnext==1);// removed :/
-
-	}catch(e){
-		console.log('pullYTVars:', e);
-		//Just give up for now
+	// unsafeWindow is deprecated but...
+	this.yt = unsafeWindow['yt'];
+	this.ytplayer = unsafeWindow['ytplayer'];
+	if(this.matchEmbed && this.yt)
+	{
+		this.swf_args = this.yt.config_.PLAYER_CONFIG.args;
+		return;
 	}
+	else if(this.ytplayer)
+		this.swf_args = this.ytplayer.config.args;
+	var index = -1;//0-indexed, while html seems to be 1-indexed :S
+
+	//Stuff below will err out on embed page
+	if(this.getPL() && this.ytplayer)
+		index = this.ytplayer.config.args.index;
+
+	if(/\/user\//.test(this.win.location.href) &&
+		(upsell = this.$('upsell-video')) && (str = upsell.getAttribute('data-swf-config')))
+	{
+		var json = JSON.parse(str.replace(/&quot;/g, "\""));
+		this.swf_args = json['args'];
+		this.ytplayer = {config: {args: this.swf_args}};
+	}
+
+	if(this.feather)
+	{
+		if(featherVars) {
+			this.swf_args = featherVars;
+		} else {
+			//shouldn't come here though
+			this.swf_args = {};
+			var vars = this.$('movie_player').getAttribute('flashvars');
+			vars.split('&').forEach(function(v)
+			{
+				var kv = v.split('=');
+				that.swf_args[kv[0]] = unescape(kv[1]);
+			});
+		}
+	}
+	else if(!this.swf_args)
+		this.swf_args = this.yt.getConfig('PLAYER_CONFIG',null) ['args'];
+
+	this.isWide = this.bforceWide || //Set wide no matter what
+		(this.ytplayer && this.ytplayer.config.args.player_wide == 1) ||
+		GM_getValue("vlc-wide", false); //Only wide if clicked on "Wide" button
 }
 
 // Do sanity check for obsolete format types saved in user prefs
@@ -3652,7 +3640,7 @@ function loadPlayer(win, oldNode)
 function loadPlayerOnLoad(win, oldNode)
 {
 	win.addEventListener('load', function(e){
-		console.log('load player..', unsafeWindow['yt'] == null ? 'too early!' : '');
+		//console.log('load player..', unsafeWindow['yt'] == null ? 'too early!' : '');
 		loadPlayer(win, oldNode);
 	}, false);
 }
