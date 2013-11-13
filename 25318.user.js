@@ -13,13 +13,15 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        42.1000
+// @version        43
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx24+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2013-11-xx Watch later for embed
+//2013-11-13 Various stuff
 //2013-11-05 Mess with audio
 //2013-11-01 Less leaky preload?
 //2013-11-01 BETAish: storyboard when seeking. Playlist uses ajax/spf. Playlist can has shuffle?
@@ -57,6 +59,7 @@
 //2013-08-26 More compatible with tampermonkey
 
 //TODO https://www.youtube.com/watch?v=IHGEdi6HblI  rtmpe
+//ciphered http://www.youtube.com/watch?v=6CTHwEZK2JA
 //unavail https://www.youtube.com/watch?v=gSEzGDzZ1dY
 //has/had non-dash 1080p http://www.youtube.com/watch?v=-MJiR5IksEk
 //subtitle test https://www.youtube.com/watch?v=7_RbPb98lAg
@@ -128,6 +131,7 @@ var gLangs = {
 		'vlc-config-dark-theme' : ['Dark theme', 'Make a little friendlier for dark themes.'],
 		'vlc-config-autoplay-pl' : ['Autoplay playlists', ''],
 		'vlc-config-adaptives' : ['Add adaptive formats', 'Video only or audio only streams. Currently kinda useless.'],
+		'WATCHLATER' : 'Watch later',
 		},
 	"et": {
 		'LANG'  : 'Eesti',
@@ -166,6 +170,7 @@ var gLangs = {
 		'vlc-config-volume-max' : ['Maksimum helivaljusus:', 'Limiteeritakse 100% peale video lõppedes'],
 		'vlc-config-scrolltoplayer' : ['Keri pleier vaatesse', ''],
 		'vlc-config-wide-width' : ['Laia pleieri laius:', 'Laius pikselites või lisa protsendi märk, et seada proportsionaalselt akna laiusega.'],
+		'WATCHLATER' : 'Vaata hiljem',
 		},
 	"fi": {
 		'LANG'  : 'Suomi',
@@ -325,6 +330,8 @@ var itagToText = {
 	84 : '720p/mp4/3D',
 	83 : '240p/mp4/3D',
 	82 : '360p/mp4/3D',
+	//78: '',
+	//59: '',
 	46 : '1080p/webm',
 	37 : '1080p/mp4',
 	45 : '720p/webm',
@@ -666,12 +673,10 @@ function GetDecodeParam(str)
 
 //Fallback internal decipherer
 //TODO also fallback to this if GetDecodeParam->Decode fails
-function DecryptSignature(sig)
+function DecryptSignature(sig, sts)
 {
-	sts = 0;
+	if(typeof sts == 'undefined') sts = 0;
 	if(!sig) return;
-	if(ytplayer && ytplayer.config)
-		sts = ytplayer.config.sts;
 	switch (sig.length)
 	{
 		/*case 82:
@@ -903,8 +908,11 @@ ScriptInstance.prototype.putCSS = function(){
 	#vlc-config-checkboxes label { width:100%;} \
 	#vlc-config-checkboxes label input { display:none; } \
 	#vlc-config-checkboxes label input + span { line-height: 120%; text-indent: 16px; width: 100%; display:inline-block;} \
+	.vlc-wl-state {padding-left: 16px;}\
+	/*Faenza 16px gtk-delete.png */\
+	.vlc-boo-bg {background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG7SURBVDiNpZOxSwJhGMaf5NPrwigiooQLokiChsh0a6klbmpoCiJKcrz/IjBoCqItkKChQZzEhhIuWiybAilOxQ7Dq9TCwC4v3wYt7iSXfOFdnu97Hnh/7/d1ERE6KVtH7jYBPADvH7q3eWYtIjI3H93yB7d5LqXKsvijq7IsbvNcKrrlDxIRb/ZYzLGAP7jrQDXEgXZ4pqiyLKqyLO7wTAlxoF0HqrGANaTLBNF75B49HCio0zYA73VABUsDgABj3GkD6gBKw8Lt2t3DJoArAJYA1F6epMTi3PrHozoLAJV6Q+9tkup2CTe+s+uQfXBorx0D9vmsSQmPkLwYAZk74RGSn8+aRETM7GndglHKKNm8rvc4HIC587reU8ooWQCG2WAZ4SVxIUaWF/YmOWO8j1mT3wzgXmfp5ci5NOibj/4V4D2e6A2N2d6n+u0NwT4s3ABArdBg8loDsnVnalWprP9AtKyxfHpykPGwSnoGlFsSkkZRk4yiJuWWhGR6BpTxsEr59OTAvMZWiK5qPLyvrbgvv4q/wNhXUZO0FfdlNR7eJyJXu4f0G0JEGy20WVNztd63QPxPdfwbvwG5Z15mC93/JQAAAABJRU5ErkJggg==') no-repeat 0 50%;}\
 	/*Faenza 16px ok.png */\
-	#vlc-config-checkboxes label input:checked + span { background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAF9SURBVDiNpZM/SAJhGMafO/O48vMzt4hoaFIcnFqsJhEcW1qcWiuIVrnGhggajNK9rYiIIoegorxDO8Sg7cRbazW5pQielgS7/ucL7/J9/H4fH+/zKiTRT6l90f8UKP8WuK6bsixr9h1H8lfdarVSQohrTdPqpmnOkVRJfhDoJAf8sOu6U0KIcwB3AG6j0egVyZRfMGQYRr5UKi2QDHbPHceZllKeAagBuNB1/bRSqWySHOoVDBqGkVcU5SYQCFSLxeISSa3ZbM5IKcsALgGc6Lq+b9v2Bsmx7gNdwWQsFjsCcADgUFXVq0KhkI9EIscAygD2QqHQbr1eX++FSULpBqndbq+k0+nxRqMxDEADMAHgAcCjEOLZNM12MpncAnD/bqY9SQx2Op3FTCYzYtu2eJs3w+Hwc7VafUokEtt+2C8AgKDneYvZbDZqWZYupXyp1WpKPB7f+Qz+KgdBz/OWc7ncquM4ayRHv8vHVxcDJOdJjvwUMP8X/lx9b+Mr7eRSRxf/zIkAAAAASUVORK5CYII=') no-repeat 0 50%; } \
+	#vlc-config-checkboxes label input:checked + span, .vlc-ok-bg { background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAF9SURBVDiNpZM/SAJhGMafO/O48vMzt4hoaFIcnFqsJhEcW1qcWiuIVrnGhggajNK9rYiIIoegorxDO8Sg7cRbazW5pQielgS7/ucL7/J9/H4fH+/zKiTRT6l90f8UKP8WuK6bsixr9h1H8lfdarVSQohrTdPqpmnOkVRJfhDoJAf8sOu6U0KIcwB3AG6j0egVyZRfMGQYRr5UKi2QDHbPHceZllKeAagBuNB1/bRSqWySHOoVDBqGkVcU5SYQCFSLxeISSa3ZbM5IKcsALgGc6Lq+b9v2Bsmx7gNdwWQsFjsCcADgUFXVq0KhkI9EIscAygD2QqHQbr1eX++FSULpBqndbq+k0+nxRqMxDEADMAHgAcCjEOLZNM12MpncAnD/bqY9SQx2Op3FTCYzYtu2eJs3w+Hwc7VafUokEtt+2C8AgKDneYvZbDZqWZYupXyp1WpKPB7f+Qz+KgdBz/OWc7ncquM4ayRHv8vHVxcDJOdJjvwUMP8X/lx9b+Mr7eRSRxf/zIkAAAAASUVORK5CYII=') no-repeat 0 50%; } \
 	input.tiny { width: 45px; } \
 	#vlc-config-midcol div { padding-bottom: 5px;}\
 	#vlc_controls_div { border: 1px solid rgba(0, 0, 0, 0.098); border-top: 0; }\
@@ -1476,7 +1484,6 @@ VLCObj.prototype = {
 			this.scrollbarRate.register(this);
 		}
 
-		this.controls = this.$(vlc_id + "_controls");
 		this._setupEvent("_play", VLCObj.prototype.play);
 		//this._setupEvent("_pause", VLCObj.prototype.pause);
 		this._setupEvent("_stop", VLCObj.prototype.stop);
@@ -1842,6 +1849,57 @@ VLCObj.prototype = {
 	},
 };
 
+//http://www.youtube.com/addto_ajax?action_add_to_playlist=1&add_to_top=False
+ScriptInstance.prototype.ajaxWatchLater = function()
+{
+	var that = this;
+	function addToWatchLater(plid)
+	{
+		xheaders = headers;
+		xheaders['Cookie'] = that.doc.cookie;
+		xheaders['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
+		GM_xmlhttpRequest({
+			method: 'POST',
+			url: that.win.location.protocol + "//" + that.win.location.host + "/addto_ajax?action_add_to_playlist=1&add_to_top=False",
+			headers: xheaders,
+			data: 'video_ids=' + that.swf_args.video_id + '&full_list_id=' + plid + 
+				'&plid=' + that.swf_args.plid + '&session_token=' + that.yt.tokens_.addto_ajax,
+			onload: function(r){
+				parser=new DOMParser();
+				xmlDoc=parser.parseFromString(r.responseText, "text/xml");
+				retCode = xmlDoc.firstChild.querySelector('return_code').firstChild.data;
+				console.log(r.status, retCode);
+				el = that.doc.querySelector('#vlc-watchlater-btn span');
+				if(retCode == '0')
+					el.className = "vlc-wl-state vlc-ok-bg";
+				else
+					el.className = "vlc-wl-state vlc-boo-bg";
+			}
+		});
+	}
+
+	if(this.plidWL)
+		addToWatchLater(this.plidWL);
+	else
+		GM_xmlhttpRequest({
+			method: 'POST',
+			url: this.win.location.protocol + "//" + 
+					this.win.location.host + 
+					"/playlist_ajax?action_get_addto_panel=1&video_id=" + 
+					this.swf_args.video_id,
+			headers: headers,
+			onload: function(r){
+				if(r.status==200)
+				{
+					m = r.responseText.match(/data-list-type=.*?watch-later.*?data-full-list-id=\\"(.*?)\\"/);
+					if(m){
+						that.plidWL = m[1];
+						addToWatchLater(that.plidWL);
+					}
+				}
+			}
+		});
+}
 
 ScriptInstance.prototype.canAutoplay = function(){
 
@@ -2053,12 +2111,14 @@ ScriptInstance.prototype.onFmtChange = function(ev, opt)
 
 	if(!/signature=/.test(uri))
 	{
+		console.log("   sig:", sig);
 		if(sig)
-			sig = this.sigDecodeParam && Decode(sig, this.sigDecodeParam) || DecryptSignature(sig);
+			sig = this.sigDecodeParam && Decode(sig, this.sigDecodeParam) || DecryptSignature(sig, this.ytplayer.config.sts);
 		else
 			sig = n.getAttribute("sig");
 
 		if(sig) uri += "&signature=" + sig;
+		console.log("de-sig:", sig);
 	}
 
 	if(fb)  uri += "&fallback_host=" + fb;
@@ -2245,8 +2305,7 @@ ScriptInstance.prototype.pullYTVars = function()
 		this.swf_args = json['args'];
 		this.ytplayer = {config: {args: this.swf_args}};
 	}
-
-	if(this.feather)
+	else if(this.feather)
 	{
 		if(featherVars) {
 			this.swf_args = featherVars;
@@ -2587,15 +2646,6 @@ ScriptInstance.prototype.generateDOM = function(options)
 				el.innerHTML = '<div class="knob"></div><span id="vlcrate">1.0</span>';
 				sliders.appendChild(el);
 			}
-
-			//TODO make #vlcstate use icons or something
-			//#vlcstate was meant for debugging-only in the first place anyway :P
-			/*el = this.doc.createElement("div");
-			el.id = 'vlcstate';
-			sliders.appendChild(el);
-			el = this.doc.createElement("div");
-			el.id = 'vlc-video-size';
-			sliders.appendChild(el);*/
 		}
 
 		controls.appendChild(sliders);
@@ -2662,6 +2712,17 @@ ScriptInstance.prototype.generateDOM = function(options)
 		false);
 
 		if(!this.matchEmbed) buttons.appendChild(configbtn);
+
+		//if(this.matchEmbed)
+		{
+			var watchbtn = this._makeButton('vlc-watchlater-btn', _('WATCHLATER'), false);
+			watchbtn.addEventListener('click', function(ev)
+				{
+					that.ajaxWatchLater();
+				},
+			false);
+			buttons.appendChild(watchbtn);
+		}
 
 		/// Reload debug button
 		/*
@@ -3199,6 +3260,13 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav)
 	this.setPlayerSize(this.isWide);
 	this.setSideBar(this.isWide);
 	this.qualityLevels = [];
+	//TODO remove this
+	wlspan = this.doc.querySelector('#vlc-watchlater-btn span');
+	if(wlspan){
+		wlspan.classList.remove('vlc-wl-state');
+		wlspan.classList.remove('vlc-ok-bg');
+		wlspan.classList.remove('vlc-boo-bg');
+	}
 
 	// wait or GM_s/getValue return garbage
 	this.win.setTimeout(function(){
