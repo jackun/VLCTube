@@ -13,14 +13,14 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        43.1
+// @version        43.2
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx24+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
-//2013-11-15 Watch later for embed, finally
+//2013-11-15 Watch later for embed, finally. Embed error message.
 //2013-11-13 Various stuff
 //2013-11-05 Mess with audio
 //2013-11-01 Less leaky preload?
@@ -84,7 +84,7 @@ var gLangs = {
 		'PLAY'  : 'Play',
 		'PAUSE' : 'Pause',
 		'STOP'  : 'Stop',
-		'FS'    : 'FS', //'Fullscreen',
+		'FS'    : 'Fullscreen',
 		'WIDE'  : 'Wide',
 		'DND'   : 'Drag and drop to rearrange.',
 		'LINKSAVE' : 'Right click and save.',
@@ -2638,7 +2638,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			volbar.title = _("VOLUME");
 			volbar.innerHTML = '<span class="yt-uix-button-content"><div id="sbVol" class="vlc-scrollbar"><span id="vlcvol">0</span><div class="knob"/></div></span>';
 
-			if(!this.bcompactVolume && !this.buseWidePosBar)
+			if(!this.bcompactVolume && (!this.buseWidePosBar || this.matchEmbed))
 				sliders.appendChild(volbar);
 
 			if(this.bshowRate)
@@ -2764,7 +2764,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			buttons.appendChild(link);
 		}
 
-		if(!this.bcompactVolume && this.buseWidePosBar)
+		if(!this.bcompactVolume && this.buseWidePosBar && !this.matchEmbed)
 			buttons.appendChild(volbar);
 
 		controls.appendChild(buttons);
@@ -3339,8 +3339,12 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 					{
 						var title = that.$$('html5-title');
 						if(title.length)
-							title[0].appendChild(that.doc.createTextNode(" - " +
-									unescape(param_map["reason"]).replace(/\+/g,' ')));
+						{
+							el = that.doc.createElement("SPAN");
+							el.innerHTML = unescape(param_map["reason"]).replace(/\+/g,' ');
+							title[0].appendChild(that.doc.createTextNode(" - "));
+							title[0].appendChild(el);
+						}
 						return;
 					}
 
