@@ -13,14 +13,14 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        43
+// @version        43.1
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx24+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
-//2013-11-xx Watch later for embed
+//2013-11-15 Watch later for embed, finally
 //2013-11-13 Various stuff
 //2013-11-05 Mess with audio
 //2013-11-01 Less leaky preload?
@@ -1849,28 +1849,31 @@ VLCObj.prototype = {
 	},
 };
 
-//http://www.youtube.com/addto_ajax?action_add_to_playlist=1&add_to_top=False
+//Commented out are 'watch' page versions
 ScriptInstance.prototype.ajaxWatchLater = function()
 {
 	var that = this;
-	function addToWatchLater(plid)
+	function addToWatchLater(sess_token)
 	{
 		xheaders = headers;
 		xheaders['Cookie'] = that.doc.cookie;
 		xheaders['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
 		GM_xmlhttpRequest({
 			method: 'POST',
-			url: that.win.location.protocol + "//" + that.win.location.host + "/addto_ajax?action_add_to_playlist=1&add_to_top=False",
+			url: that.win.location.protocol + "//" + that.win.location.host + 
+				"/addto_ajax?action_add_to_watch_later_list=1&feature=player_embedded",
+				//"/addto_ajax?action_add_to_playlist=1&add_to_top=False",
 			headers: xheaders,
-			data: 'video_ids=' + that.swf_args.video_id + '&full_list_id=' + plid + 
-				'&plid=' + that.swf_args.plid + '&session_token=' + that.yt.tokens_.addto_ajax,
+			data: 'authuser=0&video_ids=' + that.swf_args.video_id + '&session_token=' + sess_token,
+			//'&full_list_id=' + plid + '&plid=' + that.swf_args.plid + '&session_token=' + that.yt.tokens_.addto_ajax,
 			onload: function(r){
 				parser=new DOMParser();
 				xmlDoc=parser.parseFromString(r.responseText, "text/xml");
 				retCode = xmlDoc.firstChild.querySelector('return_code').firstChild.data;
 				console.log(r.status, retCode);
 				el = that.doc.querySelector('#vlc-watchlater-btn span');
-				if(retCode == '0')
+				if(retCode == 0 || //ok
+					retCode == 6) //duplicate
 					el.className = "vlc-wl-state vlc-ok-bg";
 				else
 					el.className = "vlc-wl-state vlc-boo-bg";
@@ -1878,23 +1881,23 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 		});
 	}
 
-	if(this.plidWL)
-		addToWatchLater(this.plidWL);
+	if(this.session_token)
+		addToWatchLater(this.session_token);
 	else
 		GM_xmlhttpRequest({
 			method: 'POST',
-			url: this.win.location.protocol + "//" + 
-					this.win.location.host + 
-					"/playlist_ajax?action_get_addto_panel=1&video_id=" + 
-					this.swf_args.video_id,
+			url: this.win.location.protocol + "//" + this.win.location.host + 
+					"/token_ajax?action_get_wl_token=1",
+					//"/playlist_ajax?action_get_addto_panel=1&video_id=" + this.swf_args.video_id,
 			headers: headers,
+			data: 'authuser=0',
 			onload: function(r){
-				if(r.status==200)
-				{
-					m = r.responseText.match(/data-list-type=.*?watch-later.*?data-full-list-id=\\"(.*?)\\"/);
-					if(m){
-						that.plidWL = m[1];
-						addToWatchLater(that.plidWL);
+				if(r.status==200){
+					//console.log(r.responseText);
+					//if(r.responseText.match(/status=(\d+)/)[1] == '200') 
+					{
+						that.session_token = r.responseText.match(/addto_ajax_token=([\w-_]+)/)[1];
+						addToWatchLater(that.session_token);
 					}
 				}
 			}
@@ -2713,7 +2716,8 @@ ScriptInstance.prototype.generateDOM = function(options)
 
 		if(!this.matchEmbed) buttons.appendChild(configbtn);
 
-		//if(this.matchEmbed)
+		//if embed and logged in
+		if(this.matchEmbed && typeof(this.swf_args.authuser) != 'undefined' && this.swf_args.authuser == 0)
 		{
 			var watchbtn = this._makeButton('vlc-watchlater-btn', _('WATCHLATER'), false);
 			watchbtn.addEventListener('click', function(ev)
