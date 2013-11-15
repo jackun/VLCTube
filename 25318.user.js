@@ -1691,8 +1691,6 @@ VLCObj.prototype = {
 	stop: function(){
 		var _vlcobj = this.wrappedJSObject.VLCObj;
 		_vlcobj.vlc.playlist.stop();
-		//if(_vlcobj.instance.matchEmbed)
-		//	_vlcobj.$('cued-embed').classList.remove('hid');
 	},
 	fs: function(){
 		this.wrappedJSObject.VLCObj.vlc.video.toggleFullscreen();
@@ -2728,12 +2726,6 @@ ScriptInstance.prototype.generateDOM = function(options)
 			buttons.appendChild(watchbtn);
 		}
 
-		/// Reload debug button
-		/*
-		var reloadbtn = this._makeButton('vlc-config-reload-dbg', 'Reload', false);
-		reloadbtn.addEventListener('click', function(){that.reloadPlayer();}, false);
-		buttons.appendChild(reloadbtn);
-		*/
 
 		/// Download link
 		var link = this.doc.createElement("A");
