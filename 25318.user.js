@@ -13,13 +13,14 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        43.2
+// @version        43.3
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx24+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2013-11-15 Hook into spf
 //2013-11-15 Watch later for embed, finally. Embed error message.
 //2013-11-13 Various stuff
 //2013-11-05 Mess with audio
@@ -423,6 +424,14 @@ function ScriptInstance(_win, popup, oldNode)
 	for(i in itagToText)
 	{
 		textToItag[itagToText[i]] = parseInt(i);
+	}
+
+	//is there an event?
+	spf_cb = unsafeWindow["_spf_state"].config["navigate-processed-callback"];
+	unsafeWindow["_spf_state"].config["navigate-processed-callback"] = function(d,e){
+		//console.log('navigate-processed-callback', d, e);
+		spf_cb(d,e);
+		that.onMainPage(null, true);
 	}
 }
 
@@ -2726,13 +2735,12 @@ ScriptInstance.prototype.generateDOM = function(options)
 			buttons.appendChild(watchbtn);
 		}
 
-
 		/// Download link
 		var link = this.doc.createElement("A");
 		{
 			link.id = "vlclink";
 			link.className = "yt-uix-button yt-uix-button-default"; //might confuse some
-			//link.className = "vlclink";//#player a overrides
+			//link.className = "vlclink";//'#player a' overrides
 			link.title = _("LINKSAVE");
 			link.setAttribute("href", "#");
 			link.setAttribute("target", "_new");
@@ -3688,8 +3696,8 @@ function loadPlayer(win, oldNode)
 	var inst = new ScriptInstance(win, false, oldNode);
 	//win.addEventListener('DOMNodeInserted', function(e){inst.DOMevent_xhr(e);}, true);
 
-	function animStart(event){
-		//console.log(event.animationName, event);
+	/*function animStart(event){
+		console.log(event.animationName, event);
 		//DT, DD
 		if (event.animationName == 'pulse' && event.target.tagName == "DD"){
 			console.log('VLCTube: reloading player');
@@ -3698,7 +3706,7 @@ function loadPlayer(win, oldNode)
 	}
 	document.addEventListener('animationstart', animStart, true);
 	//wtf chromium
-	document.addEventListener('webkitAnimationStart', animStart, true);
+	document.addEventListener('webkitAnimationStart', animStart, true);*/
 
 	//TODO which works the best
 	win.addEventListener('beforeunload', function(e){inst.saveSettings();}, true);
