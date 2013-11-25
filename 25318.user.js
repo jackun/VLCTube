@@ -13,7 +13,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        43.3
+// @version        43.4
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
@@ -431,7 +431,8 @@ function ScriptInstance(_win, popup, oldNode)
 	unsafeWindow["_spf_state"].config["navigate-processed-callback"] = function(d,e){
 		//console.log('navigate-processed-callback', d, e);
 		spf_cb(d,e);
-		that.onMainPage(null, true);
+		//FIXME GM_getValue fails otherwise, uh
+		that.win.setTimeout(function(){that.onMainPage(null, true);}, 10);
 	}
 }
 
@@ -918,6 +919,7 @@ ScriptInstance.prototype.putCSS = function(){
 	#vlc-config-checkboxes label input { display:none; } \
 	#vlc-config-checkboxes label input + span { line-height: 120%; text-indent: 16px; width: 100%; display:inline-block;} \
 	.vlc-wl-state {padding-left: 16px;}\
+	.ccselect {max-width:85px;}\
 	/*Faenza 16px gtk-delete.png */\
 	.vlc-boo-bg {background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG7SURBVDiNpZOxSwJhGMaf5NPrwigiooQLokiChsh0a6klbmpoCiJKcrz/IjBoCqItkKChQZzEhhIuWiybAilOxQ7Dq9TCwC4v3wYt7iSXfOFdnu97Hnh/7/d1ERE6KVtH7jYBPADvH7q3eWYtIjI3H93yB7d5LqXKsvijq7IsbvNcKrrlDxIRb/ZYzLGAP7jrQDXEgXZ4pqiyLKqyLO7wTAlxoF0HqrGANaTLBNF75B49HCio0zYA73VABUsDgABj3GkD6gBKw8Lt2t3DJoArAJYA1F6epMTi3PrHozoLAJV6Q+9tkup2CTe+s+uQfXBorx0D9vmsSQmPkLwYAZk74RGSn8+aRETM7GndglHKKNm8rvc4HIC587reU8ooWQCG2WAZ4SVxIUaWF/YmOWO8j1mT3wzgXmfp5ci5NOibj/4V4D2e6A2N2d6n+u0NwT4s3ABArdBg8loDsnVnalWprP9AtKyxfHpykPGwSnoGlFsSkkZRk4yiJuWWhGR6BpTxsEr59OTAvMZWiK5qPLyvrbgvv4q/wNhXUZO0FfdlNR7eJyJXu4f0G0JEGy20WVNztd63QPxPdfwbvwG5Z15mC93/JQAAAABJRU5ErkJggg==') no-repeat 0 50%;}\
 	/*Faenza 16px ok.png */\
@@ -1874,16 +1876,18 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 			data: 'authuser=0&video_ids=' + that.swf_args.video_id + '&session_token=' + sess_token,
 			//'&full_list_id=' + plid + '&plid=' + that.swf_args.plid + '&session_token=' + that.yt.tokens_.addto_ajax,
 			onload: function(r){
-				parser=new DOMParser();
-				xmlDoc=parser.parseFromString(r.responseText, "text/xml");
-				retCode = xmlDoc.firstChild.querySelector('return_code').firstChild.data;
-				console.log(r.status, retCode);
-				el = that.doc.querySelector('#vlc-watchlater-btn span');
-				if(retCode == 0 || //ok
-					retCode == 6) //duplicate
-					el.className = "vlc-wl-state vlc-ok-bg";
-				else
-					el.className = "vlc-wl-state vlc-boo-bg";
+				if(r.status==200){
+					parser=new DOMParser();
+					xmlDoc=parser.parseFromString(r.responseText, "text/xml");
+					retCode = xmlDoc.firstChild.querySelector('return_code').firstChild.data;
+					//console.log(r.status, retCode);
+					el = that.doc.querySelector('#vlc-watchlater-btn span');
+					if(retCode == 0 || //ok
+						retCode == 6) //duplicate
+						el.className = "vlc-wl-state vlc-ok-bg";
+					else
+						el.className = "vlc-wl-state vlc-boo-bg";
+				}
 			}
 		});
 	}
@@ -2488,32 +2492,29 @@ ScriptInstance.prototype.generateMPD = function()
 	var that = this;
 	var mpd = '<?xml version="1.0" encoding="UTF-8"?>\
 <MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\
-     xmlns="urn:mpeg:DASH:schema:MPD:2011"\
-     xsi:schemaLocation="urn:mpeg:DASH:schema:MPD:2011"\
-     profiles="urn:mpeg:dash:profile:isoff-main:2011"\
-     type="static"\
-     mediaPresentationDuration="'+fmtPT(this.ytplayer.config.args.length_seconds)+'"\
-     minBufferTime="PT2.0S">\
-     <Period start="PT0S">\
-          <AdaptationSet bitstreamSwitching="true">';
-	
-	function addSegmentURL(url, range)
+ xmlns="urn:mpeg:DASH:schema:MPD:2011"\
+ xsi:schemaLocation="urn:mpeg:DASH:schema:MPD:2011"\
+ profiles="urn:mpeg:dash:profile:isoff-main:2011"\
+ type="static"\
+ mediaPresentationDuration="'+fmtPT(this.ytplayer.config.args.length_seconds)+'"\
+ minBufferTime="PT2.0S"><Period start="PT0S"><AdaptationSet bitstreamSwitching="true">';
+
+	function segmentURL(url, range)
 	{
-		mpd += '<SegmentURL \
-			media="' + xmlStr(url) + '&amp;amp;range=' + range + '" \
-			mediaRange="' + range + '" />';
+		return '\n<SegmentURL \n\tmedia="' + xmlStr(url) + '&amp;amp;range=' + range + '" mediaRange="' + range + '" />';
 	}
 
 	Array.prototype.forEach.call(this.selectNode.options, function(node)
 	{
-		kv    = node.wrappedJSObject.kv;
-		
+		kv = node.wrappedJSObject.kv;
+
 		if(!kv || !kv.hasOwnProperty('clen')) return;
 		//console.log(kv);
 		hasAnything = true;
-		pos   = parseInt(kv['index'].split('-')[1]) + 1;
+		pos   = parseInt(kv['init'].split('-')[1]) + 1;
 		clen  = parseInt(kv["clen"]);
-		chunk = parseInt(kv["bitrate"] / 8 * 2); //about 2sec slice
+		console.log("clen:", clen);
+		chunk = parseInt(kv["bitrate"] / 8 * 100); //about 100sec slice
 		types = kv["type"].split(';'); //mime
 		types[1] = types[1].split('=')[1].slice(1,-1); //codec
 		if(kv.hasOwnProperty('size'))
@@ -2522,7 +2523,7 @@ ScriptInstance.prototype.generateMPD = function()
 			size = null;
 
 		mpd += 
-			'<Representation id="' + (repID++) +
+			'\n<Representation id="' + (repID++) +
 			'" codecs="' + types[1] +
 			'" mimeType="' + types[0] +
 			(size ? '" width="' + size[0] : '') +
@@ -2532,22 +2533,22 @@ ScriptInstance.prototype.generateMPD = function()
 			'">';
 
 		mpd +=
-		'<SegmentBase>' +
-		'    <Initialization sourceURL="' + xmlStr(kv["url"]) +
+		'\n<SegmentBase><Initialization sourceURL="' + xmlStr(kv["url"]) +
 			'&amp;amp;range=' + kv["init"] +
 			'" range="' + kv["init"] +
 			'" /></SegmentBase>';
 
-		mpd += '<SegmentList>';
+		mpd += '\n<SegmentList>';
 		//segmentURLs
-		for(;clen > chunk; clen -= chunk)
+		while(pos + chunk < clen)
 		{
-			addSegmentURL(kv["url"], pos + "-" + (pos + chunk));
+			mpd += segmentURL(kv["url"], pos + "-" + (pos + chunk));
 			pos += chunk;
 		}
 		//leftovers
-		addSegmentURL(kv["url"], pos + "-" + (pos + clen));
-
+		if(clen > 0)
+			mpd += segmentURL(kv["url"], pos + "-" + clen);
+		console.log("clen after:", pos, clen);
 		mpd += '</SegmentList></Representation>';
 	});
 
@@ -2704,7 +2705,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		var ccsel = this.doc.createElement("select");
 		{
 			ccsel.id = vlc_id + '_ccselect';
-			ccsel.className = "yt-uix-button yt-uix-button-default vlc_hidden";
+			ccsel.className = "ccselect yt-uix-button yt-uix-button-default vlc_hidden";
 			buttons.appendChild(ccsel);
 		}
 
@@ -2770,9 +2771,9 @@ ScriptInstance.prototype.generateDOM = function(options)
 		controls.appendChild(buttons);
 	}
 
-	//this.txt = this.doc.createElement("TEXTAREA");
-	//this.txt.id = "vlc-dash-mpd";
-	//controls.appendChild(this.txt);
+	this.txt = this.doc.createElement("TEXTAREA");
+	this.txt.id = "vlc-dash-mpd";
+	controls.appendChild(this.txt);
 
 	//Configurator comes here
 	// appearance is kinda ugly :P
@@ -3232,7 +3233,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav)
 	}
 
 	if(this.bscrollToPlayer) this.player.scrollIntoView(true);
-	//this.generateMPD();
+	this.generateMPD();
 
 	var pltrim = this.$('watch7-playlist-tray-trim');
 	if(pltrim) pltrim.parentNode.removeChild(pltrim);
@@ -3378,6 +3379,7 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 							that.$(vlc_id+"-holder").style.height = (that.$(gMoviePlayerID).clientHeight - spacer.clientHeight) + "px";
 						}
 						else
+							//FIXME hidden element height is 0px
 							that.$(vlc_id+"-holder").style.height = (that.$(gMoviePlayerID).clientHeight - that.$("vlc_controls_div").clientHeight) + "px";
 
 						that.setupVLC();
