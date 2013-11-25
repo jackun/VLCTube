@@ -2497,11 +2497,14 @@ ScriptInstance.prototype.generateMPD = function()
  profiles="urn:mpeg:dash:profile:isoff-main:2011"\
  type="static"\
  mediaPresentationDuration="'+fmtPT(this.ytplayer.config.args.length_seconds)+'"\
- minBufferTime="PT2.0S"><Period start="PT0S"><AdaptationSet bitstreamSwitching="true">';
+ minBufferTime="PT10.0S"><Period start="PT0S"><AdaptationSet bitstreamSwitching="true">';
 
 	function segmentURL(url, range)
 	{
-		return '\n<SegmentURL \n\tmedia="' + xmlStr(url) + '&amp;amp;range=' + range + '" mediaRange="' + range + '" />';
+		return '\n<SegmentURL \n\tmedia="' + xmlStr(url) + 
+		//Don't add extra range or VLC asks for sub-range of range hence YT gives 416 error, oops
+		//'&amp;amp;range=' + range + 
+		'" mediaRange="' + range + '" />';
 	}
 
 	Array.prototype.forEach.call(this.selectNode.options, function(node)
@@ -2514,7 +2517,7 @@ ScriptInstance.prototype.generateMPD = function()
 		pos   = parseInt(kv['init'].split('-')[1]) + 1;
 		clen  = parseInt(kv["clen"]);
 		console.log("clen:", clen);
-		chunk = parseInt(kv["bitrate"] / 8 * 100); //about 100sec slice
+		chunk = parseInt(kv["bitrate"] / 8 * 10); //about 10sec slice
 		types = kv["type"].split(';'); //mime
 		types[1] = types[1].split('=')[1].slice(1,-1); //codec
 		if(kv.hasOwnProperty('size'))
