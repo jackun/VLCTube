@@ -2470,7 +2470,7 @@ ScriptInstance.prototype.openPopup = function(w,h)
 function fmtPT(dur)
 {
 	if(dur < 0) dur = 0;
-	var s   = Math.floor(dur % 60);
+	var s   = dur % 60;
 	var m   = Math.floor(dur % 3600 / 60);
 	//var m = Math.floor(dur / 60);
 	var h   = Math.floor(dur / 3600);
@@ -2490,14 +2490,15 @@ ScriptInstance.prototype.generateMPD = function()
 	var repID = 0;
 	var hasAnything = false;
 	var that = this;
+	// http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd
 	var mpd = '<?xml version="1.0" encoding="UTF-8"?>\
 <MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\
  xmlns="urn:mpeg:DASH:schema:MPD:2011"\
- xsi:schemaLocation="urn:mpeg:DASH:schema:MPD:2011"\
+ xsi:schemaLocation="urn:mpeg:DASH:schema:MPD:2011"\n\
  profiles="urn:mpeg:dash:profile:isoff-main:2011"\
  type="static"\
  mediaPresentationDuration="'+fmtPT(this.ytplayer.config.args.length_seconds)+'"\
- minBufferTime="PT10.0S"><Period start="PT0S"><AdaptationSet bitstreamSwitching="true">';
+ minBufferTime="PT10.0S"><Period start="PT0S">';
 
 	function segmentURL(url, range)
 	{
@@ -2506,57 +2507,94 @@ ScriptInstance.prototype.generateMPD = function()
 		//'&amp;amp;range=' + range + 
 		'" mediaRange="' + range + '" />';
 	}
-
-	Array.prototype.forEach.call(this.selectNode.options, function(node)
-	{
+	
+	var streams = {audio:[], video:[]};
+	Array.prototype.forEach.call(this.selectNode.options, function(node){
 		kv = node.wrappedJSObject.kv;
 
 		if(!kv || !kv.hasOwnProperty('clen')) return;
-		//console.log(kv);
 		hasAnything = true;
+		if(/video/.test(kv["type"]))
+			streams.video.push(kv);
+		else if(/audio/.test(kv["type"]))
+			streams.audio.push(kv);
+	});
+
+	if(!hasAnything)
+		return;
+
+	function genRepresentation(kv)
+	{
+		//kv = node.wrappedJSObject.kv;
+
+		//if(!kv || !kv.hasOwnProperty('clen')) return;
+		//console.log(kv);
+		//hasAnything = true;
+		prefix = /audio/.test(kv['type']) ? 'a' : 'v';
 		pos   = parseInt(kv['init'].split('-')[1]) + 1;
-		clen  = parseInt(kv["clen"]);
-		console.log("clen:", clen);
-		chunk = parseInt(kv["bitrate"] / 8 * 10); //about 10sec slice
-		types = kv["type"].split(';'); //mime
+		clen  = parseInt(kv['clen']);
+		chunk = parseInt(kv['bitrate'] / 8 * 10); //about 10sec slice
+		types = kv['type'].split(';'); //mime
 		types[1] = types[1].split('=')[1].slice(1,-1); //codec
 		if(kv.hasOwnProperty('size'))
-			size = kv["size"].split('x');
+			size = kv['size'].split('x');
 		else
 			size = null;
 
 		mpd += 
-			'\n<Representation id="' + (repID++) +
+			'<Representation id="' + prefix + (repID++) +
 			'" codecs="' + types[1] +
 			'" mimeType="' + types[0] +
 			(size ? '" width="' + size[0] : '') +
-			(size ? '" height="' + size[1] : '') +
-			'" startWithSAP="1"' +
+			(size ? '" height="' + size[1] : '') + '"' +
+			//'startWithSAP="1" subsegmentStartsWithSAP="1"' +
 			' bandwidth="' + kv["bitrate"] +
-			'">';
+			'">\n';
 
-		mpd +=
-		'\n<SegmentBase><Initialization sourceURL="' + xmlStr(kv["url"]) +
-			'&amp;amp;range=' + kv["init"] +
-			'" range="' + kv["init"] +
-			'" /></SegmentBase>';
-
-		mpd += '\n<SegmentList>';
-		//segmentURLs
-		while(pos + chunk < clen)
+		if(!true)
 		{
-			mpd += segmentURL(kv["url"], pos + "-" + (pos + chunk));
-			pos += chunk;
+			//with base url -- isoff-on-demand i think, but vlc with its <SegmentInfo/> :S
+			mpd += '\t<BaseURL>' + xmlStr(kv["url"]) +'</BaseURL>\n';
+			mpd += '\t<SegmentBase indexRangeExact="true" indexRange="'+ kv["index"] +'">\n';
+			mpd += '\t\t<Initialization sourceURL="' + xmlStr(kv["url"]) + '" range="'+ kv["init"] +'" />\n\t</SegmentBase>\n';
 		}
-		//leftovers
-		if(clen > 0)
-			mpd += segmentURL(kv["url"], pos + "-" + clen);
-		console.log("clen after:", pos, clen);
-		mpd += '</SegmentList></Representation>';
-	});
+		else
+		{
+			//with segment list
+			mpd +=
+			'<SegmentBase><Initialization sourceURL="' + xmlStr(kv["url"]) +
+				'&amp;amp;range=' + kv["init"] +
+				'" range="' + kv["init"] +
+				'" /></SegmentBase>';
 
-	if(hasAnything)
-		this.txt.innerHTML = mpd + '</AdaptationSet></Period></MPD>';
+			mpd += '\n<SegmentList>';
+			//segmentURLs
+			while(pos + chunk < clen)
+			{
+				mpd += segmentURL(kv["url"], pos + "-" + (pos + chunk));
+				pos += chunk;
+			}
+			//leftovers
+			if(clen > 0)
+				mpd += segmentURL(kv["url"], pos + "-" + clen);
+			mpd += '</SegmentList>';
+		}
+
+		mpd += '</Representation>\n';
+	}
+
+	mpd += '\n<AdaptationSet mimeType="video/mp4">\n';
+	//mpd += '\t<ContentComponent id="100" contentType="video"/>\n';
+	streams.video.forEach(genRepresentation);
+	mpd += '</AdaptationSet>\n';
+
+	repID = 0;
+	mpd += '<AdaptationSet mimeType="audio/mp4">\n';
+	//mpd += '\t<ContentComponent id="101" contentType="audio"/>\n';
+	streams.audio.forEach(genRepresentation);
+	mpd += '</AdaptationSet>\n';
+
+	this.txt.innerHTML = mpd + '</Period></MPD>';
 }
 
 //hasOwnProperty
