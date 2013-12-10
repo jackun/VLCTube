@@ -13,7 +13,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        43.4
+// @version        43.5
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
@@ -530,11 +530,11 @@ ScriptInstance.prototype.restoreVolume = function()
 	//if(!bignoreVol)
 		this.myvlc.vlc.audio.volume = volSaved;
 
-	function setVol(vol)
+	function setVol(v)
 	{
 		if(that.bcompactVolume) that.scroll2.bar.style.display = 'block'; //otherwise knob's position doesn't get updated
-		that.scroll2.setValue(vol);
-		that.scroll2.bar.children.namedItem('vlcvol').innerHTML = vol;
+		that.scroll2.setValue(v);
+		that.scroll2.bar.children.namedItem('vlcvol').innerHTML = v;
 		if(that.bcompactVolume) that.scroll2.bar.style.display = '';
 	}
 
@@ -1451,7 +1451,6 @@ function VLCObj (instance){
 	this.scrollbarPos = null;
 	this.scrollbarVol = null;
 	this.scrollbarRate = null;
-	this.uri = null;
 	this.updateTimer = null; //probably can do without but whatever
 	this.repeatTimer = null;
 	this.stopUpdate = true; //true by default so that stateUpdate() would update only once
@@ -1574,7 +1573,8 @@ VLCObj.prototype = {
 	},
 	eventPlaying: function(){
 		if(this.instance.usingSubs) this.setupMarquee();
-		if(this.prevState != 4) this.instance.restoreVolume();
+		if(this.prevState != 4 && this.prevState != 2) 
+			this.instance.restoreVolume();
 		var play = this._getBtn("_play");
 		if(play) play.innerHTML = _("PAUSE");
 		this.instance.setThumbnailVisible(false);
@@ -2774,9 +2774,12 @@ ScriptInstance.prototype.generateDOM = function(options)
 		controls.appendChild(buttons);
 	}
 
-	this.txt = this.doc.createElement("TEXTAREA");
-	this.txt.id = "vlc-dash-mpd";
-	controls.appendChild(this.txt);
+	if(!this.matchEmbed)
+	{
+		this.txt = this.doc.createElement("TEXTAREA");
+		this.txt.id = "vlc-dash-mpd";
+		controls.appendChild(this.txt);
+	}
 
 	//Configurator comes here
 	// appearance is kinda ugly :P
@@ -3236,7 +3239,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav)
 	}
 
 	if(this.bscrollToPlayer) this.player.scrollIntoView(true);
-	this.generateMPD();
+	if(!this.matchEmbed) this.generateMPD();
 
 	var pltrim = this.$('watch7-playlist-tray-trim');
 	if(pltrim) pltrim.parentNode.removeChild(pltrim);
