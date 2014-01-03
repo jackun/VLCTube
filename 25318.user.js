@@ -13,13 +13,14 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        43.5
+// @version        43.6
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx24+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2014-01-03 Mute button test
 //2013-11-15 Hook into spf
 //2013-11-15 Watch later for embed, finally. Embed error message.
 //2013-11-13 Various stuff
@@ -76,7 +77,6 @@ var vlc_id = 'mymovie';
 var VLC_status = ["Idle", "Opening", "Buffering", "Playing", "Paused", "Stopped", "ended", "Error"];
 
 // Ich olen international.
-// TODO Add formats too?
 var gLang = GM_getValue('vlc-lang', "en");
 var gLangs = {
 	"en": {
@@ -133,6 +133,9 @@ var gLangs = {
 		'vlc-config-autoplay-pl' : ['Autoplay playlists', ''],
 		'vlc-config-adaptives' : ['Add adaptive formats', 'Video only or audio only streams. Currently kinda useless.'],
 		'WATCHLATER' : 'Watch later',
+		//v43+
+		'MUTE' : 'Mute',
+		'vlc-config-mute-button' : ['Show mute button', ''],
 		},
 	"et": {
 		'LANG'  : 'Eesti',
@@ -303,6 +306,7 @@ var itagPrio = [
 ];
 
 var itagToText = {
+	0:   'dash',
 	264: 'hires/mp4v',
 	248: '1080p/webm',
 	247: '720p/webm',
@@ -472,6 +476,7 @@ ScriptInstance.prototype.initVars = function(){
 	//make a bit friendlier for dark themes
 	this.setDefault("bdarkTheme", false);
 	this.setDefault("badaptiveFmts", false);
+	this.setDefault("bshowMute", false);
 }
 
 /// Helpers
@@ -921,7 +926,9 @@ ScriptInstance.prototype.putCSS = function(){
 	.vlc-wl-state {padding-left: 16px;}\
 	.ccselect {max-width:85px;}\
 	/*Faenza 16px gtk-delete.png */\
-	.vlc-boo-bg {background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG7SURBVDiNpZOxSwJhGMaf5NPrwigiooQLokiChsh0a6klbmpoCiJKcrz/IjBoCqItkKChQZzEhhIuWiybAilOxQ7Dq9TCwC4v3wYt7iSXfOFdnu97Hnh/7/d1ERE6KVtH7jYBPADvH7q3eWYtIjI3H93yB7d5LqXKsvijq7IsbvNcKrrlDxIRb/ZYzLGAP7jrQDXEgXZ4pqiyLKqyLO7wTAlxoF0HqrGANaTLBNF75B49HCio0zYA73VABUsDgABj3GkD6gBKw8Lt2t3DJoArAJYA1F6epMTi3PrHozoLAJV6Q+9tkup2CTe+s+uQfXBorx0D9vmsSQmPkLwYAZk74RGSn8+aRETM7GndglHKKNm8rvc4HIC587reU8ooWQCG2WAZ4SVxIUaWF/YmOWO8j1mT3wzgXmfp5ci5NOibj/4V4D2e6A2N2d6n+u0NwT4s3ABArdBg8loDsnVnalWprP9AtKyxfHpykPGwSnoGlFsSkkZRk4yiJuWWhGR6BpTxsEr59OTAvMZWiK5qPLyvrbgvv4q/wNhXUZO0FfdlNR7eJyJXu4f0G0JEGy20WVNztd63QPxPdfwbvwG5Z15mC93/JQAAAABJRU5ErkJggg==') no-repeat 0 50%;}\
+	.vlc-boo-bg {background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG7SURBVDiNpZOxSwJhGMaf5NPrwigiooQLokiChsh0a6klbmpoCiJKcrz/IjBoCqItkKChQZzEhhIuWiybAilOxQ7Dq9TCwC4v3wYt7iSXfOFdnu97Hnh/7/d1ERE6KVtH7jYBPADvH7q3eWYtIjI3H93yB7d5LqXKsvijq7IsbvNcKrrlDxIRb/ZYzLGAP7jrQDXEgXZ4pqiyLKqyLO7wTAlxoF0HqrGANaTLBNF75B49HCio0zYA73VABUsDgABj3GkD6gBKw8Lt2t3DJoArAJYA1F6epMTi3PrHozoLAJV6Q+9tkup2CTe+s+uQfXBorx0D9vmsSQmPkLwYAZk74RGSn8+aRETM7GndglHKKNm8rvc4HIC587reU8ooWQCG2WAZ4SVxIUaWF/YmOWO8j1mT3wzgXmfp5ci5NOibj/4V4D2e6A2N2d6n+u0NwT4s3ABArdBg8loDsnVnalWprP9AtKyxfHpykPGwSnoGlFsSkkZRk4yiJuWWhGR6BpTxsEr59OTAvMZWiK5qPLyvrbgvv4q/wNhXUZO0FfdlNR7eJyJXu4f0G0JEGy20WVNztd63QPxPdfwbvwG5Z15mC93/JQAAAABJRU5ErkJggg=='); background-repeat: no-repeat; background-position: 0 50%;} \
+	/*FIXME deduplicate :P*/ \
+	.vlc-boo-bg:hover {background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG7SURBVDiNpZOxSwJhGMaf5NPrwigiooQLokiChsh0a6klbmpoCiJKcrz/IjBoCqItkKChQZzEhhIuWiybAilOxQ7Dq9TCwC4v3wYt7iSXfOFdnu97Hnh/7/d1ERE6KVtH7jYBPADvH7q3eWYtIjI3H93yB7d5LqXKsvijq7IsbvNcKrrlDxIRb/ZYzLGAP7jrQDXEgXZ4pqiyLKqyLO7wTAlxoF0HqrGANaTLBNF75B49HCio0zYA73VABUsDgABj3GkD6gBKw8Lt2t3DJoArAJYA1F6epMTi3PrHozoLAJV6Q+9tkup2CTe+s+uQfXBorx0D9vmsSQmPkLwYAZk74RGSn8+aRETM7GndglHKKNm8rvc4HIC587reU8ooWQCG2WAZ4SVxIUaWF/YmOWO8j1mT3wzgXmfp5ci5NOibj/4V4D2e6A2N2d6n+u0NwT4s3ABArdBg8loDsnVnalWprP9AtKyxfHpykPGwSnoGlFsSkkZRk4yiJuWWhGR6BpTxsEr59OTAvMZWiK5qPLyvrbgvv4q/wNhXUZO0FfdlNR7eJyJXu4f0G0JEGy20WVNztd63QPxPdfwbvwG5Z15mC93/JQAAAABJRU5ErkJggg=='); background-repeat: no-repeat; background-position: 0 50%;} \
 	/*Faenza 16px ok.png */\
 	#vlc-config-checkboxes label input:checked + span, .vlc-ok-bg { background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAF9SURBVDiNpZM/SAJhGMafO/O48vMzt4hoaFIcnFqsJhEcW1qcWiuIVrnGhggajNK9rYiIIoegorxDO8Sg7cRbazW5pQielgS7/ucL7/J9/H4fH+/zKiTRT6l90f8UKP8WuK6bsixr9h1H8lfdarVSQohrTdPqpmnOkVRJfhDoJAf8sOu6U0KIcwB3AG6j0egVyZRfMGQYRr5UKi2QDHbPHceZllKeAagBuNB1/bRSqWySHOoVDBqGkVcU5SYQCFSLxeISSa3ZbM5IKcsALgGc6Lq+b9v2Bsmx7gNdwWQsFjsCcADgUFXVq0KhkI9EIscAygD2QqHQbr1eX++FSULpBqndbq+k0+nxRqMxDEADMAHgAcCjEOLZNM12MpncAnD/bqY9SQx2Op3FTCYzYtu2eJs3w+Hwc7VafUokEtt+2C8AgKDneYvZbDZqWZYupXyp1WpKPB7f+Qz+KgdBz/OWc7ncquM4ayRHv8vHVxcDJOdJjvwUMP8X/lx9b+Mr7eRSRxf/zIkAAAAASUVORK5CYII=') no-repeat 0 50%; } \
 	input.tiny { width: 45px; } \
@@ -1546,6 +1553,8 @@ VLCObj.prototype = {
 	eventBuffering: function(e){
 		if(e != undefined) this.instance.setBuffer(e);
 		this.instance.moviePlayerEvents.fire('onStateChange', this.instance.moviePlayer, 2);
+		mute = this.$(vlc_id + '_mute');
+		if(mute.muteStyleToggle) mute.muteStyleToggle();
 		this.prevState = 2;
 	},
 	eventStopped: function(){
@@ -1585,6 +1594,8 @@ VLCObj.prototype = {
 			this.repeatTimer = null;
 		}
 		this.instance.moviePlayerEvents.fire('onStateChange', this.instance.moviePlayer, 1);
+		mute = this.$(vlc_id + '_mute');
+		if(mute.muteStyleToggle) mute.muteStyleToggle();
 		this.prevState = 3;
 	},
 	eventPaused: function(){
@@ -1646,9 +1657,10 @@ VLCObj.prototype = {
 		{
 			var title;
 			try{
+				
 				title = this.instance.ytplayer.config.args.title;
 				// Youtube server sends content-disposition header then
-				src += "&title=" + title.replace("&", "%26");
+				if(fmt != 'dash') src += "&title=" + title.replace("&", "%26");
 				//Just in case firefox respects the html5 "download" attribute
 				//but content-disposition probably overrides this with useless "videoplayback" anyway
 				this.$('vlclink').setAttribute("download", title + "-" + fmt.replace("/", "."));
@@ -2736,6 +2748,27 @@ ScriptInstance.prototype.generateDOM = function(options)
 			}
 		}
 
+		/// Mute
+		if(this.bshowMute) {
+			btn = this._makeButton('_mute', _('MUTE'), false);
+			btn.muteStyleToggle = function() {
+				if(that.myvlc && that.myvlc.vlc && that.myvlc.vlc.audio.mute) {
+					this.classList.add('vlc-boo-bg');
+					this.classList.add('vlc-wl-state');
+				} else {
+					this.classList.remove('vlc-boo-bg');
+					this.classList.remove('vlc-wl-state');
+				}
+			}
+			btn.addEventListener('click', function(ev) {
+				that.myvlc.vlc.audio.toggleMute();
+				//wait for vlc to change state
+				setTimeout(function(){ev.target.muteStyleToggle();}, 100);
+			}, false);
+			btn.muteStyleToggle();
+			buttons.appendChild(btn);
+		}
+
 		/// Format select
 		var _fmtsel = this.selectNode || this.doc.createElement("select");
 		_fmtsel.id = vlc_id + '_select';
@@ -2812,7 +2845,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		controls.appendChild(buttons);
 	}
 
-	if(!this.matchEmbed)
+	if(false && !this.matchEmbed)
 	{
 		this.txt = this.doc.createElement("TEXTAREA");
 		this.txt.id = "vlc-dash-mpd";
@@ -3025,6 +3058,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-discard-flvs", 'bdiscardFLVs'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-dark-theme", 'bdarkTheme'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-adaptives", 'badaptiveFmts'));
+		chkboxes.appendChild(this._makeCheckbox("vlc-config-mute-button", 'bshowMute'));
 		config.appendChild(chkboxes);
 
 	}
@@ -3200,6 +3234,18 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 		return this.parseUrlMap(urls);
 	}
 
+	//YT generated MPD that VLC can't play yet
+	if(clean && this.ytplayer && this.ytplayer.config.args.dashmpd
+		&& this.ytplayer.config.args.dashmpd !== '')
+	{
+		var option = this.doc.createElement("option");
+		option.setAttribute("name",  "0");
+		option.setAttribute("value", this.ytplayer.config.args.dashmpd);
+		option.textContent = "DASH";
+		this.selectNode.appendChild(option);
+		this.qualityLevels.push(0);
+	}
+
 	if(!this.selectNode.hasChildNodes())
 	{
 		console.log("no stream maps");
@@ -3277,7 +3323,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav)
 	}
 
 	if(this.bscrollToPlayer) this.player.scrollIntoView(true);
-	if(!this.matchEmbed) this.generateMPD();
+	//if(!this.matchEmbed) this.generateMPD();
 
 	var pltrim = this.$('watch7-playlist-tray-trim');
 	if(pltrim) pltrim.parentNode.removeChild(pltrim);
