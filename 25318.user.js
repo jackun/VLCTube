@@ -13,13 +13,14 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        43.6
+// @version        43.8
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx24+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2014-01-04 Pass unsafeWindow to tampermonkey
 //2014-01-03 Mute button test
 //2013-11-15 Hook into spf
 //2013-11-15 Watch later for embed, finally. Embed error message.
@@ -1554,7 +1555,7 @@ VLCObj.prototype = {
 		if(e != undefined) this.instance.setBuffer(e);
 		this.instance.moviePlayerEvents.fire('onStateChange', this.instance.moviePlayer, 2);
 		mute = this.$(vlc_id + '_mute');
-		if(mute.muteStyleToggle) mute.muteStyleToggle();
+		if(mute && mute.muteStyleToggle) mute.muteStyleToggle();
 		this.prevState = 2;
 	},
 	eventStopped: function(){
@@ -1595,7 +1596,7 @@ VLCObj.prototype = {
 		}
 		this.instance.moviePlayerEvents.fire('onStateChange', this.instance.moviePlayer, 1);
 		mute = this.$(vlc_id + '_mute');
-		if(mute.muteStyleToggle) mute.muteStyleToggle();
+		if(mute && mute.muteStyleToggle) mute.muteStyleToggle();
 		this.prevState = 3;
 	},
 	eventPaused: function(){
@@ -1810,7 +1811,7 @@ VLCObj.prototype = {
 		if(win.spf && win.spf.navigate)
 			win.spf.navigate(link)
 		else
-			this.instance.win.location = link;
+			this.instance.win.location.href = link;
 	},
 	stateUpdate: function(){
 		try{
@@ -2752,13 +2753,15 @@ ScriptInstance.prototype.generateDOM = function(options)
 		if(this.bshowMute) {
 			btn = this._makeButton('_mute', _('MUTE'), false);
 			btn.muteStyleToggle = function() {
-				if(that.myvlc && that.myvlc.vlc && that.myvlc.vlc.audio.mute) {
-					this.classList.add('vlc-boo-bg');
-					this.classList.add('vlc-wl-state');
-				} else {
-					this.classList.remove('vlc-boo-bg');
-					this.classList.remove('vlc-wl-state');
-				}
+				try {
+					if(that.myvlc && that.myvlc.vlc && that.myvlc.vlc.audio.mute) {
+						this.classList.add('vlc-boo-bg');
+						this.classList.add('vlc-wl-state');
+					} else {
+						this.classList.remove('vlc-boo-bg');
+						this.classList.remove('vlc-wl-state');
+					}
+				} catch(e) {}
 			}
 			btn.addEventListener('click', function(ev) {
 				that.myvlc.vlc.audio.toggleMute();
@@ -3866,7 +3869,10 @@ function DOMevent(mutations)
 					//window.removeEventListener('DOMNodeInserted', arguments.callee, true);
 					domObserver.disconnect();
 					//FIXME
-					/Chrome/.test(navigator.userAgent) && /\/embed\//.test(window.location.href) ? loadPlayer(window, oldNode) :
+					if(/Chrome/.test(navigator.userAgent))
+						/\/embed\//.test(window.location.href) ? loadPlayer(unsafeWindow, oldNode) :
+							loadPlayerOnLoad(unsafeWindow, oldNode);
+					else
 						loadPlayerOnLoad(window, oldNode);
 				}
 			});
