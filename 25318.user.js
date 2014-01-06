@@ -13,13 +13,14 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        43.8
+// @version        43.9
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx24+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2014-01-06 Call stateUpdate on spf nav.
 //2014-01-04 Pass unsafeWindow to tampermonkey
 //2014-01-03 Mute button test
 //2013-11-15 Hook into spf
@@ -404,7 +405,7 @@ function ScriptInstance(_win, popup, oldNode)
 	this.initVars();
 
 	var unavail = this.$('player-unavailable');
-	if(unavail && unavail.className.indexOf("hid") < 0) //works?
+	if(unavail && !unavail.classList.contains("hid")) //works?
 	{
 		console.log("video seems to be unavailable");
 		return;
@@ -1818,8 +1819,9 @@ VLCObj.prototype = {
 			if(this.vlc.input && !this.scrollbarPos.userSeeking){
 				this.scrollbarPos.setValue(this.vlc.input.position*this.scrollbarPos.maxValue);
 				//this.controls.children.namedItem('vlcstate').innerHTML = VLC_status[this.vlc.input.state];
-				this.instance.doc.querySelector('#progress-radial').innerHTML = VLC_status[this.vlc.input.state][0];
-				this.instance.doc.querySelector('#progress-radial').title = VLC_status[this.vlc.input.state];
+				rp = this.instance.doc.querySelector('#progress-radial');
+				rp.innerHTML = VLC_status[this.vlc.input.state][0];
+				rp.title = VLC_status[this.vlc.input.state];
 				//TODO Reloading on error or not if #vlc-error is in url already
 				if(this.vlc.input.state == 7 && typeof this.reloading == 'undefined' && !/#vlc-error/.test(window.location)) 
 					this.reloading = setTimeout(function(){window.location += "#vlc-error"; window.location.reload();}, 3000);
@@ -3394,6 +3396,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav)
 			}
 			else
 				holder.childNodes[0].classList.add("vlc_hidden");//perma hide
+			that.myvlc.stateUpdate();
 		}
 		//that.setThumbnailVisible(true);
 		that.myvlc.stopVideo();
