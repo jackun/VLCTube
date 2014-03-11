@@ -15,13 +15,16 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        46.2
+// @version        47
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
-// Tested on Arch linux, Fx24+/Chromium 29.0.1547.57, vlc 2.2.0-git, npapi-vlc-git from AUR
+// Tested on Arch linux, Fx27+, vlc 2.2.0-git, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2014-03-11 Fixed the playlist?
+//2014-03-10 Jump to timestamp option
+//2014-03-01 CSS hacks and fix some margins
 //2014-02-07 Fix popup. User page > video transition is borked still
 //2014-01-21 Live HLS stream test
 //2014-01-20 Can transition from main page > search results > video or user page > video without shitting itself?
@@ -147,6 +150,7 @@ var gLangs = {
 		//v43+
 		'MUTE' : 'Mute',
 		'vlc-config-mute-button' : ['Show mute button', ''],
+		'vlc-config-jumpts' : ['Always jump to timestamp', 'if it is specified in URL.'],
 		},
 	"et": {
 		'LANG'  : 'Eesti',
@@ -472,7 +476,7 @@ function ScriptInstance(_win, popup, oldNode, upsell)
 ScriptInstance.prototype.hookSPF = function(){
 
 	var that = this;
-	if(unsafeWindow["_spf_state"] == undefined) {
+	if(unsafeWindow["_spf_state"] === undefined) {
 		that.win.setTimeout(function(){that.hookSPF();}, 50);
 		return;
 	}
@@ -531,6 +535,7 @@ ScriptInstance.prototype.initVars = function(){
 	this.setDefault("bdarkTheme", false);
 	this.setDefault("badaptiveFmts", false);
 	this.setDefault("bshowMute", false);
+	this.setDefault("bjumpTS", false);
 }
 
 /// Helpers
@@ -890,11 +895,12 @@ ScriptInstance.prototype.putCSS = function(){
 
 	var css = ".player-api {overflow: visible;} /*for storyboard tooltip*/\
 	#"+ vlc_id + "-holder {overflow: hidden;}\
+	#cued-embed #video-title {position: absolute; left: 5px; top: 5px; background: rgba(0,0,0,0.75)} \
 	.movie_player_vlc select {padding: 5px 0;}\
 	a.vlclink { color:#438BC5; margin:5px;}\
 	.vlc_hidden { display:none !important; }\
 	.vlccontrols {padding:2px 5px; color: #333333;}\
-	.vlccontrols div {margin-right:5px; /*display: inline;*/ }\
+	/*.vlccontrols div {margin-right:5px; }*/\
 	.vlc-scrollbar{\
 		cursor: default /*ew-resize*/;\
 		position: relative;\
@@ -926,8 +932,8 @@ ScriptInstance.prototype.putCSS = function(){
 	.vlc-volume-holder { display:inline-block; } \
 	#vlcvol:after {content: '%';}\
 	.movie_player_vlc { background: white;}\
-	.progress-radial { /*would like without float :/ */ \
-		/*float:left; */ \
+	.progress-radial {\
+		margin-right: 5px;\
 		background-repeat: no-repeat; \
 		line-height: 16px; text-align: center; color: #EEE; font-size: 12px; \
 		display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #2f3439; background-color: tomato;}\
@@ -1033,7 +1039,12 @@ ScriptInstance.prototype.putCSS = function(){
 
 	//Some newererrreerererererrr YT layout fixes
 	this.addCSS("#masthead-positioner {position: relative;}\
-		#masthead-positioner-height-offset, .exp-top-guide #masthead-positioner-height-offset {height: 0px;}");
+		#masthead-positioner-height-offset, .exp-top-guide #masthead-positioner-height-offset, \
+		.exp-appbar-onebar.site-center-aligned.appbar-hidden #masthead-positioner-height-offset {height: 0px;}\
+		.site-center-aligned #player.watch-medium, \
+		.site-center-aligned #player.watch-large {margin-bottom:0px;}\
+		.site-center-aligned #player.watch-medium {width:1040px;}\
+		.site-center-aligned #player.watch-large {width:1040px;}");
 }
 
 ScriptInstance.prototype.addCSS = function(css, before){
@@ -1764,6 +1775,10 @@ VLCObj.prototype = {
 			_vlcobj.vlc.playlist.play();
 
 		_vlcobj.stateUpdate();
+
+		_i = _vlcobj.instance;
+		if(_i.bjumpTS)
+			_i.onHashChange(_i.win.location.href);
 	},
 	pause: function(){
 		this.wrappedJSObject.VLCObj.vlc.playlist.togglePause();
@@ -1852,9 +1867,15 @@ VLCObj.prototype = {
 		this.stopUpdate = true;
 		this.instance.win.clearTimeout(this.updateTimer);
 		this.stateUpdate(); //final update
+		//stupid hang
+		var that = this;
+		this.instance.win.setTimeout(function(){
+			that.playlistNext();
+		}, stateUpdateFreq);
 	},
 	updateTick: function(){
 		this.stateUpdate();
+		this.playlistNext();
 		var that = this;
 		if(!this.stopUpdate)
 			that.updateTimer = that.instance.win.setTimeout(function(e){that.updateTick();}, stateUpdateFreq);
@@ -1862,7 +1883,7 @@ VLCObj.prototype = {
 	goto: function(link)
 	{
 		win = this.instance.win.wrappedJSObject;
-		shuf = this.instance.doc.querySelector('#watch7-playlist-bar-shuffle-button');
+		shuf = this.instance.doc.querySelector('div.playlist-nav-controls button.shuffle-playlist');
 		link += shuf && shuf.classList.contains('yt-uix-button-toggled') && !link.match(/shuffle/i) ? 
 					"&shuffle="+this.instance.yt.getConfig('SHUFFLE_VALUE', 0) : "";
 		if(win.spf && win.spf.navigate)
@@ -1887,37 +1908,6 @@ VLCObj.prototype = {
 
 			if(this.ccObj) this.ccObj.update(this.vlc.input.time / 1000, this.vlc);
 
-			if(!this.instance.nextFailed && this.vlc.input.state == 6 && this.instance.yt &&
-				this.instance.ytplayer && //this.instance.yt.getConfig("LIST_AUTO_PLAY_VALUE", false)
-				GM_getValue('vlc-pl-autonext', false)
-				)
-			{
-				//Uncomment if you want some delay before next starts to play
-				//setTimeout(function(){
-
-					var next = this.instance.doc.querySelector('li[data-index="'+(this.instance.ytplayer.config.args.index+1)+'"] ~ li a');
-					if(next)
-					{
-						console.log("going to play next one.");
-						this.goto(next.href);
-						return;//Skip stateUpdate, if not called from setTimeout
-					}
-					else if((next = this.instance.doc.querySelector('#watch7-playlist-tray li a'))) //first
-					{
-						console.log("from the top.");
-						this.goto(next.href);
-						return;//Skip stateUpdate, if not called from setTimeout
-					}
-					else
-					{
-						this.instance.nextFailed = true;
-					//    VLCObj.prototype.stateUpdate(obj);//Start vlc polling again if called from setTimeout
-					}
-
-				//}, 3000); //wait 3 secs
-				//return;//Stop stateUpdate, if using setTimeout
-			}
-
 			if(false && !vsTxt && this.vlc.video.width>0)
 			{
 				vsTxt = true;
@@ -1925,6 +1915,36 @@ VLCObj.prototype = {
 			}
 		}catch(e){
 			if(console) console.log('stateUpdate: '+e);
+		}
+	},
+	playlistNext: function()
+	{
+		if(!this.instance.nextFailed && this.vlc.input.state == 6 && this.instance.yt &&
+				this.instance.ytplayer && 
+				GM_getValue('vlc-pl-autonext', false)
+				)
+		{
+			//Uncomment if you want some delay before next starts to play
+			//setTimeout(function(){
+
+				var next = this.instance.doc.querySelector('li[data-index="'+(this.instance.ytplayer.config.args.index+1)+'"] ~ li a');
+				if(next)
+				{
+					console.log("going to play next one.");
+					this.goto(next.href);
+				}
+				else if((next = this.instance.doc.querySelector('ol.playlist-videos-list li a'))) //first
+				{
+					console.log("from the top.");
+					this.goto(next.href);
+				}
+				else
+				{
+					this.instance.nextFailed = true;
+				}
+
+			//}, 3000); //wait 3 secs
+			//return;//Stop stateUpdate, if using setTimeout
 		}
 	},
 };
@@ -2029,35 +2049,16 @@ ScriptInstance.prototype.setSideBar = function(wide)
 	if(!el) return;
 
 	var ply = this.$(gPlayerID);
-	var plbtn = this.$('watch7-playlist-bar-toggle-button');
 
-	if(!wide)
-	{
-		if(plbtn) plbtn.style.display = "none";
+	if(!wide) {
 		el.classList.remove('watch-wide');
-
-		if(this.getPL())
-		{
-			//uncollapses playlist
-			ply.classList.remove('watch-playlist-collapsed');
-			//stop `.watch-medium .watch7-playlist-bar` rule affecting playlist width
-			ply.classList.remove('watch-medium');
-		}
-	}
-	else
-	{
-		if(plbtn) plbtn.style.display = "inline";
+	} else {
 		el.classList.add('watch-wide');
-		if(this.getPL())
-		{
-			ply.classList.add('watch-playlist-collapsed');
-			ply.classList.add('watch-medium');
-		}
 	}
 
 	var branded = this.$('player-branded-banner');
 	var sidebar = this.$('watch7-sidebar');
-	if(!this.getPL() && sidebar)
+	//if(!this.getPL() && sidebar)
 	{
 		sidebar.style.marginTop = (-this.player.clientHeight - (branded?branded.clientHeight:0)) + "px";
 	}
@@ -2123,27 +2124,23 @@ ScriptInstance.prototype.setPlayerSize = function(wide, subs)
 	{
 		// Hardcoded for 50px wide #vlcstate
 		// Mystery 22/7/2px (margins+paddings+border sizes?) and 5px for margin
-		var cw = w /*- this.$('vlcstate').clientWidth*/ - 22 - 26;
+		var cw = w /*- this.$('vlcstate').clientWidth*/ - 22 - 26 - 10;
 		if(!this.buseWidePosBar && !this.bcompactVolume) cw -= this.$('sbVol').clientWidth + 7 + 5;
 		if(this.bshowRate) cw -= this.$('ratebar').clientWidth + 2 + 5;
-		this.$('sbSeek').style.width = cw + 'px';
+		this.$('sbSeek').style.width = Math.max(cw,100) + 'px';
 	}
 
 	playlist = this.getPL();
 	if(playlist)
 	{
-		var el = this.doc.querySelector('div#watch7-playlist-data div.watch7-playlist-bar-left');
-		if(!wide)
-		{
-			playlist.style.height = (vlc.clientHeight) + 'px';
-			playlist.style.left = '';
-			if(el) el.style.width = '';
-		}
-		else
-		{
-			playlist.style.height = (h) + 'px';
-			playlist.style.left = (vlc.clientWidth - playlist.clientWidth) + 'px';
-			if(el) el.style.width = (vlc.clientWidth-275) + "px";
+		var el = this.doc.querySelector('#watch-appbar-playlist ol');
+		var hdr = this.doc.querySelector('div.playlist-header');
+		if(!wide) {
+			playlist.style.height = (vlc.clientHeight ) + 'px';
+			el.style.maxHeight = (vlc.clientHeight - hdr.clientHeight) + 'px';
+		} else {
+			playlist.style.height = '';
+			//TODO el.style.maxHeight to something
 		}
 	}
 
@@ -2251,18 +2248,21 @@ ScriptInstance.prototype.onHashChange = function(ev)
 {
 	var off = 0, match;
 
-	if(typeof(ev) == 'string')
-		match = ev.match(/[#&]a?t=(\d+)m?(\d+)?s/);
-	else
-		//Either secs+gibberish or min+sec+gibberish
-		//so to jump to 1minute, also append '0' for seconds like #t=1m0 :P
-		match = ev.newURL.match(/#a?t=(\d+)m?(\d+)?s?/);
+	//Should support:
+	// [#&]a?t=2m or [#&]a?t=2m34 or [#&]a?t=2m34s
+	// [#&]a?t=34s or [#&]a?t=34
 
+	if(typeof(ev) === 'string')
+		match = ev.match(/[#&]a?t=(\d+)(m)?(\d+)?s?/);
+	else
+		match = ev.newURL.match(/#a?t=(\d+)(m)?(\d+)?s?/);
 
 	if(!match) return;
 
-	if(match[2] != undefined)
-		off = 60*match[1] + parseInt(match[2]);
+	if(match[3] != undefined)
+		off = 60*match[1] + parseInt(match[3]);
+	else if(match[2])
+		off = match[1] * 60;
 	else
 		off = match[1];
 
@@ -2287,12 +2287,12 @@ ScriptInstance.prototype.onSetCC = function(name, lang)
 				});
 }
 
-ScriptInstance.prototype.parseCCTrack = function(responseDetails) {
-	if(responseDetails.status==200){
-		if(responseDetails.responseText){
+ScriptInstance.prototype.parseCCTrack = function(r) {
+	if(r.status==200){
+		if(r.responseText){
 
 			parser=new DOMParser();
-			xmlDoc=parser.parseFromString(responseDetails.responseText, "text/xml");
+			xmlDoc=parser.parseFromString(r.responseText, "text/xml");
 
 			if(xmlDoc.firstChild.nodeName == 'transcript')
 			{
@@ -2306,11 +2306,11 @@ ScriptInstance.prototype.parseCCTrack = function(responseDetails) {
 	}
 }
 
-ScriptInstance.prototype.parseCCList = function(responseDetails) {
-	if(responseDetails.status==200){
-		if(responseDetails.responseText){
+ScriptInstance.prototype.parseCCList = function(r) {
+	if(r.status==200){
+		if(r.responseText){
 			parser=new DOMParser();
-			xmlDoc=parser.parseFromString(responseDetails.responseText, "text/xml");
+			xmlDoc=parser.parseFromString(r.responseText, "text/xml");
 
 			if(xmlDoc && xmlDoc.childNodes.length>0 &&
 				xmlDoc.firstChild.nodeName == "transcript_list" &&
@@ -3138,6 +3138,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-dark-theme", 'bdarkTheme'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-adaptives", 'badaptiveFmts'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-mute-button", 'bshowMute'));
+		chkboxes.appendChild(this._makeCheckbox("vlc-config-jumpts", 'bjumpTS'));
 		config.appendChild(chkboxes);
 
 	}
@@ -3379,7 +3380,7 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 
 ScriptInstance.prototype.getPL = function()
 {
-	return this.$('watch7-playlist-tray-container');//if in playlist mode
+	return this.$('watch-appbar-playlist');//if in playlist mode
 }
 
 ///On 'watch' page
@@ -3456,10 +3457,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 	if(this.bscrollToPlayer) this.player.scrollIntoView(true);
 	//if(!this.matchEmbed) this.generateMPD();
 
-	var pltrim = this.$('watch7-playlist-tray-trim');
-	if(pltrim) pltrim.parentNode.removeChild(pltrim);
-
-	var plbtn = this.$('watch7-playlist-bar-autoplay-button');
+	var plbtn = this.doc.querySelector('div.playlist-nav-controls button.toggle-autoplay');
 
 	if(plbtn)
 	{
