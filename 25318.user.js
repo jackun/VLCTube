@@ -15,13 +15,15 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        47
+// @version        48.2
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
-// Tested on Arch linux, Fx27+, vlc 2.2.0-git, npapi-vlc-git from AUR
+// Tested on Arch linux, Fx28+, vlc 2.1.4, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2014-03-30 Signature deciphering. Call focus() on vlc plugin
+//2014-03-13 Watch Later button option
 //2014-03-11 Fixed the playlist?
 //2014-03-10 Jump to timestamp option
 //2014-03-01 CSS hacks and fix some margins
@@ -34,44 +36,6 @@
 //2014-01-06 Call stateUpdate on spf nav.
 //2014-01-04 Pass unsafeWindow to tampermonkey
 //2014-01-03 Mute button test
-//2013-11-15 Hook into spf
-//2013-11-15 Watch later for embed, finally. Embed error message.
-//2013-11-13 Various stuff
-//2013-11-05 Mess with audio
-//2013-11-01 Less leaky preload?
-//2013-11-01 BETAish: storyboard when seeking. Playlist uses ajax/spf. Playlist can has shuffle?
-//2013-10-20 Sig decipher. Cleanup deciphering code. Using animationStart event
-//2013-10-16 Vorbis only webms and misc fixes
-//2013-10-16 Adaptive formats. Comments load with softReload?
-//2013-10-09 Option to only autoplay playlists
-//2013-10-07 Fix subtitles. Download link has a title for filename? 
-//           Another sig decipher
-//2013-10-03 Fix subtitle <select/> with softReloadPlayer
-//           Also setSideBar
-//2013-10-02 More test for widescreen video
-//           Fix: set player wide again with xhr
-//           GM_getValue returns nothing?
-//2013-09-30 Another decipher for 83 chars long signature
-//           Widescreen hack
-//2013-09-30 Temporary hack fix until VLC starts to work again
-//2013-09-27 Feather mode kinda works for Firefox without Flashblock blocking.
-//2013-09-26 Mess with volume restore/save. Bolt that 'guide-bar' down.
-//2013-09-20 Not fully realized user page mode. Signature decipher for sig with 93 length (?)
-//2013-09-13 #movie_player ID as global var, changed back to #movie_player for compat.
-//           with other scripts etc + more funcs. Fix saving selected format.
-//2013-09-10 Fix if video only has one flv stream and "discard FLVs" is selected
-//2013-09-09 Signature decryption. Needs testing.
-//2013-09-08 Set popup body background to black if in dark theme "compat. mode"
-//2013-09-07 Add removeEventListener function to VLCObj for Chrome otherwise comments failed to load
-//2013-09-07 Embed check ugh. Use different ID. Set player size.
-//2013-09-07 Chrome: Test for VIDEO_ID in SCRIPT instead, embedded video fix maybe
-//2013-09-03 Fixed player getting overridden? Fixed dynamic page load in chrome?
-//2013-08-30 Use 'itag' instead of 'quality'
-//2013-08-29 Calling restoreSettings made VLC plugin hang in Chrome(ium)
-//2013-08-28 Use document-start again and try to intercept flash player, little fixups
-//2013-08-26 Can has dynamic loading with Chrom{e,ium} pls?
-//           Wait for plugin to become available
-//2013-08-26 More compatible with tampermonkey
 
 //TODO https://www.youtube.com/watch?v=IHGEdi6HblI  rtmpe
 //stream http://www.youtube.com/watch?v=jrZcAsPKK74
@@ -151,6 +115,7 @@ var gLangs = {
 		'MUTE' : 'Mute',
 		'vlc-config-mute-button' : ['Show mute button', ''],
 		'vlc-config-jumpts' : ['Always jump to timestamp', 'if it is specified in URL.'],
+		'vlc-config-wl-main' : ['Always show Watch Later button', 'Not just embedded videos.'],
 		},
 	"et": {
 		'LANG'  : 'Eesti',
@@ -536,6 +501,7 @@ ScriptInstance.prototype.initVars = function(){
 	this.setDefault("badaptiveFmts", false);
 	this.setDefault("bshowMute", false);
 	this.setDefault("bjumpTS", false);
+	this.setDefault("bshowWLOnMain", false);
 }
 
 /// Helpers
@@ -727,9 +693,10 @@ function GetDecodeParam(str)
 		funcParam = m[1];
 		funcCodeLines = m[2].split(';');
 
-		rSwap = new RegExp(funcParam+'=\\w+\\('+funcParam+',(\\d+)');
-		rSlice = new RegExp(funcParam+'.slice\\((\\d+)');
-		rReverse = new RegExp(funcParam+'.reverse');
+		//rSwap = new RegExp(funcParam+'=\\w+\\('+funcParam+',(\\d+)');
+		rSwap = new RegExp('=\\w+\\[(\\d+)\\%\\w+\\.length\\]');
+		rSlice = new RegExp(funcParam+'\\.slice\\((\\d+)');
+		rReverse = new RegExp(funcParam+'\\.reverse');
 
 		for(i=0;i<funcCodeLines.length;i++)
 		{
@@ -2796,6 +2763,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		{
 			buttons.id = "vlc_buttons_div";
 			buttons.appendChild(this._makeButton('_play', _("PLAY")));
+			buttons.autofocus = true;
 			//if(pause) buttons.appendChild(this._makeButton('_pause', "Pause"));
 			buttons.appendChild(this._makeButton('_stop', _("STOP")));
 			buttons.appendChild(this._makeButton('_fs', _("FS")));
@@ -2878,7 +2846,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		if(!this.matchEmbed) buttons.appendChild(configbtn);
 
 		//if embed and logged in
-		if(this.matchEmbed && typeof(this.swf_args.authuser) != 'undefined' && this.swf_args.authuser == 0)
+		if((this.matchEmbed || this.bshowWLOnMain) && typeof(this.swf_args.authuser) != 'undefined' && this.swf_args.authuser == 0)
 		{
 			var watchbtn = this._makeButton('vlc-watchlater-btn', _('WATCHLATER'), false);
 			watchbtn.addEventListener('click', function(ev)
@@ -3139,6 +3107,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-adaptives", 'badaptiveFmts'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-mute-button", 'bshowMute'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-jumpts", 'bjumpTS'));
+		chkboxes.appendChild(this._makeCheckbox("vlc-config-wl-main", 'bshowWLOnMain'));
 		config.appendChild(chkboxes);
 
 	}
@@ -3495,7 +3464,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 	// wait or GM_s/getValue return garbage
 	this.win.setTimeout(function(){
 		//watchPage = /\/watch/.test(that.win.location.href);
-		console.log("Watch:", watchPage, that.win.location.href);
+		//console.log("Watch:", watchPage, that.win.location.href);
 		if(!that.isPopup && !watchPage && !upsell) return;
 		if(spfNav)
 		{
@@ -3838,6 +3807,8 @@ ScriptInstance.prototype.setupVLC = function()
 			case 5: case 6: return 0;//stopped, ended
 		}
 	}
+	//uh, wait for elements to load some
+	this.win.setTimeout(function(){document.querySelector('#'+vlc_id+'_play').focus();}, 150);
 }
 
 ScriptInstance.prototype.queryCC = function()
