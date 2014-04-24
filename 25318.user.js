@@ -15,13 +15,15 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        50.3
+// @version        51
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx28+, vlc 2.1.4, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2014-04-24 Separate url map parse from DOM generation so we can fail earlier
+//           and allow flashplayer to take over. May need manual refreshing with SPF.
 //2014-04-24 this -> that. Embed font/css for icons
 //2014-04-24 Cleanup
 //2014-04-24 Alternate method for / quick fix for popups (security errors)
@@ -1488,6 +1490,7 @@ function ScriptInstance(_win, popup, oldNode, upsell)
 	this.isCiphered = false;
 	this.sigDecodeParam = null;
 	this.storyboard = null;
+	this.urlMap = [];
 
 	this.isPopup = popup;
 	this.win = _win;
@@ -1692,11 +1695,17 @@ ScriptInstance.prototype.insertYTmessage = function(message){
 		baseDiv = this.$('alerts');
 		container = this.doc.createElement('div');
 		msg = this.doc.createElement('pre');
+		link = this.doc.createElement('a');
+		link.href= "#";
+		link.onclick = function(){removeChildren(baseDiv, true); return false;};
+		link.innerHTML = "Close";
 		msg.id = "iytmsg";
 		container.setAttribute("style","position:relative;background: #FFA0A0; color: #800000; border: 1px solid; border-color: #F00;");
 		msg.setAttribute("style","text-align:center; margin-top:1em; margin-bottom:1em;");
+		container.appendChild(link);
 		container.appendChild(msg);
 		baseDiv.appendChild(container);
+		
 		//baseDiv.insertBefore(container,
 		//    document.getElementById('content'));
 
@@ -3258,7 +3267,6 @@ ScriptInstance.prototype.parseLive = function()
 	{
 		getXML(this.swf_args.hlsvp, function(pl)
 		{
-			selectNode = that.selectNode || that.$(vlc_id+"_select");
 			//console.log(pl);
 			tokenized = pl.split('\n');
 			for(i=0;i<tokenized.length-1;i++)
@@ -3266,29 +3274,35 @@ ScriptInstance.prototype.parseLive = function()
 				if((m = /#EXT-X-STREAM-INF.*?RESOLUTION=(\d+\w\d+)/.exec(tokenized[i])) &&
 					/http/i.test(tokenized[i+1]))
 				{
-					var option = that.doc.createElement("option");
-					option.setAttribute("name",  "Live " + m[1]);
-					option.setAttribute("value", tokenized[i+1]);
-					option.textContent = "Live " + m[1];
-					selectNode.appendChild(option);
+					var obj = {};
+					obj.name = "Live " + m[1];
+					obj.url  = tokenized[i+1];
+					obj.text = "Live " + m[1];
+					that.urlMap.push(obj);
 				}
 			}
+			//regen with live feeds
+			that.genUrlMapSelect();
 		}
 		);
-	}
+	} else
+		return false;
+	return true;
 }
 
 ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 {
 	if(!urls) return;
 	var that = this;
-	this.selectNode = this.selectNode || this.$(vlc_id+"_select") || this.doc.createElement('select');
-	if(clean) removeChildren(this.selectNode, true);
+	//this.selectNode = this.selectNode || this.$(vlc_id+"_select") || this.doc.createElement('select');
+	//if(clean) removeChildren(this.selectNode, true);
+	if(clean) this.urlMap = [];
 	this.sigDecodeParam = null;
 	rCLen = new RegExp("clen=(\\d+)");
 	rDur = new RegExp("dur=(\\d+)");
 	urls.split(',').forEach(function(map){
 		var kv = {};
+		var obj = {};
 		map.split('&').forEach(function(a)
 		{
 			var t = a.split('=');
@@ -3305,30 +3319,20 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 			if(that.bdiscardFLVs && type == 'x-flv')
 				return;
 			var url = kv['url'];
-			var option = that.doc.createElement("option");
-			option.setAttribute("name",  kv['itag']);
-			option.setAttribute("value", url);
-			if('s' in kv)
-			{
-				option.setAttribute("s", kv['s']);
-				that.isCiphered = true;
-			}
-			else
-				option.setAttribute("sig", kv['sig']);
+			obj.name = kv['itag'];
+			obj.url = url;
 
-			if('fallback_host' in kv)
-				option.setAttribute("fallback", kv['fallback_host']);
-			option.textContent = (kv['itag'] in itagToText ? itagToText[kv['itag']] : "Fmt " + kv['itag']);
+			obj.text = (kv['itag'] in itagToText ? itagToText[kv['itag']] : "Fmt " + kv['itag']);
 
 			if(rCLen.test(url))
 				kv['clen'] = rCLen.exec(url)[1];
 			if(rDur.test(url))
 				kv['dur'] = rDur.exec(url)[1];
-			option.wrappedJSObject.kv = kv;
+			obj.kv = kv;
 
-			//if(kv['stereo3d']) option.textContent += '/stereo3D';
-			that.selectNode.appendChild(option);
+			//if(kv['stereo3d']) obj.text += '/stereo3D';
 			that.qualityLevels.push(kv['itag']);
+			that.urlMap.push(obj);
 		}
 		else if(!that.weirdstreams)
 		{
@@ -3340,7 +3344,7 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 	});
 
 	//try again
-	if(!this.selectNode.hasChildNodes() && this.bdiscardFLVs)
+	if(!this.urlMap.length && this.bdiscardFLVs)
 	{
 		console.log("now with FLVs");
 		this.bdiscardFLVs = false;
@@ -3351,19 +3355,52 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 	if(clean && this.ytplayer && this.ytplayer.config.args.dashmpd
 		&& this.ytplayer.config.args.dashmpd !== '')
 	{
-		var option = this.doc.createElement("option");
-		option.setAttribute("name",  "0");
-		option.setAttribute("value", this.ytplayer.config.args.dashmpd);
-		option.textContent = "DASH";
-		this.selectNode.appendChild(option);
+		var obj = {};
+		obj.name = "0";
+		obj.url = this.ytplayer.config.args.dashmpd;
+		obj.text = "DASH";
 		this.qualityLevels.push(0);
+		that.urlMap.push(obj);
 	}
 
-	if(!this.selectNode.hasChildNodes())
+	if(!this.urlMap.length)
 	{
 		console.log("no stream maps");
 		return false;
 	}
+
+	return true;
+}
+
+ScriptInstance.prototype.genUrlMapSelect = function()
+{
+	var that = this;
+	this.selectNode = this.selectNode || this.$(vlc_id+"_select") || this.doc.createElement('select');
+	removeChildren(this.selectNode, true);
+
+	this.urlMap.forEach(function(item){
+		var option = that.doc.createElement("option");
+		option.setAttribute("name",  item.name);
+		option.setAttribute("value", item.url);
+		option.textContent = item.text;
+
+		if(item.kv)
+		{
+			if('s' in item.kv)
+			{
+				option.setAttribute("s", item.kv.s);
+				that.isCiphered = true;
+			}
+			else
+				option.setAttribute("sig", item.kv.sig);
+			if('fallback_host' in item.kv)
+				option.setAttribute("fallback", item.kv.fallback_host);
+			//used for custom MPD generation, probably remove all of it
+			option.wrappedJSObject.kv = item.kv;
+		}
+
+		that.selectNode.appendChild(option);
+	});
 
 	return true;
 }
@@ -3387,6 +3424,18 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 			console.log("no source");
 			this.insertYTmessage ('VLCTube: Unable to find video source');
 			return false;
+		}
+		if(gotVars) {
+			var hasStreams = this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map'], true);
+			hasStreams = (this.badaptiveFmts && this.parseUrlMap(this.swf_args['adaptive_fmts'])) || hasStreams;
+			hasStreams = this.parseLive() || hasStreams;
+
+			if(!hasStreams)
+			{
+				that.insertYTmessage ('VLCTube: Nothing to play! Bailing... Flash player should load now.');
+				console.log("Nothing to play! Bailing...");
+				return;
+			}
 		}
 
 		//FIXME Already removed, but html5 player element doesn't get the hint
@@ -3426,21 +3475,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 		this.makeDraggable();
 
 		this.setupVLC();
-
-		if(gotVars) {
-			if(!this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map'], true))
-			{
-				console.log("no url maps");
-				//TODO maybe can just ignore to reappend and let YT js use .write()
-				//if(oldNode) this.$(gPlayerApiID).appendChild(oldNode);
-				//return false;
-			}
-
-			if(this.badaptiveFmts)
-				this.parseUrlMap(this.swf_args['adaptive_fmts']);
-
-			this.parseLive();
-		}
+		this.genUrlMapSelect();
 	}
 
 	this.setThumbnailVisible(this.buseThumbnail);
@@ -3496,15 +3531,20 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 				return;
 			}
 
-			if(!that.parseUrlMap(that.swf_args['url_encoded_fmt_stream_map'], true))
+			var hasStreams = this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map'], true);
+			hasStreams = (this.badaptiveFmts && this.parseUrlMap(this.swf_args['adaptive_fmts'])) || hasStreams;
+			hasStreams = this.parseLive() || hasStreams;
+
+			if(!hasStreams)
 			{
-				that.insertYTmessage ('VLCTube: Unable to find video streams');
-				console.log("no streams");
+				//Bit iffy with spf
+				that.insertYTmessage ('VLCTube: Unable to find video streams. Reloading in 3 seconds for flash player.');
+				console.log("Nothing to play! Bailing...");
+				that.win.setTimeout(function(){that.win.location.reload();}, 3000);
 				return;
 			}
 
-			if(that.badaptiveFmts)
-				that.parseUrlMap(that.swf_args['adaptive_fmts']);
+			that.genUrlMapSelect();
 
 			that.thumb = that.doc.querySelector("span[itemprop='thumbnail'] link[itemprop='url']");
 			var tn = that.doc.querySelector("#vlc-thumbnail");
@@ -3574,6 +3614,7 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 					}catch(e){}
 
 					that.parseUrlMap(decodeURIComponent(param_map['url_encoded_fmt_stream_map']), true);
+					that.genUrlMapSelect();
 
 					//set global width/height before generation
 					that.width = "100%";
