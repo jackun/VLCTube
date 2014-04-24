@@ -15,13 +15,20 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        48.2
+// @version        50.3
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx28+, vlc 2.1.4, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2014-04-24 this -> that. Embed font/css for icons
+//2014-04-24 Cleanup
+//2014-04-24 Alternate method for / quick fix for popups (security errors)
+//2014-04-17 Testing font Awesome Icons
+//2014-04-17 Option to auto select subtitle
+//2014-04-10 focus() leads to random scroll
+//2014-04-07 Signature deciphering flippity-boppity -_-
 //2014-03-30 Signature deciphering. Call focus() on vlc plugin
 //2014-03-13 Watch Later button option
 //2014-03-11 Fixed the playlist?
@@ -42,9 +49,9 @@
 //ciphered http://www.youtube.com/watch?v=6CTHwEZK2JA
 //unavail https://www.youtube.com/watch?v=gSEzGDzZ1dY
 //has/had non-dash 1080p http://www.youtube.com/watch?v=-MJiR5IksEk
-//subtitle test https://www.youtube.com/watch?v=7_RbPb98lAg
 //subtitle test https://www.youtube.com/watch?v=sqll1Rib93g
 //state play: 1, pause: 2, stop/end: 0
+"use strict;"
 var gPlayerApiID = 'player-api';//-legacy';
 var gPlayerID = 'player';//-legacy';
 var gMoviePlayerID = 'movie_player'; ///< Change to something else if flash/html5 player keeps overwriting VLC player
@@ -66,7 +73,7 @@ var gLangs = {
 		'FS'    : 'Fullscreen',
 		'WIDE'  : 'Wide',
 		'DND'   : 'Drag and drop to rearrange.',
-		'LINKSAVE' : 'Right click and save.',
+		'LINKSAVE' : 'Download',
 		'DOWNLOAD' : 'Download',
 		'WATCHYT'  : 'Watch on YT',
 		'POSITION' : 'Position',
@@ -116,6 +123,9 @@ var gLangs = {
 		'vlc-config-mute-button' : ['Show mute button', ''],
 		'vlc-config-jumpts' : ['Always jump to timestamp', 'if it is specified in URL.'],
 		'vlc-config-wl-main' : ['Always show Watch Later button', 'Not just embedded videos.'],
+		'vlc-config-subs-on' : ['Auto enable subtitle', 'Selects first subtitle and enables it if any is available.'],
+		'vlc-config-btn-icons' : ['Use button icons', 'Show icons instead of text.'],
+		'CONFIG' : 'Configuration',
 		},
 	"et": {
 		'LANG'  : 'Eesti',
@@ -341,190 +351,14 @@ var textToItag = {};
 var headers = {'User-agent': 'Mozilla/5.0 (compatible) Greasemonkey',
 				'Accept': 'text/xml'};
 
-/* ***********************************************
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- *         ScriptInstance constructor
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * ***********************************************/
-
-/// Script instance to allow popup windows live separately. Works?
-function ScriptInstance(_win, popup, oldNode, upsell)
-{
-	this.gTimeout = null;
-	this.width = 640;
-	this.widthWide = GM_getValue('vlc-wide-width', '86%'); //854; //Supports plain numbers as pixels or string as percentages
-	this.minWidthWide = 854; //min width with percentages
-	this.height = 480;
-	this.window = null; 
-	this.doc = null; 
-	this.myvlc = null;
-	this.yt = null; 
-	this.ytplayer = null; 
-	this.swf_args = null; 
-	this.matchEmbed = false;
-	this.scroll1 = null; 
-	this.scroll2 = null; 
-	this.scroll3 =null;
-	this.isPopup = false;
-	// User didn't change format etc so don't save the settings
-	this.fmtChanged = false;
-	this.isWide = false;
-	this.usingSubs = false;
-	this.nextFailed = false; //Failed to get next video in playlist
-	this.thumb = null; //thumbnail node
-	this.moviePlayer = null;
-	this.moviePlayerEvents = null;
-	this.quality = null;
-	this.qualityLevels = [];
-	this.isCiphered = false;
-	this.sigDecodeParam = null;
-	this.storyboard = null;
-
-	this.isPopup = popup;
-	this.win = _win;
-	this.doc = _win.document;
-	//Is on embedded iframe page?
-	this.matchEmbed = this.win.location.href.match(/\/embed\//i);
-	this.feather = unsafeWindow["fbetatoken"] || this.doc.querySelector("div#lc div#p") ? true : false;
-	this.initVars();
-
-	var unavail = this.$('player-unavailable');
-	if(unavail && !unavail.classList.contains("hid")) //works?
-	{
-		console.log("video seems to be unavailable");
-		return;
-	}
-
-	this.putCSS();
-
-	if(!this.matchEmbed || popup)
-	{
-		this.onMainPage(oldNode, false, upsell);
-	}
-	else
-	{
-		this.exterminate();
-		this.onEmbedPage();
-	}
-
-	//Trouble setting size through CSS so just force it for now atleast
-	var that = this;
-	if(popup) this.win.addEventListener('resize', function(e){ that.setPlayerSize(); }, false);
-
-	for(i in itagToText)
-	{
-		textToItag[itagToText[i]] = parseInt(i);
-	}
-
-	if(!upsell && !popup) this.hookSPF();
-}
-
-ScriptInstance.prototype.hookSPF = function(){
-
-	var that = this;
-	if(unsafeWindow["_spf_state"] === undefined) {
-		that.win.setTimeout(function(){that.hookSPF();}, 50);
-		return;
-	}
-
-	spf_cb = unsafeWindow["_spf_state"].config["navigate-processed-callback"];
-	unsafeWindow["_spf_state"].config["navigate-processed-callback"] = function(e){
-		//console.log('navigate-processed-callback', e);
-		spf_cb(e);
-		//FIXME GM_getValue fails otherwise, uh
-		that.win.setTimeout(function(){
-			that.onMainPage(null, true);
-			if(/\/user\//.test(that.win.location.href))
-				loadPlayer(that.win, null, true);
-		}, 10);
-	};
-}
-
-
-
-
-
-ScriptInstance.prototype.initVars = function(){
-	///User configurable booleans
-	this.setDefault("bautoplay", true);
-	this.setDefault("bautoplayPL", true);
-	//Some formats don't seek so well :(
-	this.setDefault("bresumePlay", false);
-	//Maybe obsolete, // TODO should make controls take up just one "line"
-	this.setDefault("bembedControls", false);
-	this.setDefault("buseHoverControls", false);
-	// Preloads video info, set to false if things get too slow
-	this.setDefault("bforceLoadEmbed", true);
-	this.setDefault("badd3DFormats", false);
-	// Force player div to use widescreen size. Can be helpful with smaller screens.
-	this.setDefault("bforceWS", false);
-	// Consider this a WIP
-	this.setDefault("bcompactVolume", false);
-	this.setDefault("balwaysBestFormat", false);
-	this.setDefault("bforceWide", false);
-	this.setDefault("bforceWidePL", false);
-	this.setDefault("buseThumbnail", true);
-	this.setDefault("bshowRate", false);
-	this.setDefault("buseRepeat", false);
-	this.setDefault("buseWidePosBar", false);
-	this.setDefault("busePopups", false);
-	this.setDefault("bpopupAutoplay", true);
-	this.setDefault("bpopupSeparate", false);
-	//this.setDefault("bignoreVol", false); //well, 'Always reset audio level to' doesn't appear to work with the plugin :/
-	//this.setDefault("bnormVol", false); //security, ignored
-	this.setDefault("bscrollToPlayer", false);
-	this.setDefault("bconfigDropdown", false);
-	this.setDefault("buseFallbackHost", false);
-	//flv sucks at seeking
-	this.setDefault("bdiscardFLVs", true);
-	//make a bit friendlier for dark themes
-	this.setDefault("bdarkTheme", false);
-	this.setDefault("badaptiveFmts", false);
-	this.setDefault("bshowMute", false);
-	this.setDefault("bjumpTS", false);
-	this.setDefault("bshowWLOnMain", false);
-}
-
-/// Helpers
-ScriptInstance.prototype.setDefault = function(key, def)
-{
-	if(GM_getValue(key, undefined) == undefined) GM_setValue(key, def);
-	this[key] = this.win[key] = GM_getValue(key, def);
-}
-
-ScriptInstance.prototype.$ = function(id){ return this.doc.getElementById(id); }
-ScriptInstance.prototype.$$ = function(id){ return this.doc.getElementsByClassName(id); }
-
 function tryParseFloat(v, def)
 {
 	v = parseFloat(v);
 	return isNaN(v) ? def : v;
 }
 
-function getArg(args, idx, def){
-	 return idx in args ? args[idx] : (def ? def : '');
-}
-
 function ft(i){ if (i>=10) return i; return '0'+i;}
+
 function fmttime(time)
 {
 	if(time < 0) time = 0;
@@ -535,86 +369,6 @@ function fmttime(time)
 	var h   = Math.floor(time / 3600000);
 	//return ft(m) +':'+ ft(s) + '.' + ft(ms);
 	return (h>0?ft(h)+':':'') + ft(m) +':'+ ft(s);
-}
-
-//eh, vlc not restoring volume so brute force it. timing issues? also greasemonkey access violation?
-ScriptInstance.prototype.saveVolume = function(sbVol)
-{
-	if(this.myvlc && this.myvlc.vlc && this.myvlc.vlc.audio)
-	{
-		var vol = this.myvlc.vlc.audio.volume;
-		if(sbVol)
-			GM_setValue('vlc_vol', Math.round(sbVol));
-		else if(vol > -1)
-			GM_setValue('vlc_vol', vol);
-	}else if(sbVol)
-		GM_setValue('vlc_vol', Math.round(sbVol));
-}
-
-ScriptInstance.prototype.restoreVolume = function(stopped)
-{
-	if(!this.myvlc.vlc.audio) return;
-	var that = this;
-	//Desktop app might have volume over 100%
-	var volSaved = Math.min(GM_getValue('vlc_vol', 100), 100);
-	if(volSaved < 0) GM_setValue('vlc_vol', 100); //fix bad save
-	//if(!bignoreVol)
-		this.myvlc.vlc.audio.volume = volSaved;
-
-	function setVol(v)
-	{
-		if(that.bcompactVolume) that.scroll2.bar.style.display = 'block'; //otherwise knob's position doesn't get updated
-		that.scroll2.setValue(v);
-		that.scroll2.bar.children.namedItem('vlcvol').innerHTML = v;
-		if(that.bcompactVolume) that.scroll2.bar.style.display = '';
-	}
-
-	if(this.scroll2)
-	{
-		setVol(volSaved); //New strategy, just keep hammering vlc with saved volume
-		if(/*!stopped && */this.myvlc.vlc.input.state == 3 &&
-			(this.myvlc.vlc.audio.volume < 0 || this.myvlc.vlc.audio.volume!=volSaved)){
-			setTimeout(function(e){that.restoreVolume();}, 250);
-		}
-	}
-}
-
-ScriptInstance.prototype.restoreSettings = function(ev){
-	this.restoreVolume();
-
-	var formats = GM_getValue("vlc-formats", undefined);
-	if(formats)
-		formats = cleanFormats(formats.split(','));
-	else
-		formats = itagPrio;
-
-	//quality
-	var q = GM_getValue('ytquality', undefined);
-	var sel = this.$(vlc_id+'_select');
-	var opt = sel.options.namedItem(q);
-
-	if(!opt || GM_getValue('balwaysBestFormat', false))
-	for(var i in formats)
-	{
-		opt = sel.options.namedItem(formats[i]);
-		if (opt) break;
-	}
-
-	if (opt)
-	{
-		opt.selected = true;
-		//this.onFmtChange(null, opt);
-	}
-	return true;
-}
-
-ScriptInstance.prototype.saveSettings = function(ev){
-	this.saveVolume();
-
-	if(this.fmtChanged && this.selectNode)
-	{
-		GM_setValue('ytquality', this.selectNode.options[this.selectNode.selectedIndex].getAttribute('name'));
-	}
 }
 
 function getMatches(string, regex, index) {
@@ -630,8 +384,7 @@ function getMatches(string, regex, index) {
 //Recursively remove node and node's children
 function removeChildren(node, keepThis)
 {
-	if(node == undefined ||
-		node == null)
+	if(node === undefined || node === null)
 	{
 		return;
 	}
@@ -693,14 +446,16 @@ function GetDecodeParam(str)
 		funcParam = m[1];
 		funcCodeLines = m[2].split(';');
 
-		//rSwap = new RegExp(funcParam+'=\\w+\\('+funcParam+',(\\d+)');
-		rSwap = new RegExp('=\\w+\\[(\\d+)\\%\\w+\\.length\\]');
+		rSwap1 = new RegExp(funcParam+'=\\w+\\('+funcParam+',(\\d+)');
+		rSwap2 = new RegExp('=\\w+\\[(\\d+)\\%\\w+\\.length\\]');
 		rSlice = new RegExp(funcParam+'\\.slice\\((\\d+)');
 		rReverse = new RegExp(funcParam+'\\.reverse');
 
 		for(i=0;i<funcCodeLines.length;i++)
 		{
-			if((m = rSwap.exec(funcCodeLines[i])))
+			if((m = rSwap1.exec(funcCodeLines[i])))
+				arr.push(parseInt(m[1]));
+			else if((m = rSwap2.exec(funcCodeLines[i])))
 				arr.push(parseInt(m[1]));
 			else if((m = rSlice.exec(funcCodeLines[i])))
 				arr.push(-parseInt(m[1]));
@@ -806,235 +561,6 @@ function DecryptSignature(sig, sts)
 ///
 ///	</Signature decipher>
 ///
-
-ScriptInstance.prototype.insertYTmessage = function(message){
-
-	console.log(message);
-	var baseDiv,container,msg;
-	msg = this.$('iytmsg');
-
-	if(!msg){
-		baseDiv = this.$('alerts');
-		container = this.doc.createElement('div');
-		msg = this.doc.createElement('pre');
-		msg.id = "iytmsg";
-		container.setAttribute("style","position:relative;background: #FFA0A0; color: #800000; border: 1px solid; border-color: #F00;");
-		msg.setAttribute("style","text-align:center; margin-top:1em; margin-bottom:1em;");
-		container.appendChild(msg);
-		baseDiv.appendChild(container);
-		//baseDiv.insertBefore(container,
-		//    document.getElementById('content'));
-
-	}else{
-		message = "\r\n" + message;
-	}
-
-	msg.appendChild(this.doc.createTextNode(message));
-}
-
-ScriptInstance.prototype.replaceYTmessage = function(message){
-	this.$('iytmsg').innerHTML=message;
-}
-
-ScriptInstance.prototype.addScriptSrc = function(src) {
-	var head, script;
-	head = this.doc.getElementsByTagName('head')[0];
-	if (!head) { return; }
-	script = this.doc.createElement('script');
-	script.type = 'text/javascript';
-	script.setAttribute('src', src);
-	head.appendChild(script);
-}
-
-ScriptInstance.prototype.addScript = function(src) {
-	var head, script;
-	head = this.doc.getElementsByTagName('head')[0];
-	if (!head) { return; }
-	script = this.doc.createElement('script');
-	script.type = 'text/javascript';
-	if(typeof src == "function")
-		src = "(" + src.toString() + ")();";
-	script.appendChild(this.doc.createTextNode(src));
-	head.appendChild(script);
-}
-
-ScriptInstance.prototype.putCSS = function(){
-
-	var css = ".player-api {overflow: visible;} /*for storyboard tooltip*/\
-	#"+ vlc_id + "-holder {overflow: hidden;}\
-	#cued-embed #video-title {position: absolute; left: 5px; top: 5px; background: rgba(0,0,0,0.75)} \
-	.movie_player_vlc select {padding: 5px 0;}\
-	a.vlclink { color:#438BC5; margin:5px;}\
-	.vlc_hidden { display:none !important; }\
-	.vlccontrols {padding:2px 5px; color: #333333;}\
-	/*.vlccontrols div {margin-right:5px; }*/\
-	.vlc-scrollbar{\
-		cursor: default /*ew-resize*/;\
-		position: relative;\
-		width: 90%; \
-		height: 15px;\
-		border: 1px solid #000;\
-		display: inline-block; \
-		text-align: center;\
-		margin-right: 5px;\
-		border-radius: 3px;\
-		background: #FFF;\
-		color: #444;\
-	}\
-	/*.vlc-scrollbar span {position:absolute;}*/\
-	/* volume and rate bar need absolute sizes */ \
-	#sbVol { width: 80px; } \
-	#ratebar { width: 150px; } \
-	.vlc-scrollbar .knob {\
-		left: 0px;\
-		top: 0px;\
-		position: absolute;\
-		width: 10px;\
-		height: 15px;\
-		background: rgba(175,43,38,0.8);\
-	}\
-	#sbVol .knob {background: rgba(0,51,153,0.8);}\
-	#ratebar .knob {background: rgba(0,153,51,0.8);}\
-	.sb-narrow { width: 125px; }\
-	.vlc-volume-holder { display:inline-block; } \
-	#vlcvol:after {content: '%';}\
-	.movie_player_vlc { background: white;}\
-	.progress-radial {\
-		margin-right: 5px;\
-		background-repeat: no-repeat; \
-		line-height: 16px; text-align: center; color: #EEE; font-size: 12px; \
-		display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #2f3439; background-color: tomato;}\
-	#vlc-thumbnail { width: 100%; height: 100%; cursor: pointer; }\
-	#vlc-sb-tooltip { border: 2px solid black; background: #000 no-repeat; z-index:999; width: 80px; height: 45px; \
-		position: relative; border-radius: 3px;left: -100%;top: 24px; \
-		/* flip in and out version */ \
-		/*display:none;*/ \
-		/* nice fading version */\
-		/*** display: none does not work ***/\
-		opacity: 0;\
-		transform: scaleY(0);\
-		-webkit-transform: scaleY(0); /*uh, why still*/\
-		transition: opacity 200ms 0ms ease, transform 0ms 200ms linear; /*wait before transforming*/ \
-	}\
-	#sbSeek:active #vlc-sb-tooltip, \
-	.knob:active #vlc-sb-tooltip {\
-		/* flip in and out version */\
-		/*display: block;*/\
-		/* nice fading version */\
-		transform: scaleY(1); /*using scaleY so el.style.height can be set from js*/\
-		-webkit-transform: scaleY(1); /*uh, why still*/\
-		opacity: 1;transition: opacity 200ms 200ms ease, transform 0ms 0ms linear;}\
-	#sbSeek:active #vlc-sb-tooltip.hid, .knob:active #vlc-sb-tooltip.hid { display:none; }\
-	/*#sbSeek:active {border: 2px dashed red;}*//*wtf, .knob make active, #vlctime doesn't */\
-	#vlc-sb-tooltip:before {border: 7px solid transparent;border-bottom: 7px solid #000;content: '';display: inline-block;left: 45%; position: absolute; top: -14px;}\
-	#vlc_buttons_div {text-align:left; padding: 5px; color:#333333; clear:both;}\
-	#vlc_buttons_div button, #vlc_buttons_div select { margin-right: 2px;}\
-	#vlc_buttons_div input[type='checkbox']{vertical-align: middle;}\
-	#watch7-playlist-tray { border-bottom: 1px solid #1B1B1B !important;}\
-	#vlcstate {text-align:left; display: inline-block; width: 50px;}\
-	#vlc-config .row { padding: 5px 0; border-bottom: 1px dotted #CCC; text-align: center; cursor: move; }\
-	#vlc-config .row.over { border: 2px dashed #000; }\
-	#vlc-config { color: #1b1b1b; background: white; overflow: auto; display:none;}\
-	#vlc-config > div { padding: 5px; float: left; border: 3px double #CCC;}\
-	#vlc-config-drag {font-size: 12px; border: 1px solid #CCC; width: 150px; padding-bottom: -1px;}\
-	#vlc-config-ok { clear: both; float: right; }\
-	#vlc-config-btn  span {width:24px; height: 24px; display: block; padding: 0px;\
-		background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA%2FwD%2FAP%2BgvaeTAAAACXBIWXMAAAsRAAALEQF%2FZF%2BRAAAAB3RJTUUH1gcRDxwh83SzRgAABEdJREFUSMe9lV1sk1UYx39vO7Yxx9hYNlgnjgUNIyi0bMEESqgOUDY%2BFENkookgiyBXOo2AM8c3JCt4YyKIgFwsuAuGJAZCYiBTXHSgTNeR8rEJc9Ru%2FVo3YOyr7fYeL2iXruumJuq5OTnP%2B57%2F7%2Fyfc55z4D9uSrygEEIAH4WH7wNNqqrW%2FWtUIYT0eT0yEBiSLS03pRBCVlRUlE60oJgF66IDugl%2BNHx2%2BHOkppFrMFBWtpnU1NRzgJwIUlRek%2FPSnpNaUXnNiYkAihDCCKCqqhswWPcfIDA0SH5%2B%2FqRpLSqvMQKu01Uv8%2BbagllF5TV1sQClsrJSBWxCiH0RiNlsRlHGmdTiGLA1HttCe3s7Sx%2BfWpyeklAc%2BZAQ7qfo9foPd%2B4oR6dPfA%2BoXLhwIQUF85BSQ1EUgoH%2Bn4UQRlVVm6OVF2%2BrNgJ0dHTQ3d3NzmOtAIZxdo8ePWrfsH7dkykpUwkFg0gpkVKOCqWlZ1BVZQUwhFPI%2FBf2GZNnPGq7fLiMpbtOoSgKI8MBU3P19uZxACFETnJy8o3nVxenz1%2FwFIqijO5p7727DyHT06my7gcwHP7q8szsBStt5z95hbUffMPwUO%2Bqa7UVdZPWgRDCmJeXd9zhcBRGYkuWLAmtXFk85cH9e0gpeWRaGgcOfMyXP%2FTw6TvP8e4Xv3Lf0WRyN59pjqMtlb%2BohxxgOVC7d%2B%2BeUSeZWTNRVZXqi256bv1oeuC%2BEVf8nxSeUQghNU2TXV637PK6paZpUgghI0d7oiM8qYOi8pocn6PNNRzoJfjAy651cxFC0N3lHeMkvPE%2BYCRWQz%2BZuL%2FT6XqxeC4lywvIToPqszYGfTdZU1LK4EA%2FgwP9rCkppb6%2BvsJisXxdX1%2Fv%2BVuAiPim1fN4bb0Zl9NBQsp0tMBdzl72MuC%2BGg%2Byw2KxnImF6CYS375xEds2ruDbuu9ovOkkIzuXtIwsEtNmAZhUVSUzayYA3V1eHl7A2GL2ZCwgIr7nDTNbSpdy6kwdv9y4g3mFhTt%2FuNHp9eiTpuH1ev3BYLAwHiQpKWkMRBd9Yfk7nS71rWfYtLqQE6fP0%2B50sap0Pa2tbXicbfx0W0ei1v3EkSNH7lqt1t88Ho85AgkEg2zd%2Bjq7d%2B8GsI0D%2BDudtrdffZoNlkXUnv2edqeL5c8W09JyG5fjFg2tGiFfk2nA70gDZgCZdrs9ZLfbS1VVxZA7m0OHDtHb2ztGOyE6RXlzZjOiSXyd7ePE%2B36%2FYPG3XAyFJ2YAukuXLg0D7r6%2Bvs0HDx482dPTg6ZpV0KhkDVSAqN1MKfEKtcuM2AqNDE3J52r129zpbGRhlaNAcfFZb7rF%2FwxrrWo%2BSNAAOgHhoDhcGxk1MGMWTmLzzW4miIJHBzoo6FVI0nXb9Eycu8B%2FqjijAhHXjgtLDgcJS7HVfLibdWmHo%2B7KTJOnZb42LXaCk%2FMvaLE6WWUKy08lvwf7U9RNAWyAew0pQAAAABJRU5ErkJggg%3D%3D') no-repeat;}\
-	/* Faenza 16px lpi_translate.png */ \
-	#vlc-config-lang-icon { margin-right: 5px; display: inline-block; width: 16px; height: 16px; background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAHiSURBVDiNlZPPi1JRFMc/570pXjbYKmo1Wbka4TUx4kIQEbGN0t6dSDxo4aK/oI3UP9C0a92uAodMN26ynJBsIdIiQ2ZwMCuY0cjpB50WPsXeCNUXDvde7j3fe873nCOqigfirsculmFlYW8CZ107AnaB7x6i4+SqiqqeS6VSdyzLeg7sG4bxNh6P31XVC6pqqKqoqqmqa6p6yT2jqoiqCrAhIo+Br+6vJrBqWdae4zgPbdvuVyqV9VKpdH0ymRSA17MoZgRXRWRrSYoWcAYwgJ/ASFVvAK0ZgbHw+Mg0zS/ZbLZZrVZfjMfjnXa7Xcvlck9FpAvsAYcLWsgigQCTcrn8JhKJnHAc54rf778WjUZjwWDQajabrVAo1LUs68D1WQMuAoIryCbwSFVvAa+AKvAE2AZ2AoHAs1qtdn8wGNzL5/O3fT5fVVU3VVXmZUwmk7vAR+CdR4dRr9dbTSQSYaZl/+a++0PEy8A6sC8iN5eIeQyqugW0VlymLvAe2GDaRP+MWQqL3fZfBIbnLOl0elSv1z8Nh8Nhp9M5zGQyBy6p1+YazJ2ZlsYGXgIj4BQQazQaoUKh8KPf74tt27+KxeLJcDj8APggnmlcNokCnAdiwGngM9AAht4I/gZZ2M+dfgPB0dbgsnwagQAAAABJRU5ErkJggg==') no-repeat;}\
-	.vlc-config-checkbox-div { /*min-width: 200px;*/ } \
-	.vlc-config-checkbox-div label:hover { background: #F8F8F8; border: 1px solid #D3D3D3; }\
-	#vlc-config-checkboxes { /*height: 255px; overflow-x: hidden; overflow-y: auto;*/ } \
-	/* custom checkboxes */\
-	#vlc-config-checkboxes label { width:100%;} \
-	#vlc-config-checkboxes label input { display:none; } \
-	#vlc-config-checkboxes label input + span { line-height: 120%; text-indent: 16px; width: 100%; display:inline-block;} \
-	.vlc-wl-state {padding-left: 16px;}\
-	.ccselect {max-width:85px;}\
-	/*Faenza 16px gtk-delete.png */\
-	.vlc-boo-bg {background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG7SURBVDiNpZOxSwJhGMaf5NPrwigiooQLokiChsh0a6klbmpoCiJKcrz/IjBoCqItkKChQZzEhhIuWiybAilOxQ7Dq9TCwC4v3wYt7iSXfOFdnu97Hnh/7/d1ERE6KVtH7jYBPADvH7q3eWYtIjI3H93yB7d5LqXKsvijq7IsbvNcKrrlDxIRb/ZYzLGAP7jrQDXEgXZ4pqiyLKqyLO7wTAlxoF0HqrGANaTLBNF75B49HCio0zYA73VABUsDgABj3GkD6gBKw8Lt2t3DJoArAJYA1F6epMTi3PrHozoLAJV6Q+9tkup2CTe+s+uQfXBorx0D9vmsSQmPkLwYAZk74RGSn8+aRETM7GndglHKKNm8rvc4HIC587reU8ooWQCG2WAZ4SVxIUaWF/YmOWO8j1mT3wzgXmfp5ci5NOibj/4V4D2e6A2N2d6n+u0NwT4s3ABArdBg8loDsnVnalWprP9AtKyxfHpykPGwSnoGlFsSkkZRk4yiJuWWhGR6BpTxsEr59OTAvMZWiK5qPLyvrbgvv4q/wNhXUZO0FfdlNR7eJyJXu4f0G0JEGy20WVNztd63QPxPdfwbvwG5Z15mC93/JQAAAABJRU5ErkJggg=='); background-repeat: no-repeat; background-position: 0 50%;} \
-	/*FIXME deduplicate :P*/ \
-	.vlc-boo-bg:hover {background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG7SURBVDiNpZOxSwJhGMaf5NPrwigiooQLokiChsh0a6klbmpoCiJKcrz/IjBoCqItkKChQZzEhhIuWiybAilOxQ7Dq9TCwC4v3wYt7iSXfOFdnu97Hnh/7/d1ERE6KVtH7jYBPADvH7q3eWYtIjI3H93yB7d5LqXKsvijq7IsbvNcKrrlDxIRb/ZYzLGAP7jrQDXEgXZ4pqiyLKqyLO7wTAlxoF0HqrGANaTLBNF75B49HCio0zYA73VABUsDgABj3GkD6gBKw8Lt2t3DJoArAJYA1F6epMTi3PrHozoLAJV6Q+9tkup2CTe+s+uQfXBorx0D9vmsSQmPkLwYAZk74RGSn8+aRETM7GndglHKKNm8rvc4HIC587reU8ooWQCG2WAZ4SVxIUaWF/YmOWO8j1mT3wzgXmfp5ci5NOibj/4V4D2e6A2N2d6n+u0NwT4s3ABArdBg8loDsnVnalWprP9AtKyxfHpykPGwSnoGlFsSkkZRk4yiJuWWhGR6BpTxsEr59OTAvMZWiK5qPLyvrbgvv4q/wNhXUZO0FfdlNR7eJyJXu4f0G0JEGy20WVNztd63QPxPdfwbvwG5Z15mC93/JQAAAABJRU5ErkJggg=='); background-repeat: no-repeat; background-position: 0 50%;} \
-	/*Faenza 16px ok.png */\
-	#vlc-config-checkboxes label input:checked + span, .vlc-ok-bg { background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAF9SURBVDiNpZM/SAJhGMafO/O48vMzt4hoaFIcnFqsJhEcW1qcWiuIVrnGhggajNK9rYiIIoegorxDO8Sg7cRbazW5pQielgS7/ucL7/J9/H4fH+/zKiTRT6l90f8UKP8WuK6bsixr9h1H8lfdarVSQohrTdPqpmnOkVRJfhDoJAf8sOu6U0KIcwB3AG6j0egVyZRfMGQYRr5UKi2QDHbPHceZllKeAagBuNB1/bRSqWySHOoVDBqGkVcU5SYQCFSLxeISSa3ZbM5IKcsALgGc6Lq+b9v2Bsmx7gNdwWQsFjsCcADgUFXVq0KhkI9EIscAygD2QqHQbr1eX++FSULpBqndbq+k0+nxRqMxDEADMAHgAcCjEOLZNM12MpncAnD/bqY9SQx2Op3FTCYzYtu2eJs3w+Hwc7VafUokEtt+2C8AgKDneYvZbDZqWZYupXyp1WpKPB7f+Qz+KgdBz/OWc7ncquM4ayRHv8vHVxcDJOdJjvwUMP8X/lx9b+Mr7eRSRxf/zIkAAAAASUVORK5CYII=') no-repeat 0 50%; } \
-	input.tiny { width: 45px; } \
-	#vlc-config-midcol div { padding-bottom: 5px;}\
-	#vlc_controls_div { border: 1px solid rgba(0, 0, 0, 0.098); border-top: 0; }\
-	#vlc-spacer #vlc_controls_div { display:none; }\
-	#vlc-spacer:hover #vlc_controls_div { display:block; }\
-	#vlc-spacer { background-image: linear-gradient(bottom, rgb(175,42,38) 50%, rgb(0,0,0) 100%);\
-				background-image: -moz-linear-gradient(bottom, rgb(175,42,38) 50%, rgb(0,0,0) 100%);}" +
-	(this.bembedControls && this.matchEmbed ? '.yt-uix-button{padding:0 0.3em;}':'');
-
-	this.addCSS(css);
-
-	if(this.bcompactVolume)
-	{
-		this.addCSS("#sbVol { position: relative; top: -65px; width: 100%; height: 80px; display: none; }\
-			#sbVol .knob {width: 100%; left: 0px;} \
-			.vlc-volume-holder { margin-right: 2px; height: 26px; /* hm otherwise 2px higher than buttons */}\
-			.vlc-volume-holder > span { \
-			/* Faenza 16px audio-volume-medium.png */ \
-			background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAIWSURBVDiNpZM/aFNRFIe/k/ceRWqymfqyhIYMWsqrVGPAJQpditKhYDJKt24d6ya2kxQ7lgx2S0DCGwNODkKlCCIS6tTSxTYxpFZMyZ9H+jwu70ms7VC8cIZzz7nf/d17zhFV5X9W5DLJInJNRKaG98wLcg3AH/Kv7+7uJoGrwBURqatqCwBVPWsJVZ0K/aOjoxtjY2MV27Zf5/P5CeAR8ACIqOo/T7DHx8dfBMoiW1tbuWq1+rDVaqUbjUbacZw7hmH8BEYBO1QQUVVHVTOpVGoT+Kiqd4vFYt40zfcLCwvrs7Oz68DbZDL5anp6ejJQcTNUMGma5qaIlPf39yeAJkCpVMqcnp52K5VKslAoHAL94+Nj5ufnQ9WxsAqW7/vfgB2gAXiAv7Ky8gU46fV6Zi6X8wCv2+1G5+bmrGFAWIWTs2XY29vzgP7IyIjX6XR8oG9ZVm8wGPyVFwEGtm3/CG4OzSoWi7cAL5vNfi+VSjHAS6fTTdd1Q0I7BOzU6/XPqlpbXV39GgDMxcXFw2g02l5aWuq4rhsHPMdx2uVy2R8GnO2Be2tra89V9baq2gcHB09d130mImXTNF/WarUnhmHkgiokVBU5ZxayQCf41NHt7e37y8vLmZmZmUGz2XyzsbGRCOLvVPXXeQAAAcKA5Xne43a73Y/H4x3AAj6ErXwR4DygiEgKiKnqpz+By46ziIgOHfoN2CIPv8Rm1e4AAAAASUVORK5CYII=') no-repeat scroll 50% 50%; \
-			display: block; width: 16px; height: 26px;} \
-			.vlc-volume-holder:hover #sbVol { display:block; } \
-			#vlcvol {display: block; position: relative; top: 40%; transform: rotate(-90deg); }");
-	}
-
-	if(!this.buseWidePosBar)
-		this.addCSS("#sbSeek { width: 250px; }");
-	else if(this.bshowRate)
-		this.addCSS("#sbSeek { width: 60%; }");
-
-	if(this.bdarkTheme) //TODO maybe set to some dark colors instead
-		this.addCSS(".vlc-scrollbar{border: 1px solid #EEE;background: transparent;color: #EEE;}\
-		.movie_player_vlc {background:transparent;} .vlccontrols {color: #EEE;}");
-
-	//blurry shadow was assome
-	this.addCSS(".yt-uix-button:focus, .yt-uix-button:focus:hover, .yt-uix-button-focused, .yt-uix-button-focused:hover {box-shadow: 0 0 2px 1px rgba(27, 127, 204, 0.4); border: 1px solid rgba(27, 127, 204, 0.7);}");
-	//Optional button style: Make it round
-	this.addCSS("#vlc_buttons_div .yt-uix-button {border-radius: 0; margin: 0;} \
-				#vlc_buttons_div .yt-uix-button:first-child {border-radius: 5px 0 0 5px;} \
-				#vlc_buttons_div .yt-uix-button:last-child {border-radius: 0 5px 5px 0;}");
-
-	if(this.feather)
-		this.addCSS("#vlclink {height:26px;line-height:26px;}");
-
-	/* configuration div to be more like a drop-down menu */
-	if(this.bconfigDropdown)
-		this.addCSS("#vlc-config { position: absolute; z-index: 9999; border: 1px solid #CCC;}");
-
-	//Some newererrreerererererrr YT layout fixes
-	this.addCSS("#masthead-positioner {position: relative;}\
-		#masthead-positioner-height-offset, .exp-top-guide #masthead-positioner-height-offset, \
-		.exp-appbar-onebar.site-center-aligned.appbar-hidden #masthead-positioner-height-offset {height: 0px;}\
-		.site-center-aligned #player.watch-medium, \
-		.site-center-aligned #player.watch-large {margin-bottom:0px;}\
-		.site-center-aligned #player.watch-medium {width:1040px;}\
-		.site-center-aligned #player.watch-large {width:1040px;}");
-}
-
-ScriptInstance.prototype.addCSS = function(css, before){
-
-	/*if (typeof GM_addStyle != "undefined") {
-		GM_addStyle(css);
-	} else if (typeof addStyle != "undefined") {
-		addStyle(css);
-	} else */{
-		var heads = this.doc.getElementsByTagName("head");
-		if (heads.length > 0) {
-			var node = this.doc.createElement("style");
-			node.type = "text/css";
-			node.appendChild(this.doc.createTextNode(css));
-			if(before && heads[0].hasChildNodes())
-			{
-				heads[0].insertBefore(node, heads[0].firstChild);
-			}
-			else
-				heads[0].appendChild(node);
-		}
-	}
-}
 
 function CustomEvent(){
 	this._listeners = {};
@@ -1502,7 +1028,7 @@ VLCObj.prototype = {
 	},
 	_getBtn: function(id)
 	{
-		return this.$(vlc_id + id);
+		return this.$(/*vlc_id + */id);
 	},
 	_setupEvent: function(id, fn)
 	{
@@ -1554,6 +1080,18 @@ VLCObj.prototype = {
 		}
 		this.stateUpdate(); //initial update
 	},
+	togglePlayButton: function(isPlaying) {
+		var play = this._getBtn("_play");
+		if(!play) return;
+		var inline = play.querySelector('i');
+		if(inline) {
+			inline.classList.remove('fa-play');
+			inline.classList.remove('fa-pause');
+			inline.classList.add(isPlaying ? 'fa-pause' : 'fa-play');
+		}
+		play.querySelector('span').innerHTML = isPlaying ? _("PAUSE") : _("PLAY");
+		play.title = isPlaying ? _("PAUSE") : _("PLAY");
+	},
 	setupMarquee: function(x,y)
 	{
 		//try{
@@ -1593,8 +1131,7 @@ VLCObj.prototype = {
 			this.prevState = 7;
 	},
 	eventStopped: function(){
-		var play = this._getBtn("_play");
-		if(play) play.innerHTML = _("PLAY");
+		this.togglePlayButton(false);
 		this.instance.setThumbnailVisible(true);
 		if(this.vlc && this.vlc.audio /*&& this.vlc.audio.volume > 100*/ && !this.instance.buseRepeat)
 			this.instance.restoreVolume(true);
@@ -1619,8 +1156,7 @@ VLCObj.prototype = {
 		if(this.instance.usingSubs) this.setupMarquee();
 		if(this.prevState != 4 && this.prevState != 2) 
 			this.instance.restoreVolume();
-		var play = this._getBtn("_play");
-		if(play) play.innerHTML = _("PAUSE");
+		this.togglePlayButton(true);
 		this.instance.setThumbnailVisible(false);
 		this.startUpdate();
 		if(this.repeatTimer)
@@ -1634,8 +1170,7 @@ VLCObj.prototype = {
 		this.prevState = 3;
 	},
 	eventPaused: function(){
-		var play = this._getBtn("_play");
-		if(play) play.innerHTML = _("PLAY");
+		this.togglePlayButton(false);
 		this.instance.moviePlayerEvents.fire('onStateChange', this.instance.moviePlayer, 2);
 		this.prevState = 4;
 	},
@@ -1777,6 +1312,7 @@ VLCObj.prototype = {
 			return 0;
 	},
 	pauseVideo: function(){
+		console.log('pauseVideo');
 		this.vlc.playlist.pause();
 	},
 	playVideo: function(){
@@ -1915,6 +1451,461 @@ VLCObj.prototype = {
 		}
 	},
 };
+
+/* ***********************************************
+ *         ScriptInstance constructor
+ * ***********************************************/
+
+/// Script instance to allow popup windows live separately. Works?
+function ScriptInstance(_win, popup, oldNode, upsell)
+{
+	this.gTimeout = null;
+	this.width = 640;
+	this.widthWide = GM_getValue('vlc-wide-width', '86%'); //854; //Supports plain numbers as pixels or string as percentages
+	this.minWidthWide = 854; //min width with percentages
+	this.height = 480;
+	this.window = null; 
+	this.doc = null; 
+	this.myvlc = null;
+	this.yt = null; 
+	this.ytplayer = null; 
+	this.swf_args = null; 
+	this.matchEmbed = false;
+	this.sbPos = null; 
+	this.sbVol = null; 
+	this.sbRate =null;
+	this.isPopup = false;
+	// User didn't change format etc so don't save the settings
+	this.fmtChanged = false;
+	this.isWide = false;
+	this.usingSubs = false;
+	this.nextFailed = false; //Failed to get next video in playlist
+	this.thumb = null; //thumbnail node
+	this.moviePlayer = null;
+	this.moviePlayerEvents = null;
+	this.quality = null;
+	this.qualityLevels = [];
+	this.isCiphered = false;
+	this.sigDecodeParam = null;
+	this.storyboard = null;
+
+	this.isPopup = popup;
+	this.win = _win;
+	this.doc = _win.document;
+	//Is on embedded iframe page?
+	this.matchEmbed = this.win.location.href.match(/\/embed\//i);
+	this.feather = unsafeWindow["fbetatoken"] || this.doc.querySelector("div#lc div#p") ? true : false;
+	this.initVars();
+
+	var unavail = this.$('player-unavailable');
+	if(unavail && !unavail.classList.contains("hid")) //works?
+	{
+		console.log("video seems to be unavailable");
+		return;
+	}
+
+	this.putCSS();
+
+	if(!this.matchEmbed || popup)
+	{
+		this.onMainPage(oldNode, false, upsell);
+	}
+	else
+	{
+		this.exterminate();
+		this.onEmbedPage();
+	}
+
+	//Trouble setting size through CSS so just force it for now atleast
+	var that = this;
+	if(popup) this.win.addEventListener('resize', function(e){ that.setPlayerSize(); }, false);
+
+	for(i in itagToText)
+	{
+		textToItag[itagToText[i]] = parseInt(i);
+	}
+
+	if(!upsell && !popup) this.hookSPF();
+}
+
+ScriptInstance.prototype.hookSPF = function(){
+
+	var that = this;
+	if(unsafeWindow["_spf_state"] === undefined) {
+		that.win.setTimeout(function(){that.hookSPF();}, 50);
+		return;
+	}
+
+	spf_cb = unsafeWindow["_spf_state"].config["navigate-processed-callback"];
+	unsafeWindow["_spf_state"].config["navigate-processed-callback"] = function(e){
+		//console.log('navigate-processed-callback', e);
+		spf_cb(e);
+		//FIXME GM_getValue fails otherwise, uh
+		that.win.setTimeout(function(){
+			that.onMainPage(null, true);
+			if(/\/user\//.test(that.win.location.href))
+				loadPlayer(that.win, null, true);
+		}, 10);
+	};
+}
+
+ScriptInstance.prototype.initVars = function(){
+	///User configurable booleans
+	this.setDefault("bautoplay", true);
+	this.setDefault("bautoplayPL", true);
+	//Some formats don't seek so well :(
+	this.setDefault("bresumePlay", false);
+	//Maybe obsolete, // TODO should make controls take up just one "line"
+	this.setDefault("bembedControls", false);
+	this.setDefault("buseHoverControls", false);
+	// Preloads video info, set to false if things get too slow
+	this.setDefault("bforceLoadEmbed", true);
+	this.setDefault("badd3DFormats", false);
+	// Force player div to use widescreen size. Can be helpful with smaller screens.
+	this.setDefault("bforceWS", false);
+	// Consider this a WIP
+	this.setDefault("bcompactVolume", false);
+	this.setDefault("balwaysBestFormat", false);
+	this.setDefault("bforceWide", false);
+	this.setDefault("bforceWidePL", false);
+	this.setDefault("buseThumbnail", true);
+	this.setDefault("bshowRate", false);
+	this.setDefault("buseRepeat", false);
+	this.setDefault("buseWidePosBar", false);
+	this.setDefault("busePopups", false);
+	this.setDefault("bpopupAutoplay", true);
+	this.setDefault("bpopupSeparate", false);
+	//this.setDefault("bignoreVol", false); //well, 'Always reset audio level to' doesn't appear to work with the plugin :/
+	//this.setDefault("bnormVol", false); //security, ignored
+	this.setDefault("bscrollToPlayer", false);
+	this.setDefault("bconfigDropdown", false);
+	this.setDefault("buseFallbackHost", false);
+	//flv sucks at seeking
+	this.setDefault("bdiscardFLVs", true);
+	//make a bit friendlier for dark themes
+	this.setDefault("bdarkTheme", false);
+	this.setDefault("badaptiveFmts", false);
+	this.setDefault("bshowMute", false);
+	this.setDefault("bjumpTS", false);
+	this.setDefault("bshowWLOnMain", false);
+	this.setDefault("bautoSubEnable", false);
+	this.setDefault("bbtnIcons", true);
+}
+
+/// Helpers
+ScriptInstance.prototype.setDefault = function(key, def)
+{
+	if(GM_getValue(key, undefined) == undefined) GM_setValue(key, def);
+	this[key] = this.win[key] = GM_getValue(key, def);
+}
+
+ScriptInstance.prototype.$ = function(id){ return this.doc.getElementById(id); }
+ScriptInstance.prototype.$$ = function(id){ return this.doc.getElementsByClassName(id); }
+
+//eh, vlc not restoring volume so brute force it. timing issues? also greasemonkey access violation?
+ScriptInstance.prototype.saveVolume = function(sbVol)
+{
+	if(this.myvlc && this.myvlc.vlc && this.myvlc.vlc.audio)
+	{
+		var vol = this.myvlc.vlc.audio.volume;
+		if(sbVol)
+			GM_setValue('vlc_vol', Math.round(sbVol));
+		else if(vol > -1)
+			GM_setValue('vlc_vol', vol);
+	}else if(sbVol)
+		GM_setValue('vlc_vol', Math.round(sbVol));
+}
+
+ScriptInstance.prototype.restoreVolume = function(stopped)
+{
+	if(!this.myvlc.vlc.audio) return;
+	var that = this;
+	//Desktop app might have volume over 100%
+	var volSaved = Math.min(GM_getValue('vlc_vol', 100), 100);
+	if(volSaved < 0) GM_setValue('vlc_vol', 100); //fix bad save
+	//if(!bignoreVol)
+		this.myvlc.vlc.audio.volume = volSaved;
+
+	function setVol(v)
+	{
+		if(that.bcompactVolume) that.sbVol.bar.style.display = 'block'; //otherwise knob's position doesn't get updated
+		that.sbVol.setValue(v);
+		that.sbVol.bar.children.namedItem('vlcvol').innerHTML = v;
+		if(that.bcompactVolume) that.sbVol.bar.style.display = '';
+	}
+
+	if(this.sbVol)
+	{
+		setVol(volSaved); //New strategy, just keep hammering vlc with saved volume
+		if(/*!stopped && */this.myvlc.vlc.input.state == 3 &&
+			(this.myvlc.vlc.audio.volume < 0 || this.myvlc.vlc.audio.volume!=volSaved)){
+			setTimeout(function(e){that.restoreVolume();}, 250);
+		}
+	}
+}
+
+ScriptInstance.prototype.restoreSettings = function(ev){
+	this.restoreVolume();
+
+	var formats = GM_getValue("vlc-formats", undefined);
+	if(formats)
+		formats = cleanFormats(formats.split(','));
+	else
+		formats = itagPrio;
+
+	//quality
+	var q = GM_getValue('ytquality', undefined);
+	var sel = this.$(vlc_id+'_select');
+	var opt = sel.options.namedItem(q);
+
+	if(!opt || GM_getValue('balwaysBestFormat', false))
+	for(var i in formats)
+	{
+		opt = sel.options.namedItem(formats[i]);
+		if (opt) break;
+	}
+
+	if (opt)
+	{
+		opt.selected = true;
+		//this.onFmtChange(null, opt);
+	}
+	return true;
+}
+
+ScriptInstance.prototype.saveSettings = function(ev){
+	this.saveVolume();
+
+	if(this.fmtChanged && this.selectNode)
+	{
+		GM_setValue('ytquality', this.selectNode.options[this.selectNode.selectedIndex].getAttribute('name'));
+	}
+}
+
+ScriptInstance.prototype.insertYTmessage = function(message){
+
+	console.log(message);
+	var baseDiv,container,msg;
+	msg = this.$('iytmsg');
+
+	if(!msg){
+		baseDiv = this.$('alerts');
+		container = this.doc.createElement('div');
+		msg = this.doc.createElement('pre');
+		msg.id = "iytmsg";
+		container.setAttribute("style","position:relative;background: #FFA0A0; color: #800000; border: 1px solid; border-color: #F00;");
+		msg.setAttribute("style","text-align:center; margin-top:1em; margin-bottom:1em;");
+		container.appendChild(msg);
+		baseDiv.appendChild(container);
+		//baseDiv.insertBefore(container,
+		//    document.getElementById('content'));
+
+	}else{
+		message = "\r\n" + message;
+	}
+
+	msg.appendChild(this.doc.createTextNode(message));
+}
+
+ScriptInstance.prototype.replaceYTmessage = function(message){
+	this.$('iytmsg').innerHTML=message;
+}
+
+ScriptInstance.prototype.addScriptSrc = function(src) {
+	var head, script;
+	head = this.doc.getElementsByTagName('head')[0];
+	if (!head) { return; }
+	script = this.doc.createElement('script');
+	script.type = 'text/javascript';
+	script.setAttribute('src', src);
+	head.appendChild(script);
+}
+
+ScriptInstance.prototype.addScript = function(src) {
+	var head, script;
+	head = this.doc.getElementsByTagName('head')[0];
+	if (!head) { return; }
+	script = this.doc.createElement('script');
+	script.type = 'text/javascript';
+	if(typeof src == "function")
+		src = "(" + src.toString() + ")();";
+	script.appendChild(this.doc.createTextNode(src));
+	head.appendChild(script);
+}
+
+ScriptInstance.prototype.addCSS = function(css, before, islink){
+
+	/*if (typeof GM_addStyle != "undefined") {
+		GM_addStyle(css);
+	} else if (typeof addStyle != "undefined") {
+		addStyle(css);
+	} else */{
+		var heads = this.doc.getElementsByTagName("head");
+		if (heads.length > 0) {
+			if(islink) {
+				var node = this.doc.createElement("link");
+				node.setAttribute('rel', 'stylesheet');
+				node.setAttribute('href', css);
+			} else {
+				var node = this.doc.createElement("style");
+				node.type = "text/css";
+				node.appendChild(this.doc.createTextNode(css));
+			}
+			if(before && heads[0].hasChildNodes())
+			{
+				heads[0].insertBefore(node, heads[0].firstChild);
+			}
+			else
+				heads[0].appendChild(node);
+		}
+	}
+}
+
+ScriptInstance.prototype.putCSS = function(){
+
+	//this.addCSS("//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css", true, true);
+	this.addCSS("@font-face { font-family: 'FontAwesome'; \
+		/*src: url('//netdna.bootstrapcdn.com/font-awesome/4.0.3/fonts/fontawesome-webfont.woff?v=4.0.3') format('woff'), \
+		url('//netdna.bootstrapcdn.com/font-awesome/4.0.3/fonts/fontawesome-webfont.ttf?v=4.0.3') format('truetype');*/\
+		src: url('data:application/octet;base64,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') \
+		format('woff'); font-weight: normal; font-style: normal; }", true);
+
+	this.addCSS(".fa { display: inline-block; font-family: FontAwesome; font-style: normal; font-weight: normal; line-height: 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;} .fa-lg{font-size: 1.3333333333333333em;line-height: 0.75em;vertical-align: -15%;}");
+	this.addCSS('.fa-play:before{content:"\\f04b";}.fa-pause:before{content:"\\f04c";}.fa-stop:before{content:"\\f04d";}.fa-expand:before{content:"\\f065";}.fa-external-link:before{content:"\\f08e";}.fa-arrows-alt:before{content:"\\f0b2";}.fa-youtube:before{content:"\\f167";}.fa-youtube-play:before{content:"\\f16a";}.fa-download:before{content:"\\f019";}');
+
+	this.addCSS("button .fa ~ span { display: none; } a .fa ~ span { display: none; }");
+
+	var css = ".player-api {overflow: visible;} /*for storyboard tooltip*/\
+	#"+ vlc_id + "-holder {overflow: hidden;}\
+	#cued-embed #video-title {position: absolute; left: 5px; top: 5px; background: rgba(0,0,0,0.75)} \
+	.movie_player_vlc select {padding: 5px 0;}\
+	a.vlclink { color:#438BC5; margin:5px;}\
+	.vlc_hidden { display:none !important; }\
+	.vlccontrols {padding:2px 5px; color: #333333;}\
+	/*.vlccontrols div {margin-right:5px; }*/\
+	.vlc-scrollbar{cursor: default;position: relative;width: 90%;height: 15px;border: 1px solid #000;display: inline-block;text-align: center;margin-right: 5px;border-radius: 3px;background: #FFF;color: #444;}\
+	#sbVol { width: 80px; } #ratebar { width: 150px; } \
+	.vlc-scrollbar .knob {left:0px;top:-1px;position:absolute;width:7px;height:15px;background:rgba(27,127,204,0.5);border:1px solid rgba(27,127,204,0.7);box-shadow:0px 0px 3px rgba(27,127,204,0.7);}\
+	/*#sbVol .knob {background: rgba(0,51,153,0.8);}\
+	#ratebar .knob {background: rgba(0,153,51,0.8);}*/\
+	.sb-narrow { width: 125px; }\
+	.vlc-volume-holder { display:inline-block; } \
+	#vlcvol:after {content: '%';}\
+	.movie_player_vlc { background: white;}\
+	.progress-radial {\
+		margin-right: 5px;\
+		background-repeat: no-repeat; \
+		line-height: 16px; text-align: center; color: #EEE; font-size: 12px; \
+		display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #2f3439; background-color: tomato;}\
+	#vlc-thumbnail { width: 100%; height: 100%; cursor: pointer; }\
+	#vlc-sb-tooltip { border: 2px solid black; background: #000 no-repeat; z-index:999; width: 80px; height: 45px; \
+		position: relative; border-radius: 3px;left: -100%;top: 24px; \
+		/* flip in and out version */ \
+		/*display:none;*/ \
+		/* nice fading version */\
+		/*** display: none does not work ***/\
+		opacity: 0;\
+		transform: scaleY(0);\
+		-webkit-transform: scaleY(0); /*uh, why still*/\
+		transition: opacity 200ms 0ms ease, transform 0ms 200ms linear; /*wait before transforming*/ \
+	}\
+	#sbSeek:active #vlc-sb-tooltip, \
+	.knob:active #vlc-sb-tooltip {\
+		/* flip in and out version */\
+		/*display: block;*/\
+		/* nice fading version */\
+		transform: scaleY(1); /*using scaleY so el.style.height can be set from js*/\
+		-webkit-transform: scaleY(1); /*uh, why still*/\
+		opacity: 1;transition: opacity 200ms 200ms ease, transform 0ms 0ms linear;}\
+	#sbSeek:active #vlc-sb-tooltip.hid, .knob:active #vlc-sb-tooltip.hid { display:none; }\
+	/*#sbSeek:active {border: 2px dashed red;}*//*wtf, .knob make active, #vlctime doesn't */\
+	#vlc-sb-tooltip:before {border: 7px solid transparent;border-bottom: 7px solid #000;content: '';display: inline-block;left: 45%; position: absolute; top: -14px;}\
+	#vlc_buttons_div {text-align:left; padding: 5px; color:#333333; clear:both;}\
+	#vlc_buttons_div button, #vlc_buttons_div select { margin-right: 2px;}\
+	#vlc_buttons_div input[type='checkbox']{vertical-align: middle;}\
+	#watch7-playlist-tray { border-bottom: 1px solid #1B1B1B !important;}\
+	#vlcstate {text-align:left; display: inline-block; width: 50px;}\
+	#vlc-config .row { padding: 5px 0; border-bottom: 1px dotted #CCC; text-align: center; cursor: move; }\
+	#vlc-config .row.over { border: 2px dashed #000; }\
+	#vlc-config { color: #1b1b1b; background: white; overflow: auto; display:none;}\
+	#vlc-config > div { padding: 5px; float: left; border: 3px double #CCC;}\
+	#vlc-config-drag {font-size: 12px; border: 1px solid #CCC; width: 150px; padding-bottom: -1px;}\
+	#vlc-config-ok { clear: both; float: right; }\
+	#vlc-config-btn  span {width:24px; height: 24px; display: block; padding: 0px;\
+		background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA%2FwD%2FAP%2BgvaeTAAAACXBIWXMAAAsRAAALEQF%2FZF%2BRAAAAB3RJTUUH1gcRDxwh83SzRgAABEdJREFUSMe9lV1sk1UYx39vO7Yxx9hYNlgnjgUNIyi0bMEESqgOUDY%2BFENkookgiyBXOo2AM8c3JCt4YyKIgFwsuAuGJAZCYiBTXHSgTNeR8rEJc9Ru%2FVo3YOyr7fYeL2iXruumJuq5OTnP%2B57%2F7%2Fyfc55z4D9uSrygEEIAH4WH7wNNqqrW%2FWtUIYT0eT0yEBiSLS03pRBCVlRUlE60oJgF66IDugl%2BNHx2%2BHOkppFrMFBWtpnU1NRzgJwIUlRek%2FPSnpNaUXnNiYkAihDCCKCqqhswWPcfIDA0SH5%2B%2FqRpLSqvMQKu01Uv8%2BbagllF5TV1sQClsrJSBWxCiH0RiNlsRlHGmdTiGLA1HttCe3s7Sx%2BfWpyeklAc%2BZAQ7qfo9foPd%2B4oR6dPfA%2BoXLhwIQUF85BSQ1EUgoH%2Bn4UQRlVVm6OVF2%2BrNgJ0dHTQ3d3NzmOtAIZxdo8ePWrfsH7dkykpUwkFg0gpkVKOCqWlZ1BVZQUwhFPI%2FBf2GZNnPGq7fLiMpbtOoSgKI8MBU3P19uZxACFETnJy8o3nVxenz1%2FwFIqijO5p7727DyHT06my7gcwHP7q8szsBStt5z95hbUffMPwUO%2Bqa7UVdZPWgRDCmJeXd9zhcBRGYkuWLAmtXFk85cH9e0gpeWRaGgcOfMyXP%2FTw6TvP8e4Xv3Lf0WRyN59pjqMtlb%2BohxxgOVC7d%2B%2BeUSeZWTNRVZXqi256bv1oeuC%2BEVf8nxSeUQghNU2TXV637PK6paZpUgghI0d7oiM8qYOi8pocn6PNNRzoJfjAy651cxFC0N3lHeMkvPE%2BYCRWQz%2BZuL%2FT6XqxeC4lywvIToPqszYGfTdZU1LK4EA%2FgwP9rCkppb6%2BvsJisXxdX1%2Fv%2BVuAiPim1fN4bb0Zl9NBQsp0tMBdzl72MuC%2BGg%2Byw2KxnImF6CYS375xEds2ruDbuu9ovOkkIzuXtIwsEtNmAZhUVSUzayYA3V1eHl7A2GL2ZCwgIr7nDTNbSpdy6kwdv9y4g3mFhTt%2FuNHp9eiTpuH1ev3BYLAwHiQpKWkMRBd9Yfk7nS71rWfYtLqQE6fP0%2B50sap0Pa2tbXicbfx0W0ei1v3EkSNH7lqt1t88Ho85AgkEg2zd%2Bjq7d%2B8GsI0D%2BDudtrdffZoNlkXUnv2edqeL5c8W09JyG5fjFg2tGiFfk2nA70gDZgCZdrs9ZLfbS1VVxZA7m0OHDtHb2ztGOyE6RXlzZjOiSXyd7ePE%2B36%2FYPG3XAyFJ2YAukuXLg0D7r6%2Bvs0HDx482dPTg6ZpV0KhkDVSAqN1MKfEKtcuM2AqNDE3J52r129zpbGRhlaNAcfFZb7rF%2FwxrrWo%2BSNAAOgHhoDhcGxk1MGMWTmLzzW4miIJHBzoo6FVI0nXb9Eycu8B%2FqjijAhHXjgtLDgcJS7HVfLibdWmHo%2B7KTJOnZb42LXaCk%2FMvaLE6WWUKy08lvwf7U9RNAWyAew0pQAAAABJRU5ErkJggg%3D%3D') no-repeat;}\
+	/* Faenza 16px lpi_translate.png */ \
+	#vlc-config-lang-icon { margin-right: 5px; display: inline-block; width: 16px; height: 16px; background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAHiSURBVDiNlZPPi1JRFMc/570pXjbYKmo1Wbka4TUx4kIQEbGN0t6dSDxo4aK/oI3UP9C0a92uAodMN26ynJBsIdIiQ2ZwMCuY0cjpB50WPsXeCNUXDvde7j3fe873nCOqigfirsculmFlYW8CZ107AnaB7x6i4+SqiqqeS6VSdyzLeg7sG4bxNh6P31XVC6pqqKqoqqmqa6p6yT2jqoiqCrAhIo+Br+6vJrBqWdae4zgPbdvuVyqV9VKpdH0ymRSA17MoZgRXRWRrSYoWcAYwgJ/ASFVvAK0ZgbHw+Mg0zS/ZbLZZrVZfjMfjnXa7Xcvlck9FpAvsAYcLWsgigQCTcrn8JhKJnHAc54rf778WjUZjwWDQajabrVAo1LUs68D1WQMuAoIryCbwSFVvAa+AKvAE2AZ2AoHAs1qtdn8wGNzL5/O3fT5fVVU3VVXmZUwmk7vAR+CdR4dRr9dbTSQSYaZl/+a++0PEy8A6sC8iN5eIeQyqugW0VlymLvAe2GDaRP+MWQqL3fZfBIbnLOl0elSv1z8Nh8Nhp9M5zGQyBy6p1+YazJ2ZlsYGXgIj4BQQazQaoUKh8KPf74tt27+KxeLJcDj8APggnmlcNokCnAdiwGngM9AAht4I/gZZ2M+dfgPB0dbgsnwagQAAAABJRU5ErkJggg==') no-repeat;}\
+	.vlc-config-checkbox-div { /*min-width: 200px;*/ } \
+	.vlc-config-checkbox-div label:hover { background: #F8F8F8; border: 1px solid #D3D3D3; }\
+	#vlc-config-checkboxes { /*height: 255px; overflow-x: hidden; overflow-y: auto;*/ } \
+	/* custom checkboxes */\
+	#vlc-config-checkboxes label { width:100%;} \
+	#vlc-config-checkboxes label input { display:none; } \
+	#vlc-config-checkboxes label input + span { line-height: 120%; text-indent: 16px; width: 100%; display:inline-block;} \
+	.vlc-wl-state {padding-left: 16px;}\
+	.ccselect {max-width:85px;}\
+	/*Faenza 16px gtk-delete.png */\
+	.vlc-boo-bg {background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG7SURBVDiNpZOxSwJhGMaf5NPrwigiooQLokiChsh0a6klbmpoCiJKcrz/IjBoCqItkKChQZzEhhIuWiybAilOxQ7Dq9TCwC4v3wYt7iSXfOFdnu97Hnh/7/d1ERE6KVtH7jYBPADvH7q3eWYtIjI3H93yB7d5LqXKsvijq7IsbvNcKrrlDxIRb/ZYzLGAP7jrQDXEgXZ4pqiyLKqyLO7wTAlxoF0HqrGANaTLBNF75B49HCio0zYA73VABUsDgABj3GkD6gBKw8Lt2t3DJoArAJYA1F6epMTi3PrHozoLAJV6Q+9tkup2CTe+s+uQfXBorx0D9vmsSQmPkLwYAZk74RGSn8+aRETM7GndglHKKNm8rvc4HIC587reU8ooWQCG2WAZ4SVxIUaWF/YmOWO8j1mT3wzgXmfp5ci5NOibj/4V4D2e6A2N2d6n+u0NwT4s3ABArdBg8loDsnVnalWprP9AtKyxfHpykPGwSnoGlFsSkkZRk4yiJuWWhGR6BpTxsEr59OTAvMZWiK5qPLyvrbgvv4q/wNhXUZO0FfdlNR7eJyJXu4f0G0JEGy20WVNztd63QPxPdfwbvwG5Z15mC93/JQAAAABJRU5ErkJggg=='); background-repeat: no-repeat; background-position: 0 50%;} \
+	/*FIXME deduplicate :P*/ \
+	.vlc-boo-bg:hover {background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG7SURBVDiNpZOxSwJhGMaf5NPrwigiooQLokiChsh0a6klbmpoCiJKcrz/IjBoCqItkKChQZzEhhIuWiybAilOxQ7Dq9TCwC4v3wYt7iSXfOFdnu97Hnh/7/d1ERE6KVtH7jYBPADvH7q3eWYtIjI3H93yB7d5LqXKsvijq7IsbvNcKrrlDxIRb/ZYzLGAP7jrQDXEgXZ4pqiyLKqyLO7wTAlxoF0HqrGANaTLBNF75B49HCio0zYA73VABUsDgABj3GkD6gBKw8Lt2t3DJoArAJYA1F6epMTi3PrHozoLAJV6Q+9tkup2CTe+s+uQfXBorx0D9vmsSQmPkLwYAZk74RGSn8+aRETM7GndglHKKNm8rvc4HIC587reU8ooWQCG2WAZ4SVxIUaWF/YmOWO8j1mT3wzgXmfp5ci5NOibj/4V4D2e6A2N2d6n+u0NwT4s3ABArdBg8loDsnVnalWprP9AtKyxfHpykPGwSnoGlFsSkkZRk4yiJuWWhGR6BpTxsEr59OTAvMZWiK5qPLyvrbgvv4q/wNhXUZO0FfdlNR7eJyJXu4f0G0JEGy20WVNztd63QPxPdfwbvwG5Z15mC93/JQAAAABJRU5ErkJggg=='); background-repeat: no-repeat; background-position: 0 50%;} \
+	/*Faenza 16px ok.png */\
+	#vlc-config-checkboxes label input:checked + span, .vlc-ok-bg { background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAF9SURBVDiNpZM/SAJhGMafO/O48vMzt4hoaFIcnFqsJhEcW1qcWiuIVrnGhggajNK9rYiIIoegorxDO8Sg7cRbazW5pQielgS7/ucL7/J9/H4fH+/zKiTRT6l90f8UKP8WuK6bsixr9h1H8lfdarVSQohrTdPqpmnOkVRJfhDoJAf8sOu6U0KIcwB3AG6j0egVyZRfMGQYRr5UKi2QDHbPHceZllKeAagBuNB1/bRSqWySHOoVDBqGkVcU5SYQCFSLxeISSa3ZbM5IKcsALgGc6Lq+b9v2Bsmx7gNdwWQsFjsCcADgUFXVq0KhkI9EIscAygD2QqHQbr1eX++FSULpBqndbq+k0+nxRqMxDEADMAHgAcCjEOLZNM12MpncAnD/bqY9SQx2Op3FTCYzYtu2eJs3w+Hwc7VafUokEtt+2C8AgKDneYvZbDZqWZYupXyp1WpKPB7f+Qz+KgdBz/OWc7ncquM4ayRHv8vHVxcDJOdJjvwUMP8X/lx9b+Mr7eRSRxf/zIkAAAAASUVORK5CYII=') no-repeat 0 50%; } \
+	input.tiny { width: 45px; } \
+	#vlc-config-midcol div { padding-bottom: 5px;}\
+	#vlc_controls_div { border: 1px solid rgba(0, 0, 0, 0.098); border-top: 0; }\
+	#vlc-spacer #vlc_controls_div { display:none; }\
+	#vlc-spacer:hover #vlc_controls_div { display:block; }\
+	#vlc-spacer { background-image: linear-gradient(bottom, rgb(175,42,38) 50%, rgb(0,0,0) 100%);\
+				background-image: -moz-linear-gradient(bottom, rgb(175,42,38) 50%, rgb(0,0,0) 100%);}" +
+	(this.bembedControls && this.matchEmbed ? '.yt-uix-button{padding:0 0.3em;}':'');
+
+	this.addCSS(css);
+
+	if(this.bcompactVolume)
+	{
+		this.addCSS("#sbVol { position: relative; top: -65px; width: 100%; height: 80px; display: none; }\
+			#sbVol .knob {width: 100%; left: 0px;} \
+			.vlc-volume-holder { margin-right: 2px; height: 26px; /* hm otherwise 2px higher than buttons */}\
+			.vlc-volume-holder > span { \
+			/* Faenza 16px audio-volume-medium.png */ \
+			background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAIWSURBVDiNpZM/aFNRFIe/k/ceRWqymfqyhIYMWsqrVGPAJQpditKhYDJKt24d6ya2kxQ7lgx2S0DCGwNODkKlCCIS6tTSxTYxpFZMyZ9H+jwu70ms7VC8cIZzz7nf/d17zhFV5X9W5DLJInJNRKaG98wLcg3AH/Kv7+7uJoGrwBURqatqCwBVPWsJVZ0K/aOjoxtjY2MV27Zf5/P5CeAR8ACIqOo/T7DHx8dfBMoiW1tbuWq1+rDVaqUbjUbacZw7hmH8BEYBO1QQUVVHVTOpVGoT+Kiqd4vFYt40zfcLCwvrs7Oz68DbZDL5anp6ejJQcTNUMGma5qaIlPf39yeAJkCpVMqcnp52K5VKslAoHAL94+Nj5ufnQ9WxsAqW7/vfgB2gAXiAv7Ky8gU46fV6Zi6X8wCv2+1G5+bmrGFAWIWTs2XY29vzgP7IyIjX6XR8oG9ZVm8wGPyVFwEGtm3/CG4OzSoWi7cAL5vNfi+VSjHAS6fTTdd1Q0I7BOzU6/XPqlpbXV39GgDMxcXFw2g02l5aWuq4rhsHPMdx2uVy2R8GnO2Be2tra89V9baq2gcHB09d130mImXTNF/WarUnhmHkgiokVBU5ZxayQCf41NHt7e37y8vLmZmZmUGz2XyzsbGRCOLvVPXXeQAAAcKA5Xne43a73Y/H4x3AAj6ErXwR4DygiEgKiKnqpz+By46ziIgOHfoN2CIPv8Rm1e4AAAAASUVORK5CYII=') no-repeat scroll 50% 50%; \
+			display: block; width: 16px; height: 26px;} \
+			.vlc-volume-holder:hover #sbVol { display:block; } \
+			#vlcvol {display: block; position: relative; top: 40%; transform: rotate(-90deg); }");
+	}
+
+	if(!this.buseWidePosBar)
+		this.addCSS("#sbSeek { width: 250px; }");
+	else if(this.bshowRate)
+		this.addCSS("#sbSeek { width: 60%; }");
+
+	if(this.bdarkTheme) //TODO maybe set to some dark colors instead
+		this.addCSS(".vlc-scrollbar{border: 1px solid #EEE;background: transparent;color: #EEE;}\
+		.movie_player_vlc {background:transparent;} .vlccontrols {color: #EEE;}");
+
+	//blurry shadow was assome
+	this.addCSS(".yt-uix-button:focus, .yt-uix-button:focus:hover, .yt-uix-button-focused, .yt-uix-button-focused:hover {box-shadow: 0 0 2px 1px rgba(27, 127, 204, 0.4); border: 1px solid rgba(27, 127, 204, 0.7);}");
+	//Optional button style: Make it round
+	this.addCSS("#vlc_buttons_div .yt-uix-button {border-radius: 0; margin: 0;} \
+				#vlc_buttons_div .yt-uix-button:first-child {border-radius: 5px 0 0 5px;} \
+				#vlc_buttons_div .yt-uix-button:last-child {border-radius: 0 5px 5px 0;}");
+
+	if(this.feather)
+		this.addCSS("#vlclink {height:26px;line-height:26px;}");
+
+	/* configuration div to be more like a drop-down menu */
+	if(this.bconfigDropdown)
+		this.addCSS("#vlc-config { position: absolute; z-index: 9999; border: 1px solid #CCC;}");
+
+	//Some newererrreerererererrr YT layout fixes
+	this.addCSS("#masthead-positioner {position: relative;}\
+		#masthead-positioner-height-offset, .exp-top-guide #masthead-positioner-height-offset, \
+		.exp-appbar-onebar.site-center-aligned.appbar-hidden #masthead-positioner-height-offset {height: 0px;}\
+		.site-center-aligned #player.watch-medium, \
+		.site-center-aligned #player.watch-large {margin-bottom:0px;}\
+		.site-center-aligned #player.watch-medium {width:1040px;}\
+		.site-center-aligned #player.watch-large {width:1040px;}");
+}
 
 //Commented out are 'watch' page versions
 ScriptInstance.prototype.ajaxWatchLater = function()
@@ -2309,6 +2300,11 @@ ScriptInstance.prototype.parseCCList = function(r) {
 						},
 						false);
 					this.$(vlc_id+'_ccselect').classList.remove('vlc_hidden');
+					
+					if(this.bautoSubEnable && ccselect.options.length > 1) {
+						ccselect.options[1].selected = true;
+						this.onSetCC(ccselect.options[1].getAttribute('name'), ccselect.options[1].value);
+					}
 				}
 
 		}
@@ -2433,15 +2429,18 @@ function cleanFormats(frmts_dirty)
 	return frmts;
 }
 
-ScriptInstance.prototype._makeButton = function(id, text, prefix)
+ScriptInstance.prototype._makeButton = function(id, text, icon)
 {
 	if(typeof(prefix) == 'undefined') prefix = true;
 	var btn = this.doc.createElement("button");
 	var span = this.doc.createElement("span");
-	btn.id = (prefix ? vlc_id : '') + id;
+	btn.id = id;
 	btn.className = "yt-uix-button yt-uix-button-default";
+	if(this.bbtnIcons && icon)
+		btn.innerHTML = '<i class="fa fa-lg '+ icon +'"></i>';
 	span.className = "yt-uix-button-content";
 	span.innerHTML = text;
+	btn.title = text;
 	btn.appendChild(span);
 	return btn;
 }
@@ -2483,7 +2482,9 @@ ScriptInstance.prototype.openPopup = function(w,h)
 	if(this.bpopupSeparate) popupID = '';
 	else popupID = 'vlc-popup-window';
 
-	var win = window.open('', popupID, 'width=' +w+ ',height=' +h+ ',resizeable,scrollbars');
+	var win = window.open(this.win.location.href + "#popup" /*+ "&w=" + w + "&h=" + h*/, popupID, 'width=' +w+ ',height=' +h+ ',resizeable,scrollbars');
+	
+	return;
 	win.document.body.innerHTML = '<div id="watch7-container"><div id="'+gPlayerID+'"><div id="'+gPlayerApiID+'"><div></div></div>';
 
 	//Set few global variables
@@ -2517,6 +2518,24 @@ ScriptInstance.prototype.openPopup = function(w,h)
 	s.win["vlc-instance"] = s; //Keep reference alive. Might be overkill. Seems to work without it too.
 }
 
+//Is full blown youtube page, but cull all the stuff
+ScriptInstance.prototype.openAsPopup = function(w,h)
+{
+	//this.win.document.title = this.ytplayer.config.args.title;
+	var player = this.doc.querySelector('#player');
+	player.parentNode.removeChild(player);
+	
+	//removeChildren(this.doc.body.querySelector('#body-container'));
+	var divs = this.doc.body.querySelectorAll('body > div');
+	for(i=0;i<divs.length;i++)
+		removeChildren(divs[i]);
+	
+	this.doc.body.appendChild(player);
+	this.doc.body.className = "";
+	this.isPopup = true;
+	this.setPlayerSize();
+}
+
 function fmtPT(dur)
 {
 	if(dur < 0) dur = 0;
@@ -2538,7 +2557,6 @@ function xmlStr(str)
 ScriptInstance.prototype.generateMPD = function()
 {
 	var repID = 0;
-	var hasAnything = false;
 	var that = this;
 	// http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd
 	var mpd = '<?xml version="1.0" encoding="UTF-8"?>\
@@ -2563,14 +2581,13 @@ ScriptInstance.prototype.generateMPD = function()
 		kv = node.wrappedJSObject.kv;
 
 		if(!kv || !kv.hasOwnProperty('clen')) return;
-		hasAnything = true;
 		if(/video/.test(kv["type"]))
 			streams.video.push(kv);
 		else if(/audio/.test(kv["type"]))
 			streams.audio.push(kv);
 	});
 
-	if(!hasAnything)
+	if(!streams.audio.length && !streams.video.length)
 		return;
 
 	function genRepresentation(kv)
@@ -2579,7 +2596,6 @@ ScriptInstance.prototype.generateMPD = function()
 
 		//if(!kv || !kv.hasOwnProperty('clen')) return;
 		//console.log(kv);
-		//hasAnything = true;
 		prefix = /audio/.test(kv['type']) ? 'a' : 'v';
 		pos   = parseInt(kv['init'].split('-')[1]) + 1;
 		clen  = parseInt(kv['clen']);
@@ -2762,15 +2778,14 @@ ScriptInstance.prototype.generateDOM = function(options)
 		var buttons = this.doc.createElement("div");
 		{
 			buttons.id = "vlc_buttons_div";
-			buttons.appendChild(this._makeButton('_play', _("PLAY")));
-			buttons.autofocus = true;
+			buttons.appendChild(this._makeButton('_play', _("PLAY"), 'fa-play'));
 			//if(pause) buttons.appendChild(this._makeButton('_pause', "Pause"));
-			buttons.appendChild(this._makeButton('_stop', _("STOP")));
-			buttons.appendChild(this._makeButton('_fs', _("FS")));
-			if(wide) buttons.appendChild(this._makeButton('_wide', _("WIDE")));
+			buttons.appendChild(this._makeButton('_stop', _("STOP"), 'fa-stop'));
+			buttons.appendChild(this._makeButton('_fs', _("FS"), 'fa-arrows-alt'));
+			if(wide) buttons.appendChild(this._makeButton('_wide', _("WIDE"), 'fa-expand'));
 			if(popup && !this.isPopup && !this.matchEmbed)
 			{
-				var pop_pop = this._makeButton('_popup', _("POPUP"));
+				var pop_pop = this._makeButton('_popup', _("POPUP"), 'fa-external-link');
 				pop_pop.addEventListener('click', function(e){
 					that.openPopup();
 				}, false);
@@ -2788,14 +2803,14 @@ ScriptInstance.prototype.generateDOM = function(options)
 			{
 				var nrm = this._makeButton('_rate', "1.0");
 				nrm.title = _("RESETRATE");
-				nrm.addEventListener('click', function(e){that.scroll3.setValue(1.0); that.myvlc.emitValue(that.scroll3, 1.0);}, false);
+				nrm.addEventListener('click', function(e){that.sbRate.setValue(1.0); that.myvlc.emitValue(that.sbRate, 1.0);}, false);
 				buttons.appendChild(nrm);
 			}
 		}
 
 		/// Mute
 		if(this.bshowMute) {
-			btn = this._makeButton('_mute', _('MUTE'), false);
+			btn = this._makeButton('_mute', _('MUTE'));
 			btn.muteStyleToggle = function() {
 				try {
 					if(that.myvlc && that.myvlc.vlc && that.myvlc.vlc.audio.mute) {
@@ -2830,7 +2845,8 @@ ScriptInstance.prototype.generateDOM = function(options)
 			buttons.appendChild(ccsel);
 		}
 
-		var configbtn = this._makeButton('vlc-config-btn', '', false);
+		var configbtn = this._makeButton('vlc-config-btn', '');
+		configbtn.title = _("CONFIG");
 		configbtn.addEventListener('click', function(ev)
 			{
 				var el = that.doc.getElementById("vlc-config");
@@ -2848,7 +2864,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		//if embed and logged in
 		if((this.matchEmbed || this.bshowWLOnMain) && typeof(this.swf_args.authuser) != 'undefined' && this.swf_args.authuser == 0)
 		{
-			var watchbtn = this._makeButton('vlc-watchlater-btn', _('WATCHLATER'), false);
+			var watchbtn = this._makeButton('vlc-watchlater-btn', _('WATCHLATER'), 'fa-youtube-play fa-lg');
 			watchbtn.addEventListener('click', function(ev)
 				{
 					that.ajaxWatchLater();
@@ -2866,7 +2882,8 @@ ScriptInstance.prototype.generateDOM = function(options)
 			link.title = _("LINKSAVE");
 			link.setAttribute("href", "#");
 			link.setAttribute("target", "_new");
-			link.innerHTML = '<span class="yt-uix-button-content">' + _("DOWNLOAD") + '</span>';
+			link.innerHTML = (this.bbtnIcons ? '<i class="fa fa-lg fa-download"></i>' : '') + //bool just for consistency
+				'<span class="yt-uix-button-content">' + _("DOWNLOAD") + '</span>';
 			//https://bugzilla.mozilla.org/show_bug.cgi?id=676619
 			if(!this.matchEmbed && this.ytplayer && this.ytplayer.config)
 				link.setAttribute("download", this.ytplayer.config.args.title + ".mp4"); //TODO link filename
@@ -2881,8 +2898,10 @@ ScriptInstance.prototype.generateDOM = function(options)
 			link.className = "yt-uix-button yt-uix-button-default";
 			link.setAttribute("href", "//" + this.win.location.hostname + "/watch?v=" + this.yt.getConfig('VIDEO_ID',''));
 			link.setAttribute("target", "_new");
-			link.innerHTML = '<span class="yt-uix-button-content">' + _("WATCHYT") + ' </span>';
-			link.addEventListener('click', function(){this.myvlc.pauseVideo();},false);
+			link.innerHTML = (this.bbtnIcons ? '<i class="fa fa-youtube fa-lg"></i>' : '') + 
+				'<span class="yt-uix-button-content">' + _("WATCHYT") + ' </span>';
+			link.title = _("WATCHYT");
+			link.addEventListener('click', function(){that.myvlc.pauseVideo();},false);
 			buttons.appendChild(link);
 		}
 
@@ -2968,7 +2987,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			inp.addEventListener('change', function(e){
 				GM_setValue('vlc-rate-min', e.target.value);
 				var f = parseFloat(e.target.value);
-				that.scroll3.setMinValue(f); that.scroll3.setValue(Math.max(that.scroll3.getValue(), f));
+				that.sbRate.setMinValue(f); that.sbRate.setValue(Math.max(that.sbRate.getValue(), f));
 			}, false);
 			el.appendChild(inp);
 
@@ -2979,7 +2998,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			inp.addEventListener('change', function(e){
 				GM_setValue('vlc-rate-max', e.target.value);
 				var f = parseFloat(e.target.value);
-				that.scroll3.setMaxValue(f); that.scroll3.setValue(Math.min(that.scroll3.getValue(), f));
+				that.sbRate.setMaxValue(f); that.sbRate.setValue(Math.min(that.sbRate.getValue(), f));
 			}, false);
 			el.appendChild(inp);
 
@@ -3020,7 +3039,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			inp.addEventListener('change', function(e){
 				GM_setValue('vlc-volume-max', e.target.value);
 				var f = parseFloat(e.target.value);
-				that.scroll2.setMaxValue(f); that.scroll2.setValue(Math.min(that.scroll2.getValue(), f));
+				that.sbVol.setMaxValue(f); that.sbVol.setValue(Math.min(that.sbVol.getValue(), f));
 				}, false);
 
 			var lbl;
@@ -3108,6 +3127,8 @@ ScriptInstance.prototype.generateDOM = function(options)
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-mute-button", 'bshowMute'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-jumpts", 'bjumpTS'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-wl-main", 'bshowWLOnMain'));
+		chkboxes.appendChild(this._makeCheckbox("vlc-config-subs-on", 'bautoSubEnable'));
+		chkboxes.appendChild(this._makeCheckbox("vlc-config-btn-icons", 'bbtnIcons'));
 		config.appendChild(chkboxes);
 
 	}
@@ -3503,6 +3524,8 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 		that.queryCC();
 		that.overrideRef();
 		that.setupStoryboard();
+		if(/#popup/.test(that.win.location.href))
+			that.openAsPopup();
 	}, 1000);
 
 	return true;
@@ -3694,7 +3717,7 @@ ScriptInstance.prototype.onEmbedPage = function()
 ScriptInstance.prototype.setupStoryboard = function()
 {
 	if(this.storyboard)
-		this.scroll1.unregister(this.storyboard);
+		this.sbPos.unregister(this.storyboard);
 	this.storyboard = null;
 	el = this.doc.querySelector('#vlc-sb-tooltip');
 	//hide/reset
@@ -3703,7 +3726,7 @@ ScriptInstance.prototype.setupStoryboard = function()
 	if(this.ytplayer && this.ytplayer.config.args.storyboard_spec)
 	{
 		this.storyboard = new Storyboard(el, this.ytplayer.config.args.storyboard_spec);
-		this.scroll1.register(this.storyboard);
+		this.sbPos.register(this.storyboard);
 		this.storyboard.setImg(0);
 		el.classList.remove('hid');
 	}
@@ -3751,34 +3774,36 @@ ScriptInstance.prototype.setupVLC = function()
 {
 	var that = this;
 	this.myvlc = new VLCObj(this);
-	this.scroll1 = new ScrollBar(this);
-	this.scroll1.init('#sbSeek', '#sbSeek div.knob', 0, 0, 1, true);
+	this.sbPos = new ScrollBar(this);
+	this.sbPos.init('#sbSeek', '#sbSeek div.knob', 0, 0, 1, true);
 
 	var maxvolume = tryParseFloat(GM_getValue('vlc-volume-max', "100"), 100.0).toFixed(0);
 	if(maxvolume < 100) maxvolume = 100;
 
-	this.scroll2 = new ScrollBar(this);
-	this.scroll2.init('#sbVol', '#sbVol div.knob', bcompactVolume?1:0, 0, maxvolume, true, function(pos){this.bar.children.namedItem('vlcvol').innerHTML = Math.round(pos);});
+	this.sbVol = new ScrollBar(this);
+	this.sbVol.init('#sbVol', '#sbVol div.knob', bcompactVolume?1:0, 0, maxvolume, true, 
+		function(pos){this.bar.children.namedItem('vlcvol').innerHTML = Math.round(pos);});
 
 	if(this.bshowRate)
 	{
-		this.scroll3 = new ScrollBar(this);
-		//scroll3.init('#ratebar', '#ratebar div.knob', 0, -1, 3, true);
+		this.sbRate = new ScrollBar(this);
+		//sbRate.init('#ratebar', '#ratebar div.knob', 0, -1, 3, true);
 		//Limiting default range to 0.25 to 2 so that 150px bar still has some precision
 		var ratemin = tryParseFloat(GM_getValue('vlc-rate-min', "0.25"), 0.25);
 		var ratemax = tryParseFloat(GM_getValue('vlc-rate-max', "2"), 2);
-		this.scroll3.init('#ratebar', '#ratebar div.knob', 0, ratemin, ratemax, true, function(pos){this.bar.children.namedItem('vlcrate').innerHTML = pos.toFixed(3);});
-		this.scroll3.setValue(1.0);
+		this.sbRate.init('#ratebar', '#ratebar div.knob', 0, ratemin, ratemax, true, 
+			function(pos){this.bar.children.namedItem('vlcrate').innerHTML = pos.toFixed(3);});
+		this.sbRate.setValue(1.0);
 	}
 
-	this.myvlc.init(this.scroll1, this.scroll2, this.scroll3);
+	this.myvlc.init(this.sbPos, this.sbVol, this.sbRate);
 	//this.myvlc.add("");//Or else 'no mediaplayer' error, vlc < 2.0
 
 	if(!this.matchEmbed)
 	{
 		this.win.addEventListener('hashchange', function(e){that.onHashChange(e);}, false);
-		if(this.$(vlc_id + '_wide'))
-			this.$(vlc_id + '_wide').addEventListener('click', function(e){that.onWideClick(e);}, false);
+		if(this.$('_wide'))
+			this.$('_wide').addEventListener('click', function(e){that.onWideClick(e);}, false);
 	}
 
 	this.moviePlayerEvents = new CustomEvent();
@@ -3807,8 +3832,6 @@ ScriptInstance.prototype.setupVLC = function()
 			case 5: case 6: return 0;//stopped, ended
 		}
 	}
-	//uh, wait for elements to load some
-	this.win.setTimeout(function(){document.querySelector('#'+vlc_id+'_play').focus();}, 150);
 }
 
 ScriptInstance.prototype.queryCC = function()
