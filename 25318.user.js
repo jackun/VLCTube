@@ -15,13 +15,14 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        51
+// @version        52.1
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx28+, vlc 2.1.4, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2014-04-25 Fake Live formats for priority map
 //2014-04-24 Separate url map parse from DOM generation so we can fail earlier
 //           and allow flashplayer to take over. May need manual refreshing with SPF.
 //2014-04-24 this -> that. Embed font/css for icons
@@ -295,6 +296,8 @@ var convToItag = {
 
 var itagPrio = [
 	46, 37, 45, 22, 44, 20, 35, 43, 18, 34, 5, 36, 17, 38, //4?
+	//Fake live formats
+	11080, 10720, 10480, 10360, 10240, 10180, 10144, 10072,
 ];
 
 var itagToText = {
@@ -345,6 +348,16 @@ var itagToText = {
 	// last, just in case "4k" video crashes graphics card's driver
 	38 : 'highres/mp4', //1440p variable?
 	//4? : "highres/webm"
+
+	//Fake live formats
+	11080 : '1080p Live',
+	10720 : '720p Live',
+	10480 : '480p Live',
+	10360 : '360p Live',
+	10240 : '240p Live',
+	10180 : '180p Live',
+	10144 : '144p Live',
+	10072 : '72p Live',
 };
 
 //generates this programmatically
@@ -2538,6 +2551,11 @@ ScriptInstance.prototype.openAsPopup = function(w,h)
 	var divs = this.doc.body.querySelectorAll('body > div');
 	for(i=0;i<divs.length;i++)
 		removeChildren(divs[i]);
+	//TODO
+	this.addCSS("#player.watch-small{max-width:100%}");
+	this.addCSS("#player.watch-medium{max-width:100%}");
+	this.addCSS("#player.watch-large{max-width:100%}");
+	this.addCSS("#player{margin:0;padding:0;}");
 	
 	this.doc.body.appendChild(player);
 	this.doc.body.className = "";
@@ -3268,17 +3286,21 @@ ScriptInstance.prototype.parseLive = function()
 		getXML(this.swf_args.hlsvp, function(pl)
 		{
 			//console.log(pl);
-			tokenized = pl.split('\n');
-			for(i=0;i<tokenized.length-1;i++)
+			t = pl.split('\n');
+			for(i=0;i<t.length-1;i++)
 			{
-				if((m = /#EXT-X-STREAM-INF.*?RESOLUTION=(\d+\w\d+)/.exec(tokenized[i])) &&
-					/http/i.test(tokenized[i+1]))
+				if((m = /#EXT-X-STREAM-INF.*?RESOLUTION=(\d+\w\d+)/.exec(t[i])) &&
+					/http/i.test(t[i+1]))
 				{
 					var obj = {};
-					obj.name = "Live " + m[1];
-					obj.url  = tokenized[i+1];
-					obj.text = "Live " + m[1];
+					obj.name = 10000 + parseInt(m[1].split('x').pop());
+					obj.url  = t[i+1];
+					if(itagToText.hasOwnProperty(obj.name))
+						obj.text = itagToText[obj.name];
+					else
+						obj.text = "Live " + m[1];
 					that.urlMap.push(obj);
+					that.qualityLevels.push(obj.name);
 				}
 			}
 			//regen with live feeds
@@ -3294,8 +3316,6 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 {
 	if(!urls) return;
 	var that = this;
-	//this.selectNode = this.selectNode || this.$(vlc_id+"_select") || this.doc.createElement('select');
-	//if(clean) removeChildren(this.selectNode, true);
 	if(clean) this.urlMap = [];
 	this.sigDecodeParam = null;
 	rCLen = new RegExp("clen=(\\d+)");
@@ -3420,21 +3440,24 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 	{
 		//Keeping it here for early bail
 		gotVars = this.pullYTVars();
-		if(watchPage && this.swf_args == null) {
-			console.log("no source");
-			this.insertYTmessage ('VLCTube: Unable to find video source');
-			return false;
-		}
-		if(gotVars) {
-			var hasStreams = this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map'], true);
-			hasStreams = (this.badaptiveFmts && this.parseUrlMap(this.swf_args['adaptive_fmts'])) || hasStreams;
-			hasStreams = this.parseLive() || hasStreams;
+		//TODO merge, cleanup
+		if(watchPage) {
+			if(this.swf_args == null) {
+				console.log("no source");
+				this.insertYTmessage ('VLCTube: Unable to find video source');
+				return false;
+			}
+			if(gotVars) {
+				var hasStreams = this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map'], true);
+				hasStreams = (this.badaptiveFmts && this.parseUrlMap(this.swf_args['adaptive_fmts'])) || hasStreams;
+				hasStreams = this.parseLive() || hasStreams;
 
-			if(!hasStreams)
-			{
-				that.insertYTmessage ('VLCTube: Nothing to play! Bailing... Flash player should load now.');
-				console.log("Nothing to play! Bailing...");
-				return;
+				if(!hasStreams)
+				{
+					that.insertYTmessage ('VLCTube: Nothing to play! Bailing... Flash player should load now.');
+					console.log("Nothing to play! Bailing...");
+					return;
+				}
 			}
 		}
 
