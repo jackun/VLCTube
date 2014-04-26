@@ -15,7 +15,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        52.4
+// @version        52.5
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
@@ -1515,7 +1515,7 @@ function ScriptInstance(_win, popup, oldNode, upsell)
 	this.feather = unsafeWindow["fbetatoken"] || this.doc.querySelector("div#lc div#p") ? true : false;
 	this.initVars();
 
-	//Hijack 'getElementById' so YT js can to its job and also not overwrite vlc with flash again.
+	//Hijack 'getElementById' so YT js can do its job and also not overwrite vlc with flash again.
 	//FIXME but srsly something less intrusive maybe
 	this.fakeApiNode = this.doc.createElement('div');
 	this.doc.wrappedJSObject._getElementById = this.doc.wrappedJSObject.getElementById;
@@ -3730,15 +3730,18 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 							_vid = thumb[0];
 
 						function playEmbed(ev){
-							insertPlayer();
+							//Do once or crash the plugin
+							if(!that.$('movie_player')) {
+								insertPlayer();
+								var player = that.$('player');
+								player.style.width = "100%";
+								player.style.height = "100%";
+								that.initialAddToPlaylist();
+								that.queryCC();
+								that.overrideRef();
+								that.setupStoryboard();
+							}
 							embed.classList.add('hid');
-							var player = that.$('player');
-							player.style.width = "100%";
-							player.style.height = "100%";
-							that.initialAddToPlaylist();
-							that.queryCC();
-							that.overrideRef();
-							that.setupStoryboard();
 							that.myvlc.playVideo();
 							that.onHashChange(that.win.location.href);
 						}
@@ -3816,7 +3819,7 @@ ScriptInstance.prototype.onEmbedPage = function()
 		//yt.config_ doesn't seem to have video title, so just link to YT
 		var vid = this.yt.getConfig('VIDEO_ID','Oops, missing id.');
 		this.$('player').innerHTML = '<div id="cued-embed" title="Click to play." style="cursor:pointer">\
-			<h2 style="color:white"><div id="video-title" class="html5-title">\
+				<h2 style="color:white"><div id="video-title" class="html5-title">\
 				<a style="color:white" target="_new" href="//www.youtube.com/watch?v='+
 				vid+'">Watch on YT: '+vid+'</a>\
 			</div></h2><img id="video-thumbnail" class="video-thumbnail" style="height:'+
@@ -3946,6 +3949,7 @@ ScriptInstance.prototype.setupVLC = function()
 	node.wrappedJSObject.setVolume = function(e){that.myvlc.setVolume(e);}
 	node.wrappedJSObject.isMuted = function(){return false;}
 	node.wrappedJSObject.getPlayerState = function(){
+		if(!that.myvlc.input) return 0;
 		switch(that.myvlc.input.state){
 			case 0: case 7: return -1;//idle, error
 			case 1: return 5;//opening
@@ -3975,7 +3979,6 @@ ScriptInstance.prototype.exterminate = function()
 	if(!this.matchEmbed)
 	{
 		var p = this.$(gPlayerApiID) || this.$(gPlayerApiID+"-vlc") || this.$('p'); //Youtube page
-		console.log("Exterminate:", p);
 		if(!p)
 		{
 			this.insertYTmessage("VLCTube: Didn't find '"+gPlayerApiID+"' div. Bummer.");
@@ -4004,7 +4007,7 @@ ScriptInstance.prototype.overrideRef = function()
 	var that = this;
 	try
 	{
-		if(this.yt.getConfig('PLAYER_REFERENCE') == this.myvlc)
+		if(this.yt.getConfig('PLAYER_REFERENCE') === this.fakeApiNode)
 		{
 			this.hasSettled++;
 			if(this.hasSettled>10)
@@ -4012,8 +4015,10 @@ ScriptInstance.prototype.overrideRef = function()
 		}
 		else
 			this.hasSettled = 0;
-		this.yt.setConfig('PLAYER_REFERENCE', this.myvlc);
-		this.yt.www.watch.player = this.myvlc;
+		//this.yt.setConfig('PLAYER_REFERENCE', this.myvlc);
+		//Less security errors, more useful 'no such property' errors?
+		this.yt.setConfig('PLAYER_REFERENCE', this.fakeApiNode);
+		this.yt.www.watch.player = this.fakeApiNode;
 		this.yt.player.getPlayerByElement = function(id){
 			//console.log('Hijacked getPlayerByElement', id);
 			if(id == 'player-api')
