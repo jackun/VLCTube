@@ -15,7 +15,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        52.11
+// @version        52.12
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
@@ -1666,10 +1666,17 @@ ScriptInstance.prototype.restoreVolume = function(stopped)
 
 	function setVol(v)
 	{
-		if(that.bcompactVolume) that.sbVol.bar.style.display = 'block'; //otherwise knob's position doesn't get updated
+		var s = that.$('vlc-spacer');
+		var c = that.$('vlc_controls_div');
+		//otherwise knob's position doesn't get updated
+		if(s && c) c.style.display = 'block';
+		if(that.bcompactVolume) that.sbVol.bar.style.display = 'block';
+
 		that.sbVol.setValue(v);
 		that.sbVol.bar.children.namedItem('vlcvol').innerHTML = v;
+
 		if(that.bcompactVolume) that.sbVol.bar.style.display = '';
+		if(s && c) c.style.display = '';
 	}
 
 	if(this.sbVol)
