@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name           VLCTube
 // @namespace      0d92f6be108e4fbee9a6a0ee4366b72e
-// @run-at         document-end
+// @run-at         document-start
 // @include        *://youtube.tld/*
 // @include        *://*.youtube.tld/*
 // @include        *://*.youtube.tld/embed/*
@@ -15,13 +15,14 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        52.1
+// @version        52.4
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx28+, vlc 2.1.4, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2014-04-26 Incomplete quick fix the fix the fix for comments not loading, API calls maybe
 //2014-04-25 Fake Live formats for priority map
 //2014-04-24 Separate url map parse from DOM generation so we can fail earlier
 //           and allow flashplayer to take over. May need manual refreshing with SPF.
@@ -1474,6 +1475,7 @@ VLCObj.prototype = {
 /// Script instance to allow popup windows live separately. Works?
 function ScriptInstance(_win, popup, oldNode, upsell)
 {
+	that = this;
 	this.gTimeout = null;
 	this.width = 640;
 	this.widthWide = GM_getValue('vlc-wide-width', '86%'); //854; //Supports plain numbers as pixels or string as percentages
@@ -1512,6 +1514,24 @@ function ScriptInstance(_win, popup, oldNode, upsell)
 	this.matchEmbed = this.win.location.href.match(/\/embed\//i);
 	this.feather = unsafeWindow["fbetatoken"] || this.doc.querySelector("div#lc div#p") ? true : false;
 	this.initVars();
+
+	//Hijack 'getElementById' so YT js can to its job and also not overwrite vlc with flash again.
+	//FIXME but srsly something less intrusive maybe
+	this.fakeApiNode = this.doc.createElement('div');
+	this.doc.wrappedJSObject._getElementById = this.doc.wrappedJSObject.getElementById;
+	this.doc.wrappedJSObject.getElementById = function(id){
+		//console.log("Hijacked getElementById:", id);
+		if(id == 'player-api') {
+			//console.log("Returning fake 'player-api' node");
+			return that.fakeApiNode;
+		}
+		/*else if(id == 'movie_player') {
+			//console.log("Returning fake 'movie_player' node");
+			return that.moviePlayer;
+		}*/
+		el = that.doc.wrappedJSObject._getElementById(id);
+		return el;
+	}
 
 	var unavail = this.$('player-unavailable');
 	if(unavail && !unavail.classList.contains("hid")) //works?
@@ -1615,7 +1635,7 @@ ScriptInstance.prototype.setDefault = function(key, def)
 	this[key] = this.win[key] = GM_getValue(key, def);
 }
 
-ScriptInstance.prototype.$ = function(id){ return this.doc.getElementById(id); }
+ScriptInstance.prototype.$ = function(id){ return this.doc.wrappedJSObject._getElementById(id); }
 ScriptInstance.prototype.$$ = function(id){ return this.doc.getElementsByClassName(id); }
 
 //eh, vlc not restoring volume so brute force it. timing issues? also greasemonkey access violation?
@@ -2905,7 +2925,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		configbtn.title = _("CONFIG");
 		configbtn.addEventListener('click', function(ev)
 			{
-				var el = that.doc.getElementById("vlc-config");
+				var el = that.$("vlc-config");
 				if(el.style.display == 'block')
 					el.style.display = 'none';
 				else
@@ -3264,7 +3284,7 @@ ScriptInstance.prototype.makeDraggable = function() {
 
 			//Save it
 			var arr = [];
-			var el = that.doc.getElementById("vlc-config-drag");
+			var el = that.$("vlc-config-drag");
 			for(i=0; i<el.childNodes.length;i++)
 			{
 				arr.push(el.childNodes[i].getAttribute("data"));
@@ -3912,19 +3932,20 @@ ScriptInstance.prototype.setupVLC = function()
 	//this.player.wrappedJSObject.watch.player = {};
 	//unsafeWindow._yt_www.v('yt.www.watch.player', {});
 	//unsafeWindow._yt_www.v('yt.www.watch.player.init', function(e){console.log("init called", arguments);});
-	/*this.player.wrappedJSObject.watch.player.seekTo = function(e){that.myvlc._seekTo(e);}
-	this.player.wrappedJSObject.watch.player.pauseVideo = function(){that.myvlc.pauseVideo();}
-	this.player.wrappedJSObject.watch.player.playVideo = function(){that.myvlc.playVideo();}
-	this.player.wrappedJSObject.watch.player.stopVideo = function(){that.myvlc.stopVideo();}
-	this.player.wrappedJSObject.watch.player.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
-	this.player.wrappedJSObject.watch.player.getDuration = function(){return that.myvlc.getDuration();}
-	this.player.wrappedJSObject.watch.player.getAvailableQualityLevels = function(){return that.myvlc.getAvailableQualityLevels();}
-	this.player.wrappedJSObject.watch.player.getPlaybackQuality = function(){return that.myvlc.getPlaybackQuality();}
-	this.player.wrappedJSObject.watch.player.setPlaybackQuality = function(e){that.myvlc.setPlaybackQuality(e);}
-	this.player.wrappedJSObject.watch.player.getVolume = function(){return that.myvlc.getVolume();}
-	this.player.wrappedJSObject.watch.player.setVolume = function(e){that.myvlc.setVolume(e);}
-	this.player.wrappedJSObject.watch.player.isMuted = function(){return false;}
-	this.player.wrappedJSObject.watch.player.getPlayerState = function(){
+	node = this.fakeApiNode;
+	node.wrappedJSObject.seekTo = function(e){that.myvlc._seekTo(e);}
+	node.wrappedJSObject.pauseVideo = function(){that.myvlc.pauseVideo();}
+	node.wrappedJSObject.playVideo = function(){that.myvlc.playVideo();}
+	node.wrappedJSObject.stopVideo = function(){that.myvlc.stopVideo();}
+	node.wrappedJSObject.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
+	node.wrappedJSObject.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
+	node.wrappedJSObject.getAvailableQualityLevels = function(){return that.myvlc.getAvailableQualityLevels();}
+	node.wrappedJSObject.getPlaybackQuality = function(){return that.myvlc.getPlaybackQuality();}
+	node.wrappedJSObject.setPlaybackQuality = function(e){that.myvlc.setPlaybackQuality(e);}
+	node.wrappedJSObject.getVolume = function(){return that.myvlc.getVolume();}
+	node.wrappedJSObject.setVolume = function(e){that.myvlc.setVolume(e);}
+	node.wrappedJSObject.isMuted = function(){return false;}
+	node.wrappedJSObject.getPlayerState = function(){
 		switch(that.myvlc.input.state){
 			case 0: case 7: return -1;//idle, error
 			case 1: return 5;//opening
@@ -3933,7 +3954,7 @@ ScriptInstance.prototype.setupVLC = function()
 			case 4: return 2;//paused
 			case 5: case 6: return 0;//stopped, ended
 		}
-	}*/
+	}
 }
 
 ScriptInstance.prototype.queryCC = function()
@@ -3954,6 +3975,7 @@ ScriptInstance.prototype.exterminate = function()
 	if(!this.matchEmbed)
 	{
 		var p = this.$(gPlayerApiID) || this.$(gPlayerApiID+"-vlc") || this.$('p'); //Youtube page
+		console.log("Exterminate:", p);
 		if(!p)
 		{
 			this.insertYTmessage("VLCTube: Didn't find '"+gPlayerApiID+"' div. Bummer.");
@@ -3992,6 +4014,13 @@ ScriptInstance.prototype.overrideRef = function()
 			this.hasSettled = 0;
 		this.yt.setConfig('PLAYER_REFERENCE', this.myvlc);
 		this.yt.www.watch.player = this.myvlc;
+		this.yt.player.getPlayerByElement = function(id){
+			//console.log('Hijacked getPlayerByElement', id);
+			if(id == 'player-api')
+				return that.fakeApiNode;
+			else if(id == 'movie_player')
+				return that.moviePlayer;
+		};
 		//restore seekTo
 		this.yt.www.watch.player.seekTo = this.myvlc._seekTo;
 	}catch(e){ 
@@ -4106,15 +4135,15 @@ function DOMevent(mutations)
 //if(/\/user\//.test(window.location))
 //	loadPlayerOnLoad(window, null, true);
 
-/*
+//document-start
 /Chrome/.test(navigator.userAgent) && /\/embed\//.test(window.location.href) ? loadPlayer(window) :
 	(function(){
 			domObserver = new MutationObserver(DOMevent);
 			domObserver.observe(document, {subtree:true, childList:true});
 		})();//window.addEventListener('DOMNodeInserted', DOMevent, true);
-*/
 
-loadPlayer(window, null, false);
+//document-end
+//loadPlayer(window, null, false);
 
 //ScriptInstance.prototype.str2obj = function (a, b) {
 function str2obj(obj, a, b) {
