@@ -15,13 +15,15 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        52.5
+// @version        52.11
 // @updateURL      https://userscripts.org/scripts/source/25318.meta.js
 // @downloadURL    https://userscripts.org/scripts/source/25318.user.js
 // ==/UserScript==
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx28+, vlc 2.1.4, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2014-04-26 Watch later, regex fix, remove from watch later if viewing WL playlist, hover controls css
+//2014-04-26 Embedded crash. seekTo
 //2014-04-26 Incomplete quick fix the fix the fix for comments not loading, API calls maybe
 //2014-04-25 Fake Live formats for priority map
 //2014-04-24 Separate url map parse from DOM generation so we can fail earlier
@@ -1154,7 +1156,7 @@ VLCObj.prototype = {
 		vsTxt = false;
 		this.clearUpdate();
 		this.instance.playerEvents.fire('onStateChange', this.instance.moviePlayer, 0);
-		if(this.instance.matchEmbed)
+		if(this.instance.isEmbed)
 			this.$('cued-embed').classList.remove('hid');
 		this.prevState = 5;
 	},
@@ -1487,7 +1489,7 @@ function ScriptInstance(_win, popup, oldNode, upsell)
 	this.yt = null; 
 	this.ytplayer = null; 
 	this.swf_args = null; 
-	this.matchEmbed = false;
+	this.isEmbed = false;
 	this.sbPos = null; 
 	this.sbVol = null; 
 	this.sbRate =null;
@@ -1511,7 +1513,7 @@ function ScriptInstance(_win, popup, oldNode, upsell)
 	this.win = _win;
 	this.doc = _win.document;
 	//Is on embedded iframe page?
-	this.matchEmbed = this.win.location.href.match(/\/embed\//i);
+	this.isEmbed = this.win.location.href.match(/\/embed\//i);
 	this.feather = unsafeWindow["fbetatoken"] || this.doc.querySelector("div#lc div#p") ? true : false;
 	this.initVars();
 
@@ -1542,7 +1544,7 @@ function ScriptInstance(_win, popup, oldNode, upsell)
 
 	this.putCSS();
 
-	if(!this.matchEmbed || popup)
+	if(!this.isEmbed || popup)
 	{
 		this.onMainPage(oldNode, false, upsell);
 	}
@@ -1809,11 +1811,11 @@ ScriptInstance.prototype.putCSS = function(){
 	this.addCSS("@font-face { font-family: 'FontAwesome'; \
 		/*src: url('//netdna.bootstrapcdn.com/font-awesome/4.0.3/fonts/fontawesome-webfont.woff?v=4.0.3') format('woff'), \
 		url('//netdna.bootstrapcdn.com/font-awesome/4.0.3/fonts/fontawesome-webfont.ttf?v=4.0.3') format('truetype');*/\
-		src: url('data:application/octet;base64,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') \
+		src: url('data:application/octet;base64,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') \
 		format('woff'); font-weight: normal; font-style: normal; }", true);
 
 	this.addCSS(".fa { display: inline-block; font-family: FontAwesome; font-style: normal; font-weight: normal; line-height: 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;} .fa-lg{font-size: 1.3333333333333333em;line-height: 0.75em;vertical-align: -15%;}");
-	this.addCSS('.fa-play:before{content:"\\f04b";}.fa-pause:before{content:"\\f04c";}.fa-stop:before{content:"\\f04d";}.fa-expand:before{content:"\\f065";}.fa-external-link:before{content:"\\f08e";}.fa-arrows-alt:before{content:"\\f0b2";}.fa-youtube:before{content:"\\f167";}.fa-youtube-play:before{content:"\\f16a";}.fa-download:before{content:"\\f019";}');
+	this.addCSS('.fa-play:before{content:"\\f04b";}.fa-pause:before{content:"\\f04c";}.fa-stop:before{content:"\\f04d";}.fa-expand:before{content:"\\f065";}.fa-external-link:before{content:"\\f08e";}.fa-arrows-alt:before{content:"\\f0b2";}.fa-youtube:before{content:"\\f167";}.fa-youtube-play:before{content:"\\f16a";}.fa-download:before{content:"\\f019";}.fa-clock-o:before{content:"\\f017";}');
 
 	this.addCSS("button .fa ~ span { display: none; } a .fa ~ span { display: none; }");
 
@@ -1886,14 +1888,14 @@ ScriptInstance.prototype.putCSS = function(){
 	#vlc-config-checkboxes label { width:100%;} \
 	#vlc-config-checkboxes label input { display:none; } \
 	#vlc-config-checkboxes label input + span { line-height: 120%; text-indent: 16px; width: 100%; display:inline-block;} \
-	.vlc-wl-state {padding-left: 16px;}\
+	.vlc-wl-state {padding-left: 18px;}\
 	.ccselect {max-width:85px;}\
 	/*Faenza 16px gtk-delete.png */\
-	.vlc-boo-bg {background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG7SURBVDiNpZOxSwJhGMaf5NPrwigiooQLokiChsh0a6klbmpoCiJKcrz/IjBoCqItkKChQZzEhhIuWiybAilOxQ7Dq9TCwC4v3wYt7iSXfOFdnu97Hnh/7/d1ERE6KVtH7jYBPADvH7q3eWYtIjI3H93yB7d5LqXKsvijq7IsbvNcKrrlDxIRb/ZYzLGAP7jrQDXEgXZ4pqiyLKqyLO7wTAlxoF0HqrGANaTLBNF75B49HCio0zYA73VABUsDgABj3GkD6gBKw8Lt2t3DJoArAJYA1F6epMTi3PrHozoLAJV6Q+9tkup2CTe+s+uQfXBorx0D9vmsSQmPkLwYAZk74RGSn8+aRETM7GndglHKKNm8rvc4HIC587reU8ooWQCG2WAZ4SVxIUaWF/YmOWO8j1mT3wzgXmfp5ci5NOibj/4V4D2e6A2N2d6n+u0NwT4s3ABArdBg8loDsnVnalWprP9AtKyxfHpykPGwSnoGlFsSkkZRk4yiJuWWhGR6BpTxsEr59OTAvMZWiK5qPLyvrbgvv4q/wNhXUZO0FfdlNR7eJyJXu4f0G0JEGy20WVNztd63QPxPdfwbvwG5Z15mC93/JQAAAABJRU5ErkJggg=='); background-repeat: no-repeat; background-position: 0 50%;} \
+	.vlc-boo-bg {background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG7SURBVDiNpZOxSwJhGMaf5NPrwigiooQLokiChsh0a6klbmpoCiJKcrz/IjBoCqItkKChQZzEhhIuWiybAilOxQ7Dq9TCwC4v3wYt7iSXfOFdnu97Hnh/7/d1ERE6KVtH7jYBPADvH7q3eWYtIjI3H93yB7d5LqXKsvijq7IsbvNcKrrlDxIRb/ZYzLGAP7jrQDXEgXZ4pqiyLKqyLO7wTAlxoF0HqrGANaTLBNF75B49HCio0zYA73VABUsDgABj3GkD6gBKw8Lt2t3DJoArAJYA1F6epMTi3PrHozoLAJV6Q+9tkup2CTe+s+uQfXBorx0D9vmsSQmPkLwYAZk74RGSn8+aRETM7GndglHKKNm8rvc4HIC587reU8ooWQCG2WAZ4SVxIUaWF/YmOWO8j1mT3wzgXmfp5ci5NOibj/4V4D2e6A2N2d6n+u0NwT4s3ABArdBg8loDsnVnalWprP9AtKyxfHpykPGwSnoGlFsSkkZRk4yiJuWWhGR6BpTxsEr59OTAvMZWiK5qPLyvrbgvv4q/wNhXUZO0FfdlNR7eJyJXu4f0G0JEGy20WVNztd63QPxPdfwbvwG5Z15mC93/JQAAAABJRU5ErkJggg=='); background-repeat: no-repeat; background-position: 2px 50%;} \
 	/*FIXME deduplicate :P*/ \
-	.vlc-boo-bg:hover {background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG7SURBVDiNpZOxSwJhGMaf5NPrwigiooQLokiChsh0a6klbmpoCiJKcrz/IjBoCqItkKChQZzEhhIuWiybAilOxQ7Dq9TCwC4v3wYt7iSXfOFdnu97Hnh/7/d1ERE6KVtH7jYBPADvH7q3eWYtIjI3H93yB7d5LqXKsvijq7IsbvNcKrrlDxIRb/ZYzLGAP7jrQDXEgXZ4pqiyLKqyLO7wTAlxoF0HqrGANaTLBNF75B49HCio0zYA73VABUsDgABj3GkD6gBKw8Lt2t3DJoArAJYA1F6epMTi3PrHozoLAJV6Q+9tkup2CTe+s+uQfXBorx0D9vmsSQmPkLwYAZk74RGSn8+aRETM7GndglHKKNm8rvc4HIC587reU8ooWQCG2WAZ4SVxIUaWF/YmOWO8j1mT3wzgXmfp5ci5NOibj/4V4D2e6A2N2d6n+u0NwT4s3ABArdBg8loDsnVnalWprP9AtKyxfHpykPGwSnoGlFsSkkZRk4yiJuWWhGR6BpTxsEr59OTAvMZWiK5qPLyvrbgvv4q/wNhXUZO0FfdlNR7eJyJXu4f0G0JEGy20WVNztd63QPxPdfwbvwG5Z15mC93/JQAAAABJRU5ErkJggg=='); background-repeat: no-repeat; background-position: 0 50%;} \
+	.vlc-boo-bg:hover {background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG7SURBVDiNpZOxSwJhGMaf5NPrwigiooQLokiChsh0a6klbmpoCiJKcrz/IjBoCqItkKChQZzEhhIuWiybAilOxQ7Dq9TCwC4v3wYt7iSXfOFdnu97Hnh/7/d1ERE6KVtH7jYBPADvH7q3eWYtIjI3H93yB7d5LqXKsvijq7IsbvNcKrrlDxIRb/ZYzLGAP7jrQDXEgXZ4pqiyLKqyLO7wTAlxoF0HqrGANaTLBNF75B49HCio0zYA73VABUsDgABj3GkD6gBKw8Lt2t3DJoArAJYA1F6epMTi3PrHozoLAJV6Q+9tkup2CTe+s+uQfXBorx0D9vmsSQmPkLwYAZk74RGSn8+aRETM7GndglHKKNm8rvc4HIC587reU8ooWQCG2WAZ4SVxIUaWF/YmOWO8j1mT3wzgXmfp5ci5NOibj/4V4D2e6A2N2d6n+u0NwT4s3ABArdBg8loDsnVnalWprP9AtKyxfHpykPGwSnoGlFsSkkZRk4yiJuWWhGR6BpTxsEr59OTAvMZWiK5qPLyvrbgvv4q/wNhXUZO0FfdlNR7eJyJXu4f0G0JEGy20WVNztd63QPxPdfwbvwG5Z15mC93/JQAAAABJRU5ErkJggg=='); background-repeat: no-repeat; background-position: 2px 50%;} \
 	/*Faenza 16px ok.png */\
-	#vlc-config-checkboxes label input:checked + span, .vlc-ok-bg { background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAF9SURBVDiNpZM/SAJhGMafO/O48vMzt4hoaFIcnFqsJhEcW1qcWiuIVrnGhggajNK9rYiIIoegorxDO8Sg7cRbazW5pQielgS7/ucL7/J9/H4fH+/zKiTRT6l90f8UKP8WuK6bsixr9h1H8lfdarVSQohrTdPqpmnOkVRJfhDoJAf8sOu6U0KIcwB3AG6j0egVyZRfMGQYRr5UKi2QDHbPHceZllKeAagBuNB1/bRSqWySHOoVDBqGkVcU5SYQCFSLxeISSa3ZbM5IKcsALgGc6Lq+b9v2Bsmx7gNdwWQsFjsCcADgUFXVq0KhkI9EIscAygD2QqHQbr1eX++FSULpBqndbq+k0+nxRqMxDEADMAHgAcCjEOLZNM12MpncAnD/bqY9SQx2Op3FTCYzYtu2eJs3w+Hwc7VafUokEtt+2C8AgKDneYvZbDZqWZYupXyp1WpKPB7f+Qz+KgdBz/OWc7ncquM4ayRHv8vHVxcDJOdJjvwUMP8X/lx9b+Mr7eRSRxf/zIkAAAAASUVORK5CYII=') no-repeat 0 50%; } \
+	#vlc-config-checkboxes label input:checked + span, .vlc-ok-bg { background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAF9SURBVDiNpZM/SAJhGMafO/O48vMzt4hoaFIcnFqsJhEcW1qcWiuIVrnGhggajNK9rYiIIoegorxDO8Sg7cRbazW5pQielgS7/ucL7/J9/H4fH+/zKiTRT6l90f8UKP8WuK6bsixr9h1H8lfdarVSQohrTdPqpmnOkVRJfhDoJAf8sOu6U0KIcwB3AG6j0egVyZRfMGQYRr5UKi2QDHbPHceZllKeAagBuNB1/bRSqWySHOoVDBqGkVcU5SYQCFSLxeISSa3ZbM5IKcsALgGc6Lq+b9v2Bsmx7gNdwWQsFjsCcADgUFXVq0KhkI9EIscAygD2QqHQbr1eX++FSULpBqndbq+k0+nxRqMxDEADMAHgAcCjEOLZNM12MpncAnD/bqY9SQx2Op3FTCYzYtu2eJs3w+Hwc7VafUokEtt+2C8AgKDneYvZbDZqWZYupXyp1WpKPB7f+Qz+KgdBz/OWc7ncquM4ayRHv8vHVxcDJOdJjvwUMP8X/lx9b+Mr7eRSRxf/zIkAAAAASUVORK5CYII='); background-repeat: no-repeat; background-position: 0 50%; } \
 	input.tiny { width: 45px; } \
 	#vlc-config-midcol div { padding-bottom: 5px;}\
 	#vlc_controls_div { /*border: 1px solid rgba(0, 0, 0, 0.098); border-top: 0;*/ width:100%;}\
@@ -1901,7 +1903,7 @@ ScriptInstance.prototype.putCSS = function(){
 	#vlc-spacer:hover #vlc_controls_div { display:block; }\
 	#vlc-spacer { background-image: linear-gradient(bottom, rgb(175,42,38) 50%, rgb(0,0,0) 100%);\
 				background-image: -moz-linear-gradient(bottom, rgb(175,42,38) 50%, rgb(0,0,0) 100%);}" +
-	(this.bembedControls && this.matchEmbed ? '.yt-uix-button{padding:0 0.3em;}':'');
+	(this.bembedControls && this.isEmbed ? '.yt-uix-button{padding:0 0.3em;}':'');
 
 	this.addCSS(css);
 
@@ -1923,7 +1925,7 @@ ScriptInstance.prototype.putCSS = function(){
 	else if(this.bshowRate)
 		this.addCSS("#sbSeek { width: 60%; }");
 
-	if(this.bdarkTheme) //TODO maybe set to some dark colors instead
+	if(this.bdarkTheme && !this.isEmbed) //TODO maybe set to some dark colors instead
 		this.addCSS(".vlc-scrollbar{border: 1px solid #EEE;background: transparent;color: #EEE;}\
 		.movie_player_vlc {background:transparent;} .vlccontrols {color: #EEE;}");
 
@@ -1955,18 +1957,23 @@ ScriptInstance.prototype.putCSS = function(){
 ScriptInstance.prototype.ajaxWatchLater = function()
 {
 	var that = this;
+	if(/feed\/watch_later/.test(this.ytplayer.config.args.sdetail))
+		action = "action_delete_from_watch_later_list";
+	else
+		action = "action_add_to_watch_later_list";
+
 	function addToWatchLater(sess_token)
 	{
 		xheaders = headers;
-		xheaders['Cookie'] = that.doc.cookie;
+		//xheaders['Cookie'] = that.doc.cookie;
 		xheaders['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
 		GM_xmlhttpRequest({
 			method: 'POST',
 			url: that.win.location.protocol + "//" + that.win.location.host + 
-				"/addto_ajax?action_add_to_watch_later_list=1&feature=player_embedded",
+				"/addto_ajax?" + action + "=1&feature=player_embedded",
 				//"/addto_ajax?action_add_to_playlist=1&add_to_top=False",
 			headers: xheaders,
-			data: 'authuser=0&video_ids=' + that.swf_args.video_id + '&session_token=' + sess_token,
+			data: 'video_ids=' + that.swf_args.video_id + '&authuser=0&session_token=' + sess_token,
 			//'&full_list_id=' + plid + '&plid=' + that.swf_args.plid + '&session_token=' + that.yt.tokens_.addto_ajax,
 			onload: function(r){
 				if(r.status==200){
@@ -1974,12 +1981,16 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 					xmlDoc=parser.parseFromString(r.responseText, "text/xml");
 					retCode = xmlDoc.firstChild.querySelector('return_code').firstChild.data;
 					//console.log(r.status, retCode);
-					el = that.doc.querySelector('#vlc-watchlater-btn span');
+					el = that.doc.querySelector('#vlc-watchlater-btn');
 					if(retCode == 0 || //ok
 						retCode == 6) //duplicate
-						el.className = "vlc-wl-state vlc-ok-bg";
-					else
-						el.className = "vlc-wl-state vlc-boo-bg";
+					{
+						el.classList.add("vlc-wl-state");
+						el.classList.add("vlc-ok-bg");
+					} else {
+						el.classList.add("vlc-wl-state");
+						el.classList.add("vlc-boo-bg");
+					}
 				}
 			}
 		});
@@ -2000,7 +2011,7 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 					//console.log(r.responseText);
 					//if(r.responseText.match(/status=(\d+)/)[1] == '200') 
 					{
-						that.session_token = r.responseText.match(/addto_ajax_token=([\w-_]+)/)[1];
+						that.session_token = unescape(r.responseText.match(/addto_ajax_token=([\w-_=%]+)/)[1]);
 						addToWatchLater(that.session_token);
 					}
 				}
@@ -2018,7 +2029,7 @@ ScriptInstance.prototype.canAutoplay = function(){
 		return true;
 
 	return ((GM_getValue('bautoplay', true) || (this.isPopup && this.bpopupAutoplay))
-				&& !this.matchEmbed);
+				&& !this.isEmbed);
 }
 
 ScriptInstance.prototype.removeListener = function(type, listener){
@@ -2382,7 +2393,7 @@ ScriptInstance.prototype.pullYTVars = function()
 	// unsafeWindow is deprecated but...
 	this.yt = unsafeWindow['yt'];
 	this.ytplayer = unsafeWindow['ytplayer'];
-	if(this.matchEmbed && this.yt)
+	if(this.isEmbed && this.yt)
 	{
 		this.swf_args = this.yt.config_.PLAYER_CONFIG.args;
 		return;
@@ -2816,7 +2827,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			el.className = 'vlc-scrollbar';
 			el.title = _("POSITION");
 			el.setAttribute('style', "width:100%;");
-			if(this.bembedControls && this.matchEmbed)
+			if(this.bembedControls && this.isEmbed)
 				el.classList.add('sb-narrow');
 			el.innerHTML = '<div class="knob"><div id="vlc-sb-tooltip"></div></div><div id="vlctime">00:00/00:00</div>';
 			cellClone = cell.cloneNode();
@@ -2829,7 +2840,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			volbar.title = _("VOLUME");
 			volbar.innerHTML = '<span class="yt-uix-button-content"><div id="sbVol" class="vlc-scrollbar"><span id="vlcvol">0</span><div class="knob"/></div></span>';
 
-			if(!this.bcompactVolume && (!this.buseWidePosBar || this.matchEmbed))
+			if(!this.bcompactVolume && (!this.buseWidePosBar || this.isEmbed))
 			{
 				cellClone = cell.cloneNode();
 				cellClone.appendChild(volbar);
@@ -2859,7 +2870,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			buttons.appendChild(this._makeButton('_stop', _("STOP"), 'fa-stop'));
 			buttons.appendChild(this._makeButton('_fs', _("FS"), 'fa-arrows-alt'));
 			if(wide) buttons.appendChild(this._makeButton('_wide', _("WIDE"), 'fa-expand'));
-			if(popup && !this.isPopup && !this.matchEmbed)
+			if(popup && !this.isPopup && !this.isEmbed)
 			{
 				var pop_pop = this._makeButton('_popup', _("POPUP"), 'fa-external-link');
 				pop_pop.addEventListener('click', function(e){
@@ -2935,12 +2946,12 @@ ScriptInstance.prototype.generateDOM = function(options)
 			},
 		false);
 
-		if(!this.matchEmbed) buttons.appendChild(configbtn);
+		if(!this.isEmbed) buttons.appendChild(configbtn);
 
 		//if embed and logged in
-		if((this.matchEmbed || this.bshowWLOnMain) && typeof(this.swf_args.authuser) != 'undefined' && this.swf_args.authuser == 0)
+		if((this.isEmbed || this.bshowWLOnMain) && typeof(this.swf_args.authuser) != 'undefined' && this.swf_args.authuser == 0)
 		{
-			var watchbtn = this._makeButton('vlc-watchlater-btn', _('WATCHLATER'), 'fa-youtube-play fa-lg');
+			var watchbtn = this._makeButton('vlc-watchlater-btn', _('WATCHLATER'), 'fa-clock-o fa-lg');
 			watchbtn.addEventListener('click', function(ev)
 				{
 					that.ajaxWatchLater();
@@ -2961,14 +2972,14 @@ ScriptInstance.prototype.generateDOM = function(options)
 			link.innerHTML = (this.bbtnIcons ? '<i class="fa fa-lg fa-download"></i>' : '') + //bool just for consistency
 				'<span class="yt-uix-button-content">' + _("DOWNLOAD") + '</span>';
 			//https://bugzilla.mozilla.org/show_bug.cgi?id=676619
-			if(!this.matchEmbed && this.ytplayer && this.ytplayer.config)
+			if(!this.isEmbed && this.ytplayer && this.ytplayer.config)
 				link.setAttribute("download", this.ytplayer.config.args.title + ".mp4"); //TODO link filename
-			if(dl)// && matchEmbed)
+			if(dl)// && isEmbed)
 				buttons.appendChild(link);
 		}
 
 		///Watch on YT link
-		if(this.matchEmbed)
+		if(this.isEmbed)
 		{
 			var link = this.doc.createElement("A");
 			link.className = "yt-uix-button yt-uix-button-default";
@@ -2981,13 +2992,13 @@ ScriptInstance.prototype.generateDOM = function(options)
 			buttons.appendChild(link);
 		}
 
-		if(!this.bcompactVolume && this.buseWidePosBar && !this.matchEmbed)
+		if(!this.bcompactVolume && this.buseWidePosBar && !this.isEmbed)
 			buttons.appendChild(volbar);
 
 		controls.appendChild(buttons);
 	}
 
-	if(false && !this.matchEmbed)
+	if(false && !this.isEmbed)
 	{
 		this.txt = this.doc.createElement("TEXTAREA");
 		this.txt.id = "vlc-dash-mpd";
@@ -3211,7 +3222,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 
 	var spacer;
 	//TODO Caveat is that controls don't get updated when hidden so prepare for inconsistencies
-	if(this.buseHoverControls && this.matchEmbed)
+	if(this.buseHoverControls && this.isEmbed)
 	{
 		spacer = this.doc.createElement("div");
 		spacer.id = "vlc-spacer";
@@ -3483,8 +3494,8 @@ ScriptInstance.prototype.getPL = function()
 ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 {
 	var that = this;
-	var userPage = /\/user\//.test(this.win.location.href);
-	var watchPage = /\/watch/.test(this.win.location.href);
+	var userPage = /^\/user\//.test(this.win.location.pathname);
+	var watchPage = /^\/watch/.test(this.win.location.pathname);
 	if(!spfNav /*|| (!upsell && this.doc.querySelector("#movie_player"))*/)
 	{
 		//Keeping it here for early bail
@@ -3552,7 +3563,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 
 	this.setThumbnailVisible(this.buseThumbnail);
 	if(this.bscrollToPlayer) this.player.scrollIntoView(true);
-	//if(!this.matchEmbed) this.generateMPD();
+	//if(!this.isEmbed) this.generateMPD();
 
 	var plbtn = this.doc.querySelector('div.playlist-nav-controls button.toggle-autoplay');
 
@@ -3897,6 +3908,10 @@ ScriptInstance.prototype.setupVLC = function()
 	this.myvlc = new VLCObj(this);
 	this.sbPos = new ScrollBar(this);
 	this.sbPos.initSB('#sbSeek', '#sbSeek div.knob', 0, 0, 1, true);
+	var spacer = that.$('vlc-spacer');
+
+	if(spacer)
+		this.$("vlc_controls_div").style.display = "block";//Show so that css is calculated
 
 	var maxvolume = tryParseFloat(GM_getValue('vlc-volume-max', "100"), 100.0).toFixed(0);
 	if(maxvolume < 100) maxvolume = 100;
@@ -3917,10 +3932,13 @@ ScriptInstance.prototype.setupVLC = function()
 		this.sbRate.setValue(1.0);
 	}
 
+	if(spacer)
+		this.$("vlc_controls_div").style.display = '';//reset
+
 	this.myvlc.initVLC(this.sbPos, this.sbVol, this.sbRate);
 	//this.myvlc.add("");//Or else 'no mediaplayer' error, vlc < 2.0
 
-	if(!this.matchEmbed)
+	if(!this.isEmbed)
 	{
 		this.win.addEventListener('hashchange', function(e){that.onHashChange(e);}, false);
 		if(this.$('_wide'))
@@ -3976,7 +3994,7 @@ ScriptInstance.prototype.queryCC = function()
 ScriptInstance.prototype.exterminate = function()
 {
 	//blank flash div as soon as possible
-	if(!this.matchEmbed)
+	if(!this.isEmbed)
 	{
 		var p = this.$(gPlayerApiID) || this.$(gPlayerApiID+"-vlc") || this.$('p'); //Youtube page
 		if(!p)
@@ -4026,8 +4044,11 @@ ScriptInstance.prototype.overrideRef = function()
 			else if(id == 'movie_player')
 				return that.moviePlayer;
 		};
-		//restore seekTo
-		this.yt.www.watch.player.seekTo = this.myvlc._seekTo;
+		//TODO restore seekTo
+		//this.yt.www.watch.player.seekTo = this.myvlc._seekTo;
+		this.yt.www.watch.player.seekTo = function(t){
+			that.myvlc._seekTo(t);
+		}
 	}catch(e){ 
 		//console.log(e); 
 	}
@@ -4038,7 +4059,7 @@ ScriptInstance.prototype.overrideRef = function()
 // Remove old stuff and recreate (with new settings)
 ScriptInstance.prototype.reloadPlayer = function()
 {
-	if(!this.matchEmbed)
+	if(!this.isEmbed)
 	{
 		this.myvlc.clearUpdate();
 		this.initVars();
