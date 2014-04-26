@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name           VLCTube
 // @namespace      0d92f6be108e4fbee9a6a0ee4366b72e
-// @run-at         document-start
+// @run-at         document-end
 // @include        *://youtube.tld/*
 // @include        *://*.youtube.tld/*
 // @include        *://*.youtube.tld/embed/*
@@ -629,7 +629,7 @@ ScrollBar.__exposedProps__ = { };
 ScrollBar.prototype = {
 	constructor: ScrollBar,
 	$: function(id){ return this.instance.doc.getElementById(id); },
-	init: function(barId, knobId, type, minval, maxval, insta, formatter){
+	initSB: function(barId, knobId, type, minval, maxval, insta, formatter){
 		if(typeof(type) == 'undefined') type = 0;
 		if(typeof(minval) == 'undefined') minval = 0;
 		if(typeof(maxval) == 'undefined') maxval = 100;
@@ -1053,13 +1053,13 @@ VLCObj.prototype = {
 			btn.addEventListener('click', fn, true);
 		}
 	},
-	init: function (sbPos, sbVol, sbRate){
+	initVLC: function (sbPos, sbVol, sbRate){
 		this.vlc = this.$(vlc_id).wrappedJSObject;
 		//Browser has probably blocked the plugin, wait for user confirmation.
 		if(!this.vlc.input)
 		{
 			var that = this;
-			setTimeout(function(e){that.init(sbPos, sbVol, sbRate);}, 1000);
+			setTimeout(function(e){that.initVLC(sbPos, sbVol, sbRate);}, 1000);
 			return;
 		}
 		this.vlc.VLCObj = this;
@@ -1136,7 +1136,7 @@ VLCObj.prototype = {
 	},
 	eventBuffering: function(e){
 		if(e != undefined) this.instance.setBuffer(e);
-		this.instance.moviePlayerEvents.fire('onStateChange', this.instance.moviePlayer, 2);
+		this.instance.playerEvents.fire('onStateChange', this.instance.moviePlayer, 2);
 		mute = this.$(vlc_id + '_mute');
 		if(mute && mute.muteStyleToggle) mute.muteStyleToggle();
 		if(this.prevState == 3 || this.prevState == 2 || 
@@ -1152,7 +1152,7 @@ VLCObj.prototype = {
 			this.instance.restoreVolume(true);
 		vsTxt = false;
 		this.clearUpdate();
-		this.instance.moviePlayerEvents.fire('onStateChange', this.instance.moviePlayer, 0);
+		this.instance.playerEvents.fire('onStateChange', this.instance.moviePlayer, 0);
 		if(this.instance.matchEmbed)
 			this.$('cued-embed').classList.remove('hid');
 		this.prevState = 5;
@@ -1179,14 +1179,14 @@ VLCObj.prototype = {
 			this.instance.win.clearTimeout(this.repeatTimer);
 			this.repeatTimer = null;
 		}
-		this.instance.moviePlayerEvents.fire('onStateChange', this.instance.moviePlayer, 1);
+		this.instance.playerEvents.fire('onStateChange', this.instance.moviePlayer, 1);
 		mute = this.$(vlc_id + '_mute');
 		if(mute && mute.muteStyleToggle) mute.muteStyleToggle();
 		this.prevState = 3;
 	},
 	eventPaused: function(){
 		this.togglePlayButton(false);
-		this.instance.moviePlayerEvents.fire('onStateChange', this.instance.moviePlayer, 2);
+		this.instance.playerEvents.fire('onStateChange', this.instance.moviePlayer, 2);
 		this.prevState = 4;
 	},
 	doAdd: function(src, waitCount){
@@ -1497,7 +1497,7 @@ function ScriptInstance(_win, popup, oldNode, upsell)
 	this.nextFailed = false; //Failed to get next video in playlist
 	this.thumb = null; //thumbnail node
 	this.moviePlayer = null;
-	this.moviePlayerEvents = null;
+	this.playerEvents = null;
 	this.quality = null;
 	this.qualityLevels = [];
 	this.isCiphered = false;
@@ -1533,8 +1533,8 @@ function ScriptInstance(_win, popup, oldNode, upsell)
 	}
 
 	//Trouble setting size through CSS so just force it for now atleast
-	var that = this;
-	if(popup) this.win.addEventListener('resize', function(e){ that.setPlayerSize(); }, false);
+	//var that = this;
+	//if(popup) this.win.addEventListener('resize', function(e){ that.setPlayerSize(); }, false);
 
 	for(i in itagToText)
 	{
@@ -1803,9 +1803,11 @@ ScriptInstance.prototype.putCSS = function(){
 	.movie_player_vlc select {padding: 5px 0;}\
 	a.vlclink { color:#438BC5; margin:5px;}\
 	.vlc_hidden { display:none !important; }\
-	.vlccontrols {padding:2px 5px; color: #333333;}\
+	.vlc_hid { display:none; }\
+	.vlccontrols {padding:2px 5px; color: #333333;display: table}\
 	/*.vlccontrols div {margin-right:5px; }*/\
-	.vlc-scrollbar{cursor: default;position: relative;width: 90%;height: 15px;border: 1px solid #000;display: inline-block;text-align: center;margin-right: 5px;border-radius: 3px;background: #FFF;color: #444;}\
+	.vlc-scrollbar{cursor: default;position: relative;width: 90%;height: 15px;border: 1px solid #000;display: inline-block;text-align: center;\
+	/*margin-right: 5px;*/border-radius: 3px;background: #FFF;color: #444;}\
 	#sbVol { width: 80px; } #ratebar { width: 150px; } \
 	.vlc-scrollbar .knob {left:0px;top:-1px;position:absolute;width:7px;height:15px;background:rgba(27,127,204,0.5);border:1px solid rgba(27,127,204,0.7);box-shadow:0px 0px 3px rgba(27,127,204,0.7);}\
 	/*#sbVol .knob {background: rgba(0,51,153,0.8);}\
@@ -1813,14 +1815,14 @@ ScriptInstance.prototype.putCSS = function(){
 	.sb-narrow { width: 125px; }\
 	.vlc-volume-holder { display:inline-block; } \
 	#vlcvol:after {content: '%';}\
-	.movie_player_vlc { background: white;}\
+	.movie_player_vlc { background: white; height:100%}\
 	.progress-radial {\
 		margin-right: 5px;\
 		background-repeat: no-repeat; \
 		line-height: 16px; text-align: center; color: #EEE; font-size: 12px; \
 		display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #2f3439; background-color: tomato;}\
 	#vlc-thumbnail { width: 100%; height: 100%; cursor: pointer; }\
-	#vlc-sb-tooltip { border: 2px solid black; background: #000 no-repeat; z-index:999; width: 80px; height: 45px; \
+	#vlc-sb-tooltip { border: 2px solid black; background: #000 no-repeat; z-index:9999; width: 80px; height: 45px; \
 		position: relative; border-radius: 3px;left: -100%;top: 24px; \
 		/* flip in and out version */ \
 		/*display:none;*/ \
@@ -1828,7 +1830,7 @@ ScriptInstance.prototype.putCSS = function(){
 		/*** display: none does not work ***/\
 		opacity: 0;\
 		transform: scaleY(0);\
-		-webkit-transform: scaleY(0); /*uh, why still*/\
+		-webkit-transform: scaleY(0);\
 		transition: opacity 200ms 0ms ease, transform 0ms 200ms linear; /*wait before transforming*/ \
 	}\
 	#sbSeek:active #vlc-sb-tooltip, \
@@ -1874,7 +1876,7 @@ ScriptInstance.prototype.putCSS = function(){
 	#vlc-config-checkboxes label input:checked + span, .vlc-ok-bg { background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAF9SURBVDiNpZM/SAJhGMafO/O48vMzt4hoaFIcnFqsJhEcW1qcWiuIVrnGhggajNK9rYiIIoegorxDO8Sg7cRbazW5pQielgS7/ucL7/J9/H4fH+/zKiTRT6l90f8UKP8WuK6bsixr9h1H8lfdarVSQohrTdPqpmnOkVRJfhDoJAf8sOu6U0KIcwB3AG6j0egVyZRfMGQYRr5UKi2QDHbPHceZllKeAagBuNB1/bRSqWySHOoVDBqGkVcU5SYQCFSLxeISSa3ZbM5IKcsALgGc6Lq+b9v2Bsmx7gNdwWQsFjsCcADgUFXVq0KhkI9EIscAygD2QqHQbr1eX++FSULpBqndbq+k0+nxRqMxDEADMAHgAcCjEOLZNM12MpncAnD/bqY9SQx2Op3FTCYzYtu2eJs3w+Hwc7VafUokEtt+2C8AgKDneYvZbDZqWZYupXyp1WpKPB7f+Qz+KgdBz/OWc7ncquM4ayRHv8vHVxcDJOdJjvwUMP8X/lx9b+Mr7eRSRxf/zIkAAAAASUVORK5CYII=') no-repeat 0 50%; } \
 	input.tiny { width: 45px; } \
 	#vlc-config-midcol div { padding-bottom: 5px;}\
-	#vlc_controls_div { border: 1px solid rgba(0, 0, 0, 0.098); border-top: 0; }\
+	#vlc_controls_div { /*border: 1px solid rgba(0, 0, 0, 0.098); border-top: 0;*/ width:100%;}\
 	#vlc-spacer #vlc_controls_div { display:none; }\
 	#vlc-spacer:hover #vlc_controls_div { display:block; }\
 	#vlc-spacer { background-image: linear-gradient(bottom, rgb(175,42,38) 50%, rgb(0,0,0) 100%);\
@@ -2017,9 +2019,9 @@ ScriptInstance.prototype.setThumbnailVisible = function(b)
 	if(!thumb) return;
 
 	if(b)
-		thumb.classList.remove("hid");
+		thumb.classList.remove("vlc_hid");
 	else
-		thumb.classList.add("hid");
+		thumb.classList.add("vlc_hid");
 }
 
 ScriptInstance.prototype.setSideBar = function(wide)
@@ -2092,23 +2094,24 @@ ScriptInstance.prototype.setPlayerSize = function(wide, subs)
 
 	this.$(vlc_id).style.width = this.isPopup ? "100%" : w + 'px';
 	this.$(vlc_id).style.height = this.isPopup ? "100%" : h + 'px';
-	this.$(vlc_id+'-holder').style.height = this.isPopup ?
-		(this.win.document.body.clientHeight - this.$('vlc_controls_div').clientHeight - 10) + 'px' : h  + 'px';
+	//TODO call setPlayerSize only when isPopup is finally set (or not)
+	this.$(vlc_id+'-holder').style.height = this.isPopup ? '' : h + 'px';
 
 	//player.style.height = (vlc.clientHeight+ (subs?50:0)) + 'px';
 	this.player.style.width = this.isPopup ? '100%' : w + 'px';
 
+	//With CSS display:table etc. not needed probably
 	/// Calculate position seekbar's width
 	// Fixed-width CSS should work also for now if you want
-	if(/*buseWidePosBar && */ this.$('sbSeek'))
-	{
-		// Hardcoded for 50px wide #vlcstate
-		// Mystery 22/7/2px (margins+paddings+border sizes?) and 5px for margin
-		var cw = w /*- this.$('vlcstate').clientWidth*/ - 22 - 26 - 10;
-		if(!this.buseWidePosBar && !this.bcompactVolume) cw -= this.$('sbVol').clientWidth + 7 + 5;
-		if(this.bshowRate) cw -= this.$('ratebar').clientWidth + 2 + 5;
-		this.$('sbSeek').style.width = Math.max(cw,100) + 'px';
-	}
+	//if(/*buseWidePosBar && */ this.$('sbSeek'))
+	//{
+		//// Hardcoded for 50px wide #vlcstate
+		//// Mystery 22/7/2px (margins+paddings+border sizes?) and 5px for margin
+		//var cw = w /*- this.$('vlcstate').clientWidth*/ - 22 - 26 - 10;
+		//if(!this.buseWidePosBar && !this.bcompactVolume) cw -= this.$('sbVol').clientWidth + 7 + 5;
+		//if(this.bshowRate) cw -= this.$('ratebar').clientWidth + 2 + 5;
+		//this.$('sbSeek').style.width = Math.max(cw,100) + 'px';
+	//}
 
 	playlist = this.getPL();
 	if(playlist)
@@ -2552,10 +2555,15 @@ ScriptInstance.prototype.openAsPopup = function(w,h)
 	for(i=0;i<divs.length;i++)
 		removeChildren(divs[i]);
 	//TODO
-	this.addCSS("#player.watch-small{max-width:100%}");
-	this.addCSS("#player.watch-medium{max-width:100%}");
-	this.addCSS("#player.watch-large{max-width:100%}");
+	this.addCSS("#player.watch-small{max-width:100%; min-width:100px;}");
+	this.addCSS("#player.watch-medium{max-width:100%;min-width:100px;}");
+	this.addCSS("#player.watch-large{max-width:100%;min-width:100px;}");
 	this.addCSS("#player{margin:0;padding:0;}");
+	this.addCSS("#player,#player-api-vlc,#movie_player, #mymovie-holder{height:100%; width:100%;}");
+	this.addCSS("#movie_player{display:table}");
+	this.addCSS("#mymovie-holder,#vlc_controls_div{display:table-row}");
+	this.addCSS("#mymovie-holder > div{display:table-cell}");
+	this.addCSS(".vlc_hid{display:none !important;}");
 	
 	this.doc.body.appendChild(player);
 	this.doc.body.className = "";
@@ -2728,7 +2736,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 	}
 	else*/
 		//set controls="yes" to show plugin's own controls by default
-	holder.innerHTML = '<img id="vlc-thumbnail"><embed type="application/x-vlc-plugin" pluginspage="http://www.videolan.org" \
+	holder.innerHTML = '<div id="vlc-thumbnail"></div><embed type="application/x-vlc-plugin" pluginspage="http://www.videolan.org" \
 						version="VideoLAN.VLCPlugin.2" controls="no" autoplay="no" \
 						width="100%" height="100%" id="'+ vlc_id +'" name="'+ vlc_id +'"/>';
 	vlc.appendChild(holder);
@@ -2744,6 +2752,11 @@ ScriptInstance.prototype.generateDOM = function(options)
 	{
 		var href = this.feather ? "http://i4.ytimg.com/vi/"+ this.swf_args.video_id +"/hqdefault.jpg" : this.thumb.href;
 		holder.childNodes[0].setAttribute('src', href);
+		holder.style.backgroundImage = "url(" + href + ")";
+		holder.style.backgroundRepeat = "no-repeat";
+		holder.style.backgroundSize = "100%";
+		holder.style.backgroundPosition = "50%";
+		holder.style.overflow = "hidden";
 		/*if(options.userPage)
 			holder.childNodes[0].addEventListener('click', function(ev){ that.win.location.pathname = '/watch?v=' + that.swf_args.video_id; }, false);
 		else*/
@@ -2760,6 +2773,10 @@ ScriptInstance.prototype.generateDOM = function(options)
 		controls.id = "vlc_controls_div";
 
 		var volbar;
+		//TODO finalize table layout; for dynamic seekbar width
+		var cellClone, cell = this.doc.createElement("div");
+		cell.setAttribute('style', "display: table-cell;padding: 0px 5px");
+
 		var sliders = this.doc.createElement("div");
 		{
 			sliders.id = vlc_id + "_controls";
@@ -2770,16 +2787,22 @@ ScriptInstance.prototype.generateDOM = function(options)
 			el.className = "progress-radial";
 			el.id = "progress-radial";
 			el.title = _("BUFFERINDICATOR");
-			sliders.appendChild(el);
+			cellClone = cell.cloneNode();
+			cellClone.appendChild(el);
+			sliders.appendChild(cellClone);
 
 			el = this.doc.createElement("div");
 			el.id = 'sbSeek';
 			el.className = 'vlc-scrollbar';
 			el.title = _("POSITION");
+			el.setAttribute('style', "width:100%;");
 			if(this.bembedControls && this.matchEmbed)
 				el.classList.add('sb-narrow');
 			el.innerHTML = '<div class="knob"><div id="vlc-sb-tooltip"></div></div><div id="vlctime">00:00/00:00</div>';
-			sliders.appendChild(el);
+			cellClone = cell.cloneNode();
+			cellClone.setAttribute('style', "display: table-cell; width:100%;min-width:200px;");
+			cellClone.appendChild(el);
+			sliders.appendChild(cellClone);
 
 			volbar = this.doc.createElement("div");
 			volbar.className = 'vlc-volume-holder';
@@ -2787,7 +2810,11 @@ ScriptInstance.prototype.generateDOM = function(options)
 			volbar.innerHTML = '<span class="yt-uix-button-content"><div id="sbVol" class="vlc-scrollbar"><span id="vlcvol">0</span><div class="knob"/></div></span>';
 
 			if(!this.bcompactVolume && (!this.buseWidePosBar || this.matchEmbed))
-				sliders.appendChild(volbar);
+			{
+				cellClone = cell.cloneNode();
+				cellClone.appendChild(volbar);
+				sliders.appendChild(cellClone);
+			}
 
 			if(this.bshowRate)
 			{
@@ -2795,7 +2822,9 @@ ScriptInstance.prototype.generateDOM = function(options)
 				el.className = 'vlc-scrollbar';
 				el.title = _("PLAYBACKRATE");
 				el.innerHTML = '<div class="knob"></div><span id="vlcrate">1.0</span>';
-				sliders.appendChild(el);
+				cellClone = cell.cloneNode();
+				cellClone.appendChild(el);
+				sliders.appendChild(cellClone);
 			}
 		}
 
@@ -3571,10 +3600,15 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 
 			that.thumb = that.doc.querySelector("span[itemprop='thumbnail'] link[itemprop='url']");
 			var tn = that.doc.querySelector("#vlc-thumbnail");
+			var tn2 = that.doc.querySelector("#" + vlc_id + "-holder");
 			if(that.thumb && that.buseThumbnail)
 			{
 				tn.classList.remove("vlc_hidden");//new video probably
-				tn.setAttribute('src', that.thumb.href);
+				//tn.setAttribute('src', that.thumb.href);
+				tn2.style.backgroundImage = "url(" + that.thumb.href + ")";
+				tn2.style.backgroundRepeat = "no-repeat";
+				tn2.style.backgroundSize = "100%";
+				tn2.style.backgroundPosition = "50%";
 				tn.addEventListener('click', function(ev){ that.myvlc.playVideo(); }, false);
 			}
 			else
@@ -3839,13 +3873,13 @@ ScriptInstance.prototype.setupVLC = function()
 	var that = this;
 	this.myvlc = new VLCObj(this);
 	this.sbPos = new ScrollBar(this);
-	this.sbPos.init('#sbSeek', '#sbSeek div.knob', 0, 0, 1, true);
+	this.sbPos.initSB('#sbSeek', '#sbSeek div.knob', 0, 0, 1, true);
 
 	var maxvolume = tryParseFloat(GM_getValue('vlc-volume-max', "100"), 100.0).toFixed(0);
 	if(maxvolume < 100) maxvolume = 100;
 
 	this.sbVol = new ScrollBar(this);
-	this.sbVol.init('#sbVol', '#sbVol div.knob', bcompactVolume?1:0, 0, maxvolume, true, 
+	this.sbVol.initSB('#sbVol', '#sbVol div.knob', bcompactVolume?1:0, 0, maxvolume, true, 
 		function(pos){this.bar.children.namedItem('vlcvol').innerHTML = Math.round(pos);});
 
 	if(this.bshowRate)
@@ -3855,12 +3889,12 @@ ScriptInstance.prototype.setupVLC = function()
 		//Limiting default range to 0.25 to 2 so that 150px bar still has some precision
 		var ratemin = tryParseFloat(GM_getValue('vlc-rate-min', "0.25"), 0.25);
 		var ratemax = tryParseFloat(GM_getValue('vlc-rate-max', "2"), 2);
-		this.sbRate.init('#ratebar', '#ratebar div.knob', 0, ratemin, ratemax, true, 
+		this.sbRate.initSB('#ratebar', '#ratebar div.knob', 0, ratemin, ratemax, true, 
 			function(pos){this.bar.children.namedItem('vlcrate').innerHTML = pos.toFixed(3);});
 		this.sbRate.setValue(1.0);
 	}
 
-	this.myvlc.init(this.sbPos, this.sbVol, this.sbRate);
+	this.myvlc.initVLC(this.sbPos, this.sbVol, this.sbRate);
 	//this.myvlc.add("");//Or else 'no mediaplayer' error, vlc < 2.0
 
 	if(!this.matchEmbed)
@@ -3870,23 +3904,27 @@ ScriptInstance.prototype.setupVLC = function()
 			this.$('_wide').addEventListener('click', function(e){that.onWideClick(e);}, false);
 	}
 
-	this.moviePlayerEvents = new CustomEvent();
-	this.moviePlayer.wrappedJSObject.addEventListener = function(event, fun, bubble) {that.moviePlayerEvents.addListener(event, fun);}
+	this.playerEvents = new CustomEvent();
+	this.moviePlayer.wrappedJSObject.addEventListener = function(event, fun, bubble) {that.playerEvents.addListener(event, fun);}
 
 	//Compatibility functions
-	this.moviePlayer.wrappedJSObject.seekTo = function(e){that.myvlc._seekTo(e);}
-	this.moviePlayer.wrappedJSObject.pauseVideo = function(){that.myvlc.pauseVideo();}
-	this.moviePlayer.wrappedJSObject.playVideo = function(){that.myvlc.playVideo();}
-	this.moviePlayer.wrappedJSObject.stopVideo = function(){that.myvlc.stopVideo();}
-	this.moviePlayer.wrappedJSObject.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
-	this.moviePlayer.wrappedJSObject.getDuration = function(){return that.myvlc.getDuration();}
-	this.moviePlayer.wrappedJSObject.getAvailableQualityLevels = function(){return that.myvlc.getAvailableQualityLevels();}
-	this.moviePlayer.wrappedJSObject.getPlaybackQuality = function(){return that.myvlc.getPlaybackQuality();}
-	this.moviePlayer.wrappedJSObject.setPlaybackQuality = function(e){that.myvlc.setPlaybackQuality(e);}
-	this.moviePlayer.wrappedJSObject.getVolume = function(){return that.myvlc.getVolume();}
-	this.moviePlayer.wrappedJSObject.setVolume = function(e){that.myvlc.setVolume(e);}
-	this.moviePlayer.wrappedJSObject.isMuted = function(){return false;}
-	this.moviePlayer.wrappedJSObject.getPlayerState = function(){
+	//console.log("unsafeWindow.__yt_www", unsafeWindow._yt_www.p);
+	//this.player.wrappedJSObject.watch.player = {};
+	//unsafeWindow._yt_www.v('yt.www.watch.player', {});
+	//unsafeWindow._yt_www.v('yt.www.watch.player.init', function(e){console.log("init called", arguments);});
+	/*this.player.wrappedJSObject.watch.player.seekTo = function(e){that.myvlc._seekTo(e);}
+	this.player.wrappedJSObject.watch.player.pauseVideo = function(){that.myvlc.pauseVideo();}
+	this.player.wrappedJSObject.watch.player.playVideo = function(){that.myvlc.playVideo();}
+	this.player.wrappedJSObject.watch.player.stopVideo = function(){that.myvlc.stopVideo();}
+	this.player.wrappedJSObject.watch.player.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
+	this.player.wrappedJSObject.watch.player.getDuration = function(){return that.myvlc.getDuration();}
+	this.player.wrappedJSObject.watch.player.getAvailableQualityLevels = function(){return that.myvlc.getAvailableQualityLevels();}
+	this.player.wrappedJSObject.watch.player.getPlaybackQuality = function(){return that.myvlc.getPlaybackQuality();}
+	this.player.wrappedJSObject.watch.player.setPlaybackQuality = function(e){that.myvlc.setPlaybackQuality(e);}
+	this.player.wrappedJSObject.watch.player.getVolume = function(){return that.myvlc.getVolume();}
+	this.player.wrappedJSObject.watch.player.setVolume = function(e){that.myvlc.setVolume(e);}
+	this.player.wrappedJSObject.watch.player.isMuted = function(){return false;}
+	this.player.wrappedJSObject.watch.player.getPlayerState = function(){
 		switch(that.myvlc.input.state){
 			case 0: case 7: return -1;//idle, error
 			case 1: return 5;//opening
@@ -3895,7 +3933,7 @@ ScriptInstance.prototype.setupVLC = function()
 			case 4: return 2;//paused
 			case 5: case 6: return 0;//stopped, ended
 		}
-	}
+	}*/
 }
 
 ScriptInstance.prototype.queryCC = function()
@@ -4068,8 +4106,24 @@ function DOMevent(mutations)
 //if(/\/user\//.test(window.location))
 //	loadPlayerOnLoad(window, null, true);
 
+/*
 /Chrome/.test(navigator.userAgent) && /\/embed\//.test(window.location.href) ? loadPlayer(window) :
 	(function(){
 			domObserver = new MutationObserver(DOMevent);
 			domObserver.observe(document, {subtree:true, childList:true});
 		})();//window.addEventListener('DOMNodeInserted', DOMevent, true);
+*/
+
+loadPlayer(window, null, false);
+
+//ScriptInstance.prototype.str2obj = function (a, b) {
+function str2obj(obj, a, b) {
+	m = {};
+	m.l = function (a) {
+        return void 0 !== a
+    };
+	var c = a.split('.'), d = obj;//this;
+	//c[0] in d || !d.execScript || d.execScript('var ' + c[0]);
+	for (var e; c.length && (e = c.shift()); ) !c.length && (0, m.l) (b) ? d[e] = b : d[e] ? d = d[e] : d = d[e] = {}
+	console.log(d);
+};
