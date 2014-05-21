@@ -15,13 +15,16 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        52.13
-// @updateURL      https://userscripts.org/scripts/source/25318.meta.js
-// @downloadURL    https://userscripts.org/scripts/source/25318.user.js
+// @version        54
+// @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
+// @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
+// @updateURL      http://userscripts.org:8080/scripts/source/25318.meta.js
+// @downloadURL    http://userscripts.org:8080/scripts/source/25318.user.js
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx28+, vlc 2.1.4, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2014-05-21 Try to resume if unexpected EOS. Use bind(). Playlist next item fix.
 //2014-04-26 Watch later, regex fix, remove from watch later if viewing WL playlist, hover controls css
 //2014-04-26 Embedded crash. seekTo
 //2014-04-26 Incomplete quick fix the fix the fix for comments not loading, API calls maybe
@@ -1035,6 +1038,8 @@ function VLCObj (instance){
 	this.updateTimer = null; //probably can do without but whatever
 	this.repeatTimer = null;
 	this.stopUpdate = true; //true by default so that stateUpdate() would update only once
+	this.lastPos = -1;
+	this.lastDur = -1;
 }
 
 //https://developer.mozilla.org/en-US/docs/XPConnect_wrappers???
@@ -1089,7 +1094,8 @@ VLCObj.prototype = {
 		if(this.$(vlc_id+'_select'))
 		{
 			this.$(vlc_id+'_select').VLCObj = this;
-			this.$(vlc_id+'_select').addEventListener('change', ScriptInstance.prototype.onFmtChange.bind(this.instance), false);
+			this.$(vlc_id+'_select').addEventListener('change', 
+				ScriptInstance.prototype.onFmtChange.bind(this.instance), false);
 		}
 		this.stateUpdate(); //initial update
 	},
@@ -1157,6 +1163,8 @@ VLCObj.prototype = {
 	},
 	eventEnded: function(){
 		this.eventStopped();
+		if(this.eosCheck(this.lastState, this.lastPos, this.lastDur))
+			return;
 		if(this.instance.buseRepeat)
 		{
 			var wait = tryParseFloat(GM_getValue('vlc-repeat-wait', "0"));
@@ -1367,21 +1375,26 @@ VLCObj.prototype = {
 		catch(e){}
 	},
 	//End of Youtube stuff
-	setTimes: function(cur, dur){
+	setTimes: function(cur, dur)
+	{
 		this.scrollbarPos.bar.children.namedItem('vlctime').innerHTML = fmttime(cur) + ( dur != undefined ? " / " + fmttime(dur) : "");
 	},
-	startUpdate: function(){
+	startUpdate: function()
+	{
 		this.stopUpdate = false;
 		this.updateTick();
 	},
-	clearUpdate: function(){
+	clearUpdate: function(noUpdate)
+	{
 		this.stopUpdate = true;
 		this.instance.win.clearTimeout(this.updateTimer);
-		this.stateUpdate(); //final update
+		if(!noUpdate)
+			this.stateUpdate(); //final update
 		//stupid hang
 		this.instance.win.setTimeout(this.playlistNext.bind(this), stateUpdateFreq);
 	},
-	updateTick: function(){
+	updateTick: function()
+	{
 		this.stateUpdate();
 		this.playlistNext();
 		if(!this.stopUpdate)
@@ -1398,10 +1411,14 @@ VLCObj.prototype = {
 		else
 			this.instance.win.location.href = link;
 	},
-	stateUpdate: function(){
-		try{
-			if(this.vlc.input && !this.scrollbarPos.userSeeking){
-				this.scrollbarPos.setValue(this.vlc.input.position*this.scrollbarPos.maxValue);
+	stateUpdate: function()
+	{
+		try
+		{
+			if(this.vlc.input && !this.scrollbarPos.userSeeking)
+			{
+				if(!(this.instance.buseHoverControls && this.instance.getStyle('vlc_controls_div').display=='none'))
+					this.scrollbarPos.setValue(this.vlc.input.position*this.scrollbarPos.maxValue);
 				//this.controls.children.namedItem('vlcstate').innerHTML = VLC_status[this.vlc.input.state];
 				rp = this.instance.doc.querySelector('#progress-radial');
 				rp.innerHTML = VLC_status[this.vlc.input.state][0];
@@ -1411,16 +1428,18 @@ VLCObj.prototype = {
 					this.reloading = setTimeout(function(){window.location += "#vlc-error"; window.location.reload();}, 3000);
 				this.setTimes(this.vlc.input.time,
 					this.vlc.input.length > 0 ? this.vlc.input.length : (this.instance.ytplayer ? 1000*this.instance.ytplayer.config.args.length_seconds : 0));
+
+				this.eosCheck(this.lastState, this.lastPos, this.lastDur);
+				this.lastState = this.vlc.input.state;
+				this.lastPos = this.vlc.input.time;
+				this.lastDur = this.vlc.input.length;
 			}
 
 			if(this.ccObj) this.ccObj.update(this.vlc.input.time / 1000, this.vlc);
 
-			if(false && !vsTxt && this.vlc.video.width>0)
-			{
-				vsTxt = true;
-				this.$("vlc-video-size").innerHTML = this.vlc.video.width + "x" + this.vlc.video.height;
-			}
-		}catch(e){
+		}
+		catch(e)
+		{
 			if(console) console.log('stateUpdate: '+e);
 		}
 	},
@@ -1434,10 +1453,10 @@ VLCObj.prototype = {
 			//Uncomment if you want some delay before next starts to play
 			//setTimeout(function(){
 
-				var next = this.instance.doc.querySelector('li[data-index="'+(this.instance.ytplayer.config.args.index+1)+'"] ~ li a');
+				var next = this.instance.doc.querySelector('li[data-index="'+(this.instance.ytplayer.config.args.index)+'"] a');
 				if(next)
 				{
-					console.log("going to play next one.");
+					console.log("going to play next one.", next.href);
 					this.goto(next.href);
 				}
 				else if((next = this.instance.doc.querySelector('ol.playlist-videos-list li a'))) //first
@@ -1453,6 +1472,30 @@ VLCObj.prototype = {
 			//}, 3000); //wait 3 secs
 			//return;//Stop stateUpdate, if using setTimeout
 		}
+	},
+	eosCheck: function(s,p,d)
+	{
+		if((this.vlc.input.state == 6) && 
+			//(s == 3 || s == 4) &&
+			(s > 0) &&
+			// ignore last 15 seconds
+			(p < d - 15*1000) &&
+			!this._timeout
+		)
+		{
+			console.log("Unexpected EOS. Restarting play.");
+			this.clearUpdate(true);
+			this.lastState = 0;
+			this._timeout = this.instance.win.setTimeout(
+				(function(){
+					this.playVideo();
+					this.vlc.input.time = p;
+					this._timeout = null;
+				}).bind(this)
+			, 1000);
+			return true;
+		}
+		return false;
 	},
 };
 
@@ -1622,6 +1665,12 @@ ScriptInstance.prototype.setDefault = function(key, def)
 
 ScriptInstance.prototype.$ = function(id){ return this.doc.wrappedJSObject._getElementById(id); }
 ScriptInstance.prototype.$$ = function(id){ return this.doc.getElementsByClassName(id); }
+ScriptInstance.prototype.getStyle = function(el, pseudo)
+{
+	if(typeof(el) === 'string')
+		el = this.$(el);
+	return this.win.getComputedStyle(el, pseudo);
+}
 
 //eh, vlc not restoring volume so brute force it. timing issues? also greasemonkey access violation?
 ScriptInstance.prototype.saveVolume = function(sbVol)
@@ -3831,7 +3880,7 @@ ScriptInstance.prototype.onEmbedPage = function()
 		if(this.bforceLoadEmbed)
 			this.loadEmbedVideo(null, true);
 		else
-			this.$('video-thumbnail').addEventListener('click', function(e){that.loadEmbedVideo();} , false);
+			this.$('video-thumbnail').addEventListener('click', this.loadEmbedVideo.bind(this) , false);
 	}
 }
 
