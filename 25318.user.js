@@ -15,7 +15,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        54
+// @version        55
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -417,8 +417,19 @@ function removeChildren(node, keepThis)
 	}
 
 	//silence html5 element
-	if(typeof(node.pause) == 'function'){node.pause(); node.src='';}
-	if(typeof(node.pauseVideo) == 'function'){node.pauseVideo();}
+	//because invalid access just if/else this thing...
+	if(node.wrappedJSObject)
+	{
+		if(typeof(node.wrappedJSObject.pauseVideo) === 'function')
+			node.wrappedJSObject.pauseVideo();
+		else if(typeof(node.wrappedJSObject.pause) === 'function')
+			node.wrappedJSObject.pause();
+	}
+	else if(typeof(node.pauseVideo) === 'function')
+		node.pauseVideo();
+	else if(typeof(node.pause) === 'function')
+		node.pause();
+
 	if(!keepThis) node.parentNode.removeChild(node);
 }
 
@@ -1582,7 +1593,7 @@ function ScriptInstance(_win, popup, oldNode, upsell)
 		this.onEmbedPage();
 	}
 
-	//Trouble setting size through CSS so just force it for now atleast
+	//WIP CSS should kinda work now with 'table' layout
 	//if(popup) this.win.addEventListener('resize', this.setPlayerSize.bind(this), false);
 
 	for(i in itagToText)
@@ -1591,6 +1602,13 @@ function ScriptInstance(_win, popup, oldNode, upsell)
 	}
 
 	if(!upsell && !popup) this.hookSPF();
+
+	//HTML5 player. Just bulldozer this thing
+	if(this.yt.player.Application && this.yt.player.Application.create)
+		this.yt.player.Application.create = function(a,b)
+		{
+			console.log("Suck it Trebek!");
+		}
 }
 
 ScriptInstance.prototype.hookSPF = function(){
@@ -4158,10 +4176,10 @@ function DOMevent(mutations)
 					//oldNode.parentNode.removeChild(oldNode);
 					//window.removeEventListener('DOMNodeInserted', arguments.callee, true);
 					domObserver.disconnect();
-					//FIXME
-					if(/Chrome/.test(navigator.userAgent))
-						/\/embed\//.test(window.location.href) ? loadPlayer(unsafeWindow, oldNode) :
-							loadPlayerOnLoad(unsafeWindow, oldNode);
+					//TODO Always a work in progress
+					if(/Chrome/.test(navigator.userAgent) && 
+							/\/embed\//.test(window.location.href))
+						loadPlayer(unsafeWindow, oldNode);
 					else
 						loadPlayerOnLoad(window, oldNode);
 				}
