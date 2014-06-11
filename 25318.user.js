@@ -303,9 +303,10 @@ var convToItag = {
 
 var itagPrio = [
 	46, 37, 45, 22, 44, 20, 35, 43, 18, 34, 5, 36, 17, 38, //4?
+	//Live streams
+	96, 95, 94, 93, 92, 91, 90, 132, 151,
 	//Fake live formats
 	//11080, 10720, 10480, 10360, 10240, 10180, 10144, 10072,
-	96, 95, 94, 93, 92, 91, 90, 132, 151
 ];
 
 var itagToText = {
@@ -3730,6 +3731,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 
 ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 {
+	console.log("In loadEmbedVideo");
 	var that = this;
 	GM_xmlhttpRequest({
 		method: 'GET',
@@ -3738,18 +3740,21 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 		headers: headers,
 		onload: function(resp)
 		{
+			console.log("XHR response:",resp.status);
 			if(resp.status==200){
 				if(resp.responseText){
 					var param_map = {};
 					var stream_map = [];
 
 					var params = resp.responseText.split('&');
+					console.log("params:",params.length);
 
 					for(var i=0; i<params.length; i++)
 					{
 						var t = params[i].split('=');
 						param_map[t[0]] = t[1];
 					}
+					console.log("param.status:",param_map["status"]);
 
 					if(param_map["status"] == "fail")
 					{
@@ -3768,10 +3773,11 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 						that.$('video-title').appendChild(
 								that.doc.createTextNode(" - " +
 								decodeURIComponent(param_map['title']).replace(/\+/g,' ')));
-					}catch(e){}
+					}catch(e){console.log("Failed to append to video-title.");}
 
 					that.parseUrlMap(decodeURIComponent(param_map['url_encoded_fmt_stream_map']), true);
 					that.genUrlMapSelect();
+					console.log("after genUrlMapSelect");
 
 					//set global width/height before generation
 					that.width = "100%";
@@ -3799,18 +3805,22 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 							//FIXME hidden element height is 0px
 							that.$(vlc_id+"-holder").style.height = (that.$(gMoviePlayerID).clientHeight - that.$("vlc_controls_div").clientHeight) + "px";
 
+						console.log("setupVLC");
 						that.setupVLC();
+						console.log("setupVLC: OK");
 					}
 
 					var embed = that.$('cued-embed');
 					if(embed)
 					{
+						console.log("in if(embed)");
 						var _vid = embed;//use as fallback
 						var thumb = that.$$('video-thumbnail');
 						if(thumb.length)
 							_vid = thumb[0];
 
 						function playEmbed(ev){
+							console.log("playEmbed");
 							//Do once or crash the plugin
 							if(!that.$('movie_player')) {
 								insertPlayer();
@@ -3825,11 +3835,13 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 							embed.classList.add('hid');
 							that.myvlc.playVideo();
 							that.onHashChange(that.win.location.href);
+							console.log("exiting playEmbed");
 						}
 
 						_vid.removeEventListener('click', function(e){that.loadEmbedVideo();} , false); //???
 						_vid.addEventListener('click', playEmbed , false);
 						if(!forceLoad) playEmbed();
+						console.log("exiting if(embed)");
 					}
 				}
 			}
@@ -3908,9 +3920,15 @@ ScriptInstance.prototype.onEmbedPage = function()
 			vid +'/hqdefault.jpg"></div>'; //maxresdefault.jpg
 
 		if(this.bforceLoadEmbed)
+		{
+			console.log("force loading embed.");
 			this.loadEmbedVideo(null, true);
+		}
 		else
+		{
+			console.log("Adding video-thumbnail event listener.");
 			this.$('video-thumbnail').addEventListener('click', this.loadEmbedVideo.bind(this) , false);
+		}
 	}
 }
 
@@ -4134,7 +4152,6 @@ function loadPlayer(win, oldNode, upsell)
 	var inst = new ScriptInstance(win, false, oldNode, upsell);
 	//win.addEventListener('DOMNodeInserted', function(e){inst.DOMevent_xhr(e);}, true);
 
-	console.log("loadPlayer", upsell);
 	//TODO which works the best
 	//win.addEventListener('beforeunload', function(e){inst.saveSettings();}, true);
 	win.addEventListener('unload', function(e){inst.saveSettings();}, true);
@@ -4183,7 +4200,7 @@ function DOMevent(mutations)
 				   (/embed/.test(window.location.href) && e.id == 'player1')//embedded
 				   )
 				{
-					console.log("load player", e);
+					console.log("Load player for embed. DOMEvent element: ", e.id, e);
 					removeChildren(e); //FIXME fallback player
 					var oldNode;// = e.target;
 					//oldNode.parentNode.removeChild(oldNode);
