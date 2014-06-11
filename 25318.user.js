@@ -3729,15 +3729,19 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 	return true;
 }
 
+var xhr_state = ["UNSENT", "OPENED", "HEADERS_RECEIVED", "LOADING", "DONE"];
 ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 {
 	console.log("In loadEmbedVideo");
 	console.log("Load url:", this.win.location.protocol + "//" + this.win.location.hostname + "/get_video_info?video_id=" + this.swf_args.video_id);
 	var that = this;
+
+	setTimeout(function() {
+
 	GM_xmlhttpRequest({
 		method: 'GET',
 		//chrom{e, ium} defaults to https if <iframe src="//...">? and tampermonkey uses top window protocol or something. Ok force it.
-		url: this.win.location.protocol + "//" + this.win.location.hostname + "/get_video_info?video_id=" + this.swf_args.video_id,
+		url: that.win.location.protocol + "//" + that.win.location.hostname + "/get_video_info?video_id=" + that.swf_args.video_id,
 		headers: headers,
 		onload: function(resp)
 		{
@@ -3851,11 +3855,11 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 		},
 		onreadystatechange: function(r)
 		{
-			console.log("Ready state changed in loadEmbedVideo.GM_xmlhttpRequest:", r.readyState);
+			console.log("Ready state changed in loadEmbedVideo.GM_xmlhttpRequest:", xhr_state[r.readyState]);
 		},
 		onprogress: function(r)
 		{
-			console.log("Progressed in loadEmbedVideo.GM_xmlhttpRequest:", r.status, r.readyState);
+			console.log("Progressed in loadEmbedVideo.GM_xmlhttpRequest:", r.status, xhr_state[r.readyState]);
 		},
 		onabort: function(r)
 		{
@@ -3870,6 +3874,8 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 			console.log("Timeout in loadEmbedVideo.GM_xmlhttpRequest:", r.status);
 		}
 	});
+
+	}, 0);
 }
 
 ScriptInstance.prototype.onEmbedPage = function()
