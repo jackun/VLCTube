@@ -3732,6 +3732,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 {
 	console.log("In loadEmbedVideo");
+	console.log("Load url:", this.win.location.protocol + "//" + this.win.location.hostname + "/get_video_info?video_id=" + this.swf_args.video_id);
 	var that = this;
 	GM_xmlhttpRequest({
 		method: 'GET',
@@ -3823,6 +3824,7 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 							console.log("playEmbed");
 							//Do once or crash the plugin
 							if(!that.$('movie_player')) {
+								console.log("in if(!that.$('movie_player'))");
 								insertPlayer();
 								var player = that.$('player');
 								player.style.width = "100%";
@@ -3831,6 +3833,7 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 								that.queryCC();
 								that.overrideRef();
 								that.setupStoryboard();
+								console.log("exit if(!that.$('movie_player'))");
 							}
 							embed.classList.add('hid');
 							that.myvlc.playVideo();
