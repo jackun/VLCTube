@@ -3848,6 +3848,26 @@ ScriptInstance.prototype.loadEmbedVideo = function(ev, forceLoad)
 					}
 				}
 			}
+		},
+		onreadystatechange: function(r)
+		{
+			console.log("Ready state changed in loadEmbedVideo.GM_xmlhttpRequest:", r.readyState);
+		},
+		onprogress: function(r)
+		{
+			console.log("Progressed in loadEmbedVideo.GM_xmlhttpRequest:", r.status, r.readyState);
+		},
+		onabort: function(r)
+		{
+			console.log("Aborted in loadEmbedVideo.GM_xmlhttpRequest:", r.status);
+		},
+		onerror: function(r)
+		{
+			console.log("Error in loadEmbedVideo.GM_xmlhttpRequest:", r.status);
+		},
+		ontimeout: function(r)
+		{
+			console.log("Timeout in loadEmbedVideo.GM_xmlhttpRequest:", r.status);
 		}
 	});
 }
