@@ -356,6 +356,16 @@ var itagToText = {
 	38 : 'highres/mp4', //1440p variable?
 	//4? : "highres/webm"
 
+	96 : '1080p Live',
+	95 : '720p Live',
+	94 : '480p Live',
+	93 : '360p Live',
+	92 : '240p Live',
+	91 : '180p Live', //Guess work
+	90 : '144p Live', //Guess work
+	132 : '240p Live',
+	151 : '72p Live',
+	/*
 	//Fake live formats
 	11080 : '1080p Live',
 	10720 : '720p Live',
@@ -365,6 +375,7 @@ var itagToText = {
 	10180 : '180p Live',
 	10144 : '144p Live',
 	10072 : '72p Live',
+	*/
 };
 
 //generates this programmatically
@@ -3409,7 +3420,7 @@ ScriptInstance.prototype.parseLive = function()
 					/http/i.test(t[i+1]))
 				{
 					var obj = {};
-					obj.name = 10000 + parseInt(m[1].split('x').pop());
+					obj.name = /itag\/(\d+)/.exec(t[i+1])[1];
 					obj.url  = t[i+1];
 					if(itagToText.hasOwnProperty(obj.name))
 						obj.text = itagToText[obj.name];
@@ -4024,6 +4035,7 @@ ScriptInstance.prototype.setupVLC = function()
 	node.wrappedJSObject.getVolume = function(){return that.myvlc.getVolume();}
 	node.wrappedJSObject.setVolume = function(e){that.myvlc.setVolume(e);}
 	node.wrappedJSObject.isMuted = function(){return false;}
+	node.wrappedJSObject.isReady = function(){return true;}
 	node.wrappedJSObject.getPlayerState = function(){
 		if(!that.myvlc.input) return 0;
 		switch(that.myvlc.input.state){
