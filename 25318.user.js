@@ -4179,7 +4179,6 @@ function DOMevent(mutations)
 						loadPlayer(unsafeWindow, oldNode);
 					else
 						loadPlayerOnLoad(window, oldNode);
-						//window.postMessage('{}', '*');
 				}
 				else if(e.id == 'movie_player')
 				{
