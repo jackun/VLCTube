@@ -3772,14 +3772,12 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 			var stream_map = [];
 
 			var params = resp.split('&');
-			console.log("params:",params.length);
 
 			for(var i=0; i<params.length; i++)
 			{
 				var t = params[i].split('=');
 				param_map[t[0]] = t[1];
 			}
-			console.log("param.status:",param_map["status"]);
 
 			if(param_map["status"] == "fail")
 			{
@@ -3798,11 +3796,10 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 				that.$('video-title').appendChild(
 						that.doc.createTextNode(" - " +
 						decodeURIComponent(param_map['title']).replace(/\+/g,' ')));
-			}catch(e){console.log("Failed to append to video-title.");}
+			}catch(e){}
 
 			that.parseUrlMap(decodeURIComponent(param_map['url_encoded_fmt_stream_map']), true);
 			that.genUrlMapSelect();
-			console.log("after genUrlMapSelect");
 
 			//set global width/height before generation
 			that.width = "100%";
@@ -3830,25 +3827,20 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 					//FIXME hidden element height is 0px
 					that.$(vlc_id+"-holder").style.height = (that.$(gMoviePlayerID).clientHeight - that.$("vlc_controls_div").clientHeight) + "px";
 
-				console.log("setupVLC");
 				that.setupVLC();
-				console.log("setupVLC: OK");
 			}
 
 			var embed = that.$('cued-embed');
 			if(embed)
 			{
-				console.log("in if(embed)");
 				var _vid = embed;//use as fallback
 				var thumb = that.$$('video-thumbnail');
 				if(thumb.length)
 					_vid = thumb[0];
 
 				function playEmbed(ev){
-					console.log("playEmbed");
 					//Do once or crash the plugin
 					if(!that.$('movie_player')) {
-						console.log("in if(!that.$('movie_player'))");
 						insertPlayer();
 						var player = that.$('player');
 						player.style.width = "100%";
@@ -3857,17 +3849,14 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 						that.queryCC();
 						that.overrideRef();
 						that.setupStoryboard();
-						console.log("exit if(!that.$('movie_player'))");
 					}
 					embed.classList.add('hid');
 					that.myvlc.playVideo();
 					that.onHashChange(that.win.location.href);
-					console.log("exiting playEmbed");
 				}
 
 				_vid.removeEventListener('click', arguments.callee , false); //???
 				_vid.addEventListener('click', playEmbed , false);
-				console.log("exiting if(embed)");
 			}
 		}
 	);
@@ -3909,12 +3898,10 @@ ScriptInstance.prototype.onEmbedPage = function()
 
 	if(this.bforceLoadEmbed)
 	{
-		console.log("force loading embed.");
 		this.loadEmbedVideo();
 	}
 	else
 	{
-		console.log("Adding video-thumbnail event listener.");
 		this.$('video-thumbnail').addEventListener('click', this.loadEmbedVideo.bind(this) , false);
 	}
 }
