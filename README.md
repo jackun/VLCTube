@@ -1,4 +1,4 @@
 VLCTube
 =======
 
-Userscripts.org page is [there](http://userscripts.org/scripts/show/25318).
+greasyfork.org page is [there](https://greasyfork.org/scripts/1783-vlctube).
