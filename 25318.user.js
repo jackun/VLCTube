@@ -4129,7 +4129,6 @@ function loadPlayerOnLoad(win, oldNode, upsell)
 
 function GM_getValue(key, val)
 {
-	console.log('injected GM_getValue:', key, val);
 	if(window.GMValuesDFGe4S6G.hasOwnProperty(key))
 		return window.GMValuesDFGe4S6G[key];
 	return val;
