@@ -4009,7 +4009,6 @@ ScriptInstance.prototype.setupVLC = function()
 	node.playVideo = function(){that.myvlc.playVideo();}
 	node.stopVideo = function(){that.myvlc.stopVideo();}
 	node.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
-	node.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
 	node.getAvailableQualityLevels = function(){return that.myvlc.getAvailableQualityLevels();}
 	node.getPlaybackQuality = function(){return that.myvlc.getPlaybackQuality();}
 	node.setPlaybackQuality = function(e){that.myvlc.setPlaybackQuality(e);}
