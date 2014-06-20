@@ -15,7 +15,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        55
+// @version        56
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -61,6 +61,10 @@
 //has/had non-dash 1080p http://www.youtube.com/watch?v=-MJiR5IksEk
 //subtitle test https://www.youtube.com/watch?v=sqll1Rib93g
 //state play: 1, pause: 2, stop/end: 0
+
+(function(){
+
+var VLCTube = function (){
 "use strict;"
 var gPlayerApiID = 'player-api';//-legacy';
 var gPlayerID = 'player';//-legacy';
@@ -431,14 +435,7 @@ function removeChildren(node, keepThis)
 
 	//silence html5 element
 	//because invalid access just if/else this thing...
-	if(node.wrappedJSObject)
-	{
-		if(typeof(node.wrappedJSObject.pauseVideo) === 'function')
-			node.wrappedJSObject.pauseVideo();
-		else if(typeof(node.wrappedJSObject.pause) === 'function')
-			node.wrappedJSObject.pause();
-	}
-	else if(typeof(node.pauseVideo) === 'function')
+	if(typeof(node.pauseVideo) === 'function')
 		node.pauseVideo();
 	else if(typeof(node.pause) === 'function')
 		node.pause();
@@ -660,7 +657,7 @@ CustomEvent.prototype = {
 			this._listeners[event] = [];
 		}
 
-		if(typeof listener == "string") listener = unsafeWindow[listener];
+		if(typeof listener == "string") listener = window[listener];
 		listener && this._listeners[event].push(listener);
 		console.log("addListener:", event, listener);
 	},
@@ -705,9 +702,9 @@ ScrollBar.prototype = {
 		if(typeof(maxval) == 'undefined') maxval = 100;
 		if(typeof(insta) == 'undefined') insta = false;
 		this.bar = this.instance.doc.querySelector(barId);
-		this.bar.wrappedJSObject.ScrollBar = this;
+		this.bar.ScrollBar = this;
 		this.knob = this.instance.doc.querySelector(knobId);
-		this.knob.wrappedJSObject.ScrollBar = this;
+		this.knob.ScrollBar = this;
 		this.instant = insta;
 		this.formatter = formatter;
 
@@ -762,7 +759,7 @@ ScrollBar.prototype = {
 
 ScrollBar.eventHandlers = {
 	mouseDownBar: function(ev){
-		var s = ev.target.wrappedJSObject.ScrollBar || ev.target.parentNode.wrappedJSObject.ScrollBar;
+		var s = ev.target.ScrollBar || ev.target.parentNode.ScrollBar;
 		if(ev.explicitOriginalTarget == s.knob) return;
 		s.userSeeking = true;
 		var off = 0;
@@ -781,7 +778,7 @@ ScrollBar.eventHandlers = {
 		ScrollBar.eventHandlers.mouseMove(ev);
 	},
 	mouseDown: function(ev){
-		var s = ev.target.wrappedJSObject.ScrollBar || ev.target.parentNode.wrappedJSObject.ScrollBar;
+		var s = ev.target.ScrollBar || ev.target.parentNode.ScrollBar;
 		s.instance.doc.addEventListener('mouseup',ScrollBar.eventHandlers.mouseUp,true);
 		s.instance.doc.addEventListener('mousemove',ScrollBar.eventHandlers.mouseMove,true);
 		s.userSeeking = true;
@@ -1122,7 +1119,7 @@ VLCObj.prototype = {
 			btn.addEventListener('click', fn, true);
 	},
 	initVLC: function (sbPos, sbVol, sbRate){
-		this.vlc = this.$(vlc_id).wrappedJSObject;
+		this.vlc = this.$(vlc_id);
 		//Browser has probably blocked the plugin, wait for user confirmation.
 		if(!this.vlc.input)
 		{
@@ -1274,8 +1271,8 @@ VLCObj.prototype = {
 			return;
 		}
 
-		//sel = this.$(vlc_id+'_select');
-		//sel && (opt = sel.options.namedItem('141'));
+		//var sel = this.$(vlc_id+'_select');
+		//sel && (opt = sel.options.namedItem('140'));
 
 		var caching = tryParseFloat(GM_getValue('vlc-cache', '5'), 5) * 1000;
 		var options = new Array(':http-caching=' + caching, //pre v2.0?, in v2.0 'unsafe option "http-caching" has been ignored for security reasons'
@@ -1465,7 +1462,7 @@ VLCObj.prototype = {
 	},
 	goto: function(link)
 	{
-		win = this.instance.win.wrappedJSObject;
+		win = this.instance.win;
 		shuf = this.instance.doc.querySelector('div.playlist-nav-controls button.shuffle-playlist');
 		link += shuf && shuf.classList.contains('yt-uix-button-toggled') && !link.match(/shuffle/i) ? 
 					"&shuffle="+this.instance.yt.getConfig('SHUFFLE_VALUE', 0) : "";
@@ -1608,25 +1605,21 @@ ScriptInstance.prototype.init = function(_win, popup, oldNode, upsell)
 	this.doc = _win.document;
 	//Is on embedded iframe page?
 	this.isEmbed = this.win.location.href.match(/\/embed\//i);
-	this.feather = this.win.wrappedJSObject.fbetatoken || this.doc.querySelector("div#lc div#p") ? true : false;
+	this.feather = this.win.fbetatoken || this.doc.querySelector("div#lc div#p") ? true : false;
 	this.initVars();
 
 	//Hijack 'getElementById' so YT js can do its job and also not overwrite vlc with flash again.
 	//FIXME but srsly something less intrusive maybe
 	this.fakeApiNode = this.doc.createElement('div');
-	//this.doc.wrappedJSObject._getElementById = this.doc.wrappedJSObject.getElementById;
-	var _getElementById = this.doc.wrappedJSObject.getElementById.bind(this.doc.wrappedJSObject);
+	//this.doc._getElementById = this.doc.getElementById;
+	var _getElementById = this.doc.getElementById.bind(this.doc);
 	this._getElementById = _getElementById;
-	this.doc.wrappedJSObject.getElementById = (function(id){
+	this.doc.getElementById = (function(id){
 		//console.log("Hijacked getElementById:", id);
 		if(id == 'player-api') {
 			//console.log("Returning fake 'player-api' node");
 			return this.fakeApiNode;
 		}
-		/*else if(id == 'movie_player') {
-			//console.log("Returning fake 'movie_player' node");
-			return this.moviePlayer;
-		}*/
 		el = _getElementById(id);
 		return el;
 	}).bind(this);
@@ -1671,13 +1664,13 @@ ScriptInstance.prototype.init = function(_win, popup, oldNode, upsell)
 
 ScriptInstance.prototype.hookSPF = function(){
 
-	if(unsafeWindow["_spf_state"] === undefined) {
+	if(window["_spf_state"] === undefined) {
 		this.win.setTimeout(this.hookSPF.bind(this), 50);
 		return;
 	}
 
-	var spf_cb = unsafeWindow["_spf_state"].config["navigate-processed-callback"];
-	unsafeWindow["_spf_state"].config["navigate-processed-callback"] = (function(e){
+	var spf_cb = window["_spf_state"].config["navigate-processed-callback"];
+	window["_spf_state"].config["navigate-processed-callback"] = (function(e){
 		//console.log('navigate-processed-callback', e);
 		spf_cb(e);
 		//FIXME GM_getValue fails otherwise, uh
@@ -1739,7 +1732,7 @@ ScriptInstance.prototype.setDefault = function(key, def)
 	this[key] = this.win[key] = GM_getValue(key, def);
 }
 
-ScriptInstance.prototype.$ = function(id){ return this.doc.getElementById(id); }
+ScriptInstance.prototype.$ = function(id){ return this._getElementById(id); }
 ScriptInstance.prototype.$$ = function(id){ return this.doc.getElementsByClassName(id); }
 ScriptInstance.prototype.getStyle = function(el, pseudo)
 {
@@ -2494,8 +2487,8 @@ ScriptInstance.prototype.pullYTVars = function()
 	if(this.isPopup && this.yt && this.ytplayer) return;
 	try{
 	// unsafeWindow is deprecated but...
-	this.yt = this.win.wrappedJSObject.yt;//unsafeWindow['yt'];
-	this.ytplayer = this.win.wrappedJSObject.ytplayer;//unsafeWindow['ytplayer'];
+	this.yt = this.win.yt;//unsafeWindow['yt'];
+	this.ytplayer = this.win.ytplayer;//unsafeWindow['ytplayer'];
 	
 	if(this.isEmbed && this.yt)
 	{
@@ -2625,9 +2618,9 @@ ScriptInstance.prototype._makeCheckbox = function(id, setting, text, title)
 		ck.checked = GM_getValue(setting, false);
 		ck.addEventListener('click', (function(ev)
 			{
-				if(setting in this)
-					this[setting] = ev.target.checked;
-				GM_setValue(setting, ev.target.checked);
+				if(setting in window.GMValuesDFGe4S6G)
+					window.GMValuesDFGe4S6G[setting] = ev.target.checked;
+				//GM_setValue(setting, ev.target.checked);
 			}).bind(this), false);
 	}
 	return el;
@@ -2745,7 +2738,7 @@ ScriptInstance.prototype.generateMPD = function()
 	
 	var streams = {audio:[], video:[]};
 	Array.prototype.forEach.call(this.selectNode.options, function(node){
-		kv = node.wrappedJSObject.kv;
+		kv = node.kv;
 
 		if(!kv || !kv.hasOwnProperty('clen')) return;
 		if(/video/.test(kv["type"]))
@@ -2759,7 +2752,7 @@ ScriptInstance.prototype.generateMPD = function()
 
 	function genRepresentation(kv)
 	{
-		//kv = node.wrappedJSObject.kv;
+		//kv = node.kv;
 
 		//if(!kv || !kv.hasOwnProperty('clen')) return;
 		//console.log(kv);
@@ -3421,7 +3414,7 @@ ScriptInstance.prototype.makeDraggable = function() {
 
 function getXML(url, callback)
 {
-	printStack();
+	//printStack();
 	GM_xmlhttpRequest({
 		method: 'GET',
 		url: url,
@@ -3430,6 +3423,8 @@ function getXML(url, callback)
 			if(r.status==200){
 				callback(r.responseText);
 			}
+			else
+				console.log("getXML status:", r.status);
 		}
 	});
 }
@@ -3571,7 +3566,7 @@ ScriptInstance.prototype.genUrlMapSelect = function()
 			if('fallback_host' in item.kv)
 				option.setAttribute("fallback", item.kv.fallback_host);
 			//used for custom MPD generation, probably remove all of it
-			option.wrappedJSObject.kv = item.kv;
+			option.kv = item.kv;
 		}
 
 		this.selectNode.appendChild(option);
@@ -4001,28 +3996,28 @@ ScriptInstance.prototype.setupVLC = function()
 	}
 
 	this.playerEvents = new CustomEvent();
-	this.moviePlayer.wrappedJSObject.addEventListener = function(event, fun, bubble) {that.playerEvents.addListener(event, fun);}
+	this.moviePlayer.addEventListener = function(event, fun, bubble) {that.playerEvents.addListener(event, fun);}
 
 	//Compatibility functions
 	//console.log("unsafeWindow.__yt_www", unsafeWindow._yt_www.p);
-	//this.player.wrappedJSObject.watch.player = {};
+	//this.player.watch.player = {};
 	//unsafeWindow._yt_www.v('yt.www.watch.player', {});
 	//unsafeWindow._yt_www.v('yt.www.watch.player.init', function(e){console.log("init called", arguments);});
 	node = this.fakeApiNode;
-	node.wrappedJSObject.seekTo = function(e){that.myvlc._seekTo(e);}
-	node.wrappedJSObject.pauseVideo = function(){that.myvlc.pauseVideo();}
-	node.wrappedJSObject.playVideo = function(){that.myvlc.playVideo();}
-	node.wrappedJSObject.stopVideo = function(){that.myvlc.stopVideo();}
-	node.wrappedJSObject.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
-	node.wrappedJSObject.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
-	node.wrappedJSObject.getAvailableQualityLevels = function(){return that.myvlc.getAvailableQualityLevels();}
-	node.wrappedJSObject.getPlaybackQuality = function(){return that.myvlc.getPlaybackQuality();}
-	node.wrappedJSObject.setPlaybackQuality = function(e){that.myvlc.setPlaybackQuality(e);}
-	node.wrappedJSObject.getVolume = function(){return that.myvlc.getVolume();}
-	node.wrappedJSObject.setVolume = function(e){that.myvlc.setVolume(e);}
-	node.wrappedJSObject.isMuted = function(){return false;}
-	node.wrappedJSObject.isReady = function(){return true;}
-	node.wrappedJSObject.getPlayerState = function(){
+	node.seekTo = function(e){that.myvlc._seekTo(e);}
+	node.pauseVideo = function(){that.myvlc.pauseVideo();}
+	node.playVideo = function(){that.myvlc.playVideo();}
+	node.stopVideo = function(){that.myvlc.stopVideo();}
+	node.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
+	node.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
+	node.getAvailableQualityLevels = function(){return that.myvlc.getAvailableQualityLevels();}
+	node.getPlaybackQuality = function(){return that.myvlc.getPlaybackQuality();}
+	node.setPlaybackQuality = function(e){that.myvlc.setPlaybackQuality(e);}
+	node.getVolume = function(){return that.myvlc.getVolume();}
+	node.setVolume = function(e){that.myvlc.setVolume(e);}
+	node.isMuted = function(){return false;}
+	node.isReady = function(){return true;}
+	node.getPlayerState = function(){
 		if(!that.myvlc.input) return 0;
 		switch(that.myvlc.input.state){
 			case 0: case 7: return -1;//idle, error
@@ -4114,6 +4109,7 @@ ScriptInstance.prototype.reloadPlayer = function()
 	}
 }
 
+
 function loadPlayer(win, oldNode, upsell)
 {
 	var inst = new ScriptInstance(win, false, oldNode, upsell);
@@ -4121,8 +4117,8 @@ function loadPlayer(win, oldNode, upsell)
 	//win.addEventListener('DOMNodeInserted', function(e){inst.DOMevent_xhr(e);}, true);
 
 	//TODO which works the best
-	//win.addEventListener('beforeunload', function(e){inst.saveSettings();}, true);
-	win.addEventListener('unload', function(e){inst.saveSettings();}, true);
+	win.addEventListener('beforeunload', function(e){inst.saveSettings();}, true);
+	//win.addEventListener('unload', function(e){inst.saveSettings();}, true);
 }
 
 function loadPlayerOnLoad(win, oldNode, upsell)
@@ -4132,86 +4128,217 @@ function loadPlayerOnLoad(win, oldNode, upsell)
 	}, false);
 }
 
+function GM_getValue(key, val)
+{
+	console.log('injected GM_getValue:', key, val);
+	if(window.GMValuesDFGe4S6G.hasOwnProperty(key))
+		return window.GMValuesDFGe4S6G[key];
+	return val;
+}
+
+function GM_setValue(key, val)
+{
+	//window.vlc.GM_setValue(key, val);
+	window.GMValuesDFGe4S6G[key] = val;
+}
+
+function GM_xmlhttpRequest(params)
+{
+	var xhr = new XMLHttpRequest();
+	xhr.open(params.method, params.url, true);
+	if(params.data)
+		xhr.setRequestHeader('Content-type','application/x-www-form-urlencoded');
+	for(var h in params.headers)
+		xhr.setRequestHeader(h, params.headers[h]);
+	xhr.onreadystatechange = function () {
+		if (xhr.readyState != 4) return;
+		params.onload(xhr);
+	}
+	xhr.send(params.data);
+}
+
+	var e = document.querySelector('#movie_player') || 
+		document.querySelector('#player1') ||
+		document.querySelector('#p');
+
+	if(e.id == "p") //feather, no flashblock
+	{
+		var el = e.id == "p" ? e : document;
+		el = el.querySelector("EMBED");
+		//parse early so we get to this before flashblock hopefully
+		featherVars = {};
+		el.getAttribute("flashvars").split('&').forEach(function(v)
+		{
+			var kv = v.split('=');
+			featherVars[kv[0]] = unescape(kv[1]);
+		});
+		loadPlayer(window);
+	}
+	else if(
+	   (/embed/.test(window.location.href) && e.id == 'player1')//embedded
+	   )
+	{
+		console.log("Load player for embed. DOMEvent element: ", e.id, e);
+		removeChildren(e); //FIXME fallback player
+		var oldNode;// = e.target;
+		loadPlayer(window, oldNode);
+	}
+	else if(e.id == 'movie_player')
+	{
+		loader = loadPlayerOnLoad;
+		player = document.querySelector('#player');
+		if(player && player.classList.contains('off-screen')) {
+			console.log("load off-screen player", e);
+			loader = loadPlayer;
+		}
+		removeChildren(e); //FIXME fallback player
+		loader(window, oldNode);
+	}
+} /// var VLCTube = ...
+
+function fake_GM_setValue(key, val)
+{
+	GM_setValue(key, val);
+}
+
+function fake_GM_getValue(key, val)
+{
+	return GM_getValue(key, val);
+}
+
+function injectScript(src)
+{
+	//var loader = createObjectIn(unsafeWindow, {defineAs: "vlc"});
+	//exportFunction(fake_GM_setValue, loader, {defineAs: "GM_setValue"});
+	//exportFunction(fake_GM_getValue, loader, {defineAs: "GM_getValue"});
+
+	var head = document.getElementsByTagName('head')[0];
+	//if (!head) { return; }
+	script = document.createElement('script');
+	script.type = 'text/javascript';
+	script.appendChild(document.createTextNode("(" + src + ")();"));
+	head.appendChild(script);
+}
+
+function loadDefaults()
+{
+	//Hopefully temporary hack
+	var obj = {};
+	function setDefault(obj, key, def)
+	{
+		if(GM_getValue(key, undefined) == undefined) GM_setValue(key, def);
+		obj[key] = GM_getValue(key, def);
+	}
+
+	///User configurable booleans
+	setDefault(obj, "bautoplay", true);
+	setDefault(obj, "bautoplayPL", true);
+	setDefault(obj, "bresumePlay", false);
+	setDefault(obj, "bembedControls", false);
+	setDefault(obj, "buseHoverControls", false);
+	setDefault(obj, "bforceLoadEmbed", true);
+	setDefault(obj, "badd3DFormats", false);
+	setDefault(obj, "bforceWS", false);
+	setDefault(obj, "bcompactVolume", false);
+	setDefault(obj, "balwaysBestFormat", false);
+	setDefault(obj, "bforceWide", false);
+	setDefault(obj, "bforceWidePL", false);
+	setDefault(obj, "buseThumbnail", true);
+	setDefault(obj, "bshowRate", false);
+	setDefault(obj, "buseRepeat", false);
+	setDefault(obj, "buseWidePosBar", false);
+	setDefault(obj, "busePopups", false);
+	setDefault(obj, "bpopupAutoplay", true);
+	setDefault(obj, "bpopupSeparate", false);
+	setDefault(obj, "bscrollToPlayer", false);
+	setDefault(obj, "bconfigDropdown", false);
+	setDefault(obj, "buseFallbackHost", false);
+	setDefault(obj, "bdiscardFLVs", true);
+	setDefault(obj, "bdarkTheme", false);
+	setDefault(obj, "badaptiveFmts", false);
+	setDefault(obj, "bshowMute", false);
+	setDefault(obj, "bjumpTS", false);
+	setDefault(obj, "bshowWLOnMain", false);
+	setDefault(obj, "bautoSubEnable", false);
+	setDefault(obj, "bbtnIcons", true);
+
+	setDefault(obj, "vlc-formats", undefined);
+	setDefault(obj, 'vlc-lang', "en");
+	setDefault(obj, 'vlc-repeat-wait', "0");
+	setDefault(obj, 'vlc-pl-autonext', false)
+	setDefault(obj, 'vlc-wide-width', '86%');
+	setDefault(obj, "vlc-wide", false);
+	setDefault(obj, 'vlc_vol', 100);
+	setDefault(obj, "vlc-formats", undefined);
+	setDefault(obj, 'ytquality', null); //undefined); toString blahblah WTF
+	setDefault(obj, 'vlc-cache', "5");
+	setDefault(obj, 'vlc-volume-max', "100");
+	setDefault(obj, 'vlc-rate-min', "0.25");
+	setDefault(obj, 'vlc-rate-max', "2");
+
+	if(typeof(cloneInto) === 'function') // GM nightly / 2.0 beta
+	{
+		var unsafeObj = createObjectIn(unsafeWindow, {defineAs: "GMValuesDFGe4S6G"});
+		unsafeWindow.GMValuesDFGe4S6G = cloneInto(obj, unsafeWindow);
+	}
+	else
+		unsafeWindow.GMValuesDFGe4S6G = obj;
+
+	function SaveGMValues()
+	{
+		for(var key in unsafeWindow.GMValuesDFGe4S6G)
+		{
+			//console.log(key, unsafeWindow.GMValuesDFGe4S6G[key]);
+			GM_setValue(key, unsafeWindow.GMValuesDFGe4S6G[key]);
+		}
+	}
+	// Don't save if embedded video or it overwrites changes made on 'watch' page.
+	if(!/\/embed\//.test(window.location.href))
+		window.addEventListener('unload', SaveGMValues, false);
+}
+
 var domObserver;
 function DOMevent(mutations)
 {
-	//is this better ? :/
-	mutations.forEach(function(mutation) {
+	for(var k=0; k < mutations.length; k++)
+	{
+		var mutation = mutations[k];
 		//console.log(mutation.type, mutation.target.id);
 		if(mutation.target.id == "player-api" || mutation.target.id == "player" 
 		|| mutation.target.id == "p" || mutation.target.id == "lc" //feather
 		)
 		{
-			Array.prototype.forEach.call(mutation.target.childNodes, function(e) {
-				
+			for(var i=0; i < mutation.target.childNodes.length; i++)
+			{
+				var e = mutation.target.childNodes[i];
 				//console.log("    child:", e.id, mutation.target.id);
-				
-				if(e.id == "p" /*|| (e.id == 'player-api' && 
-					e.querySelector("EMBED") && e.querySelector("EMBED").getAttribute('flashvars'))*/
-					) //feather, no flashblock
+
+				if((e.id == "p") || 
+					(/embed/.test(window.location.href) && e.id == 'player1') ||
+					(e.id == 'movie_player')
+				)
 				{
-					el = e.id == "p" ? e : document;
-					el = el.querySelector("EMBED");
-					//parse early so we get to this before flashblock hopefully
-					featherVars = {};
-					el.getAttribute("flashvars").split('&').forEach(function(v)
-					{
-						var kv = v.split('=');
-						featherVars[kv[0]] = unescape(kv[1]);
-					});
 					domObserver.disconnect();
-					loadPlayerOnLoad(window);
+					loadDefaults();
+					injectScript(VLCTube.toSource());
+					return;
 				}
-				else if(
-					//(e.id == 'movie_player' && (e.getAttribute('flashvars') || /html5-video-player/.test(e.className)) && e.parentNode) || //not us
-				   (/embed/.test(window.location.href) && e.id == 'player1')//embedded
-				   )
-				{
-					console.log("Load player for embed. DOMEvent element: ", e.id, e);
-					removeChildren(e); //FIXME fallback player
-					var oldNode;// = e.target;
-					//oldNode.parentNode.removeChild(oldNode);
-					//window.removeEventListener('DOMNodeInserted', arguments.callee, true);
-					domObserver.disconnect();
-					//TODO Always a work in progress
-					if(/Chrome/.test(navigator.userAgent) && 
-							/\/embed\//.test(window.location.href))
-						loadPlayer(unsafeWindow, oldNode);
-					else
-						loadPlayerOnLoad(window, oldNode);
-				}
-				else if(e.id == 'movie_player')
-				{
-					loader = loadPlayerOnLoad;
-					player = document.querySelector('#player');
-					if(player && player.classList.contains('off-screen')) {
-						console.log("load off-screen player", e);
-						loader = loadPlayer;
-					}
-					removeChildren(e); //FIXME fallback player
-					domObserver.disconnect();
-					//FIXME
-					if(/Chrome/.test(navigator.userAgent))
-						loader(unsafeWindow, oldNode);
-					else
-						loader(window, oldNode);
-				}
-			});
+			}
 		}
-	});
+	}
 }
+
+if(!/embed/.test(window.location.href) && window.top !== window.self)
+	return;
 
 //if(/\/user\//.test(window.location))
 //	loadPlayerOnLoad(window, null, true);
 
 //document-start
-/Chrome/.test(navigator.userAgent) && /\/embed\//.test(window.location.href) ? loadPlayer(window) :
-	(function(){
-		domObserver = new MutationObserver(DOMevent);
-		domObserver.observe(document, {subtree:true, childList:true});
-	})();
-	//window.addEventListener('DOMNodeInserted', DOMevent, true);
+var domObserver = new MutationObserver(DOMevent);
+domObserver.observe(document, {subtree:true, childList:true});
 
 //document-end
 //loadPlayer(window, null, false);
 
+})();
