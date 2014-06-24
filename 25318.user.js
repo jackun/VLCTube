@@ -15,7 +15,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        56.1
+// @version        56.2
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -2289,7 +2289,7 @@ ScriptInstance.prototype.onFmtChange = function(ev, opt)
 	{
 		console.log("   sig:", sig);
 		if(sig)
-			sig = GetDecodeParam && GetDecodeParam() && 
+			sig = window.GetDecodeParam && GetDecodeParam() && 
 					Decode(sig, GetDecodeParam()) || 
 					DecryptSignature(sig, this.ytplayer.config.sts);
 		else
