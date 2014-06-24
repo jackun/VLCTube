@@ -15,7 +15,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        56
+// @version        56.1
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -24,6 +24,7 @@
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx28+, vlc 2.1.4, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
+//2014-06-25 Fix deciphering for firefox v30 and below
 //2014-05-21 Try to resume if unexpected EOS. Use bind(). Playlist next item fix.
 //2014-04-26 Watch later, regex fix, remove from watch later if viewing WL playlist, hover controls css
 //2014-04-26 Embedded crash. seekTo
@@ -55,6 +56,7 @@
 
 //TODO that=this to bind()
 //TODO https://www.youtube.com/watch?v=IHGEdi6HblI  rtmpe
+//cipher https://www.youtube.com/watch?v=tka1jPGMyOs
 //stream http://www.youtube.com/watch?v=jrZcAsPKK74
 //ciphered http://www.youtube.com/watch?v=6CTHwEZK2JA
 //unavail https://www.youtube.com/watch?v=gSEzGDzZ1dY
@@ -512,40 +514,6 @@ function Reverse(str)
 		return str.split('').reverse().join('');
 	else
 		return str.reverse();
-}
-
-//Parse html5 player js (ytplayer.config.assets.js) and feed it to Decode
-//sig.length == 81 special case?
-function GetDecodeParam(str)
-{
-	var arr = [], m;
-	if((m = str.match(/\.signature=(\w+)/)))
-	{
-		rFuncCode = new RegExp('function '+m[1]+'\\((\\w+)\\){(.*?)}');
-		m = rFuncCode.exec(str);
-		if(!m) return null;
-
-		funcParam = m[1];
-		funcCodeLines = m[2].split(';');
-
-		rSwap1 = new RegExp(funcParam+'=\\w+\\('+funcParam+',(\\d+)');
-		rSwap2 = new RegExp('=\\w+\\[(\\d+)\\%\\w+\\.length\\]');
-		rSlice = new RegExp(funcParam+'\\.slice\\((\\d+)');
-		rReverse = new RegExp(funcParam+'\\.reverse');
-
-		for(var i=0;i<funcCodeLines.length;i++)
-		{
-			if((m = rSwap1.exec(funcCodeLines[i])))
-				arr.push(parseInt(m[1]));
-			else if((m = rSwap2.exec(funcCodeLines[i])))
-				arr.push(parseInt(m[1]));
-			else if((m = rSlice.exec(funcCodeLines[i])))
-				arr.push(-parseInt(m[1]));
-			else if(rReverse.test(funcCodeLines[i]))
-				arr.push(0);
-		}
-	}
-	return arr.length ? arr : null;
 }
 
 //Fallback internal decipherer
@@ -2321,7 +2289,9 @@ ScriptInstance.prototype.onFmtChange = function(ev, opt)
 	{
 		console.log("   sig:", sig);
 		if(sig)
-			sig = this.sigDecodeParam && Decode(sig, this.sigDecodeParam) || DecryptSignature(sig, this.ytplayer.config.sts);
+			sig = GetDecodeParam && GetDecodeParam() && 
+					Decode(sig, GetDecodeParam()) || 
+					DecryptSignature(sig, this.ytplayer.config.sts);
 		else
 			sig = n.getAttribute("sig");
 
@@ -3937,6 +3907,7 @@ ScriptInstance.prototype.initialAddToPlaylist = function(dohash)
 
 	if(this.restoreSettings())
 	{
+		/*
 		if(!this.isPopup && this.isCiphered && this.ytplayer && this.ytplayer.config.assets.js)
 		{
 			getXML(this.ytplayer.config.assets.js,
@@ -3947,6 +3918,7 @@ ScriptInstance.prototype.initialAddToPlaylist = function(dohash)
 				});
 		}
 		else
+		*/
 			helperPlay();
 		return true;
 	}
@@ -4153,6 +4125,8 @@ function GM_xmlhttpRequest(params)
 		params.onload(xhr);
 	}
 	xhr.send(params.data);
+	//GMValuesDFGe4S6G.
+	//myxmlhttpRequest(params);
 }
 
 	var e = document.querySelector('#movie_player') || 
@@ -4204,6 +4178,12 @@ function fake_GM_getValue(key, val)
 	return GM_getValue(key, val);
 }
 
+function fake_GM_xmlhttpRequest(params)
+{
+	console.log('fake_GM_xmlhttpRequest', this);
+	GM_xmlhttpRequest(params);
+}
+
 function injectScript(src)
 {
 	//var loader = createObjectIn(unsafeWindow, {defineAs: "vlc"});
@@ -4214,8 +4194,42 @@ function injectScript(src)
 	//if (!head) { return; }
 	script = document.createElement('script');
 	script.type = 'text/javascript';
-	script.appendChild(document.createTextNode("(" + src + ")();"));
+	script.appendChild(document.createTextNode(src));
 	head.appendChild(script);
+}
+
+//Parse html5 player js (ytplayer.config.assets.js) and feed it to Decode
+//sig.length == 81 special case?
+function GetDecodeParam(str)
+{
+	var arr = [], m;
+	if((m = str.match(/\.signature=(\$\w+)\(/)))
+	{
+		rFuncCode = new RegExp('function \\'+m[1]+'\\((\\w+)\\){(.*?)}');
+		m = rFuncCode.exec(str);
+		if(!m) return null;
+
+		funcParam = m[1];
+		funcCodeLines = m[2].split(';');
+
+		rSwap1 = new RegExp(funcParam+'=\\w+\\('+funcParam+',(\\d+)');
+		rSwap2 = new RegExp('=\\w+\\[(\\d+)\\%\\w+\\.length\\]');
+		rSlice = new RegExp(funcParam+'\\.slice\\((\\d+)');
+		rReverse = new RegExp(funcParam+'\\.reverse');
+
+		for(var i=0;i<funcCodeLines.length;i++)
+		{
+			if((m = rSwap1.exec(funcCodeLines[i])))
+				arr.push(parseInt(m[1]));
+			else if((m = rSwap2.exec(funcCodeLines[i])))
+				arr.push(parseInt(m[1]));
+			else if((m = rSlice.exec(funcCodeLines[i])))
+				arr.push(-parseInt(m[1]));
+			else if(rReverse.test(funcCodeLines[i]))
+				arr.push(0);
+		}
+	}
+	return arr.length ? arr : null;
 }
 
 function loadDefaults()
@@ -4282,6 +4296,27 @@ function loadDefaults()
 	else
 		unsafeWindow.GMValuesDFGe4S6G = obj;
 
+	//if(!this.isPopup && this.isCiphered && this.ytplayer &&
+	if(unsafeWindow["ytplayer"].config.assets.js)
+	{
+		var url = window.location.protocol + unsafeWindow["ytplayer"].config.assets.js;
+		GM_xmlhttpRequest({
+			method: 'GET',
+			url: url,
+			onload: function(r){
+				if(r.status == 200)
+				{
+					var sigDecodeParam = GetDecodeParam(r.responseText);
+					console.log("sigDecodeParam:",sigDecodeParam);
+					injectScript("function GetDecodeParam(){return " + (sigDecodeParam ? sigDecodeParam.toSource() : 'null') +";}");
+					//injectScript("(" + VLCTube.toSource() + ")();");
+				}
+			}
+		});
+	}
+	//else
+	//	injectScript("(" + VLCTube.toSource() + ")();");
+
 	function SaveGMValues()
 	{
 		for(var key in unsafeWindow.GMValuesDFGe4S6G)
@@ -4318,7 +4353,7 @@ function DOMevent(mutations)
 				{
 					domObserver.disconnect();
 					loadDefaults();
-					injectScript(VLCTube.toSource());
+					injectScript("(" + VLCTube.toSource() + ")();");
 					return;
 				}
 			}
