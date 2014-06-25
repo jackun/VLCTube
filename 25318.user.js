@@ -4274,7 +4274,7 @@ function loadDefaults()
 
 	function SaveGMValues()
 	{
-		for(var key in unsafeWindow.GMValues)
+		for(var key in unsafeWindow.VLC.GMValues)
 		{
 			//console.log(key, unsafeWindow.VLC.GMValues[key]);
 			GM_setValue(key, unsafeWindow.VLC.GMValues[key]);
