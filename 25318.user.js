@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        56.3
+// @version        56.4
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -4232,6 +4232,13 @@ function GetDecodeParam(str)
 	return arr.length ? arr : null;
 }
 
+function str2obj(obj, a) {
+	var c = a.split('.'), d = obj;
+	for (var e; c.length && (e = c.shift()); )
+		if(d[e]) d = d[e]; else return null;
+	return d;
+}
+
 function loadDefaults()
 {
 	///User configurable values
@@ -4251,9 +4258,9 @@ function loadDefaults()
 	}
 
 	///Get signature decipherer from html5 player
-	if(unsafeWindow["ytplayer"].config.assets.js)
+	if((js = str2obj(unsafeWindow, "ytplayer.config.assets.js")))
 	{
-		var url = window.location.protocol + unsafeWindow["ytplayer"].config.assets.js;
+		var url = window.location.protocol + js;
 		GM_xmlhttpRequest({
 			method: 'GET',
 			url: url,
