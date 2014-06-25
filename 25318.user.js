@@ -11,11 +11,12 @@
 // @exclude        *google.com*
 // @grant          GM_getValue
 // @grant          GM_setValue
+// @grant          GM_listValues
 // @grant          GM_addStyle
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        56.2
+// @version        56.3
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -2588,8 +2589,8 @@ ScriptInstance.prototype._makeCheckbox = function(id, setting, text, title)
 		ck.checked = GM_getValue(setting, false);
 		ck.addEventListener('click', (function(ev)
 			{
-				if(setting in window.GMValuesDFGe4S6G)
-					window.GMValuesDFGe4S6G[setting] = ev.target.checked;
+				if(setting in window.VLC.GMValues)
+					window.VLC.GMValues[setting] = ev.target.checked;
 				//GM_setValue(setting, ev.target.checked);
 			}).bind(this), false);
 	}
@@ -4101,15 +4102,15 @@ function loadPlayerOnLoad(win, oldNode, upsell)
 
 function GM_getValue(key, val)
 {
-	if(window.GMValuesDFGe4S6G.hasOwnProperty(key))
-		return window.GMValuesDFGe4S6G[key];
+	if(window.VLC.GMValues.hasOwnProperty(key))
+		return window.VLC.GMValues[key];
 	return val;
 }
 
 function GM_setValue(key, val)
 {
-	//window.vlc.GM_setValue(key, val);
-	window.GMValuesDFGe4S6G[key] = val;
+	//window.VLC.GM_setValue(key, val);
+	window.VLC.GMValues[key] = val;
 }
 
 function GM_xmlhttpRequest(params)
@@ -4125,8 +4126,7 @@ function GM_xmlhttpRequest(params)
 		params.onload(xhr);
 	}
 	xhr.send(params.data);
-	//GMValuesDFGe4S6G.
-	//myxmlhttpRequest(params);
+	//VLC.myxmlhttpRequest(params);
 }
 
 	var e = document.querySelector('#movie_player') || 
@@ -4234,69 +4234,23 @@ function GetDecodeParam(str)
 
 function loadDefaults()
 {
-	//Hopefully temporary hack
+	///User configurable values
 	var obj = {};
-	function setDefault(obj, key, def)
-	{
-		if(GM_getValue(key, undefined) == undefined) GM_setValue(key, def);
-		obj[key] = GM_getValue(key, def);
-	}
-
-	///User configurable booleans
-	setDefault(obj, "bautoplay", true);
-	setDefault(obj, "bautoplayPL", true);
-	setDefault(obj, "bresumePlay", false);
-	setDefault(obj, "bembedControls", false);
-	setDefault(obj, "buseHoverControls", false);
-	setDefault(obj, "bforceLoadEmbed", true);
-	setDefault(obj, "badd3DFormats", false);
-	setDefault(obj, "bforceWS", false);
-	setDefault(obj, "bcompactVolume", false);
-	setDefault(obj, "balwaysBestFormat", false);
-	setDefault(obj, "bforceWide", false);
-	setDefault(obj, "bforceWidePL", false);
-	setDefault(obj, "buseThumbnail", true);
-	setDefault(obj, "bshowRate", false);
-	setDefault(obj, "buseRepeat", false);
-	setDefault(obj, "buseWidePosBar", false);
-	setDefault(obj, "busePopups", false);
-	setDefault(obj, "bpopupAutoplay", true);
-	setDefault(obj, "bpopupSeparate", false);
-	setDefault(obj, "bscrollToPlayer", false);
-	setDefault(obj, "bconfigDropdown", false);
-	setDefault(obj, "buseFallbackHost", false);
-	setDefault(obj, "bdiscardFLVs", true);
-	setDefault(obj, "bdarkTheme", false);
-	setDefault(obj, "badaptiveFmts", false);
-	setDefault(obj, "bshowMute", false);
-	setDefault(obj, "bjumpTS", false);
-	setDefault(obj, "bshowWLOnMain", false);
-	setDefault(obj, "bautoSubEnable", false);
-	setDefault(obj, "bbtnIcons", true);
-
-	setDefault(obj, "vlc-formats", undefined);
-	setDefault(obj, 'vlc-lang', "en");
-	setDefault(obj, 'vlc-repeat-wait', "0");
-	setDefault(obj, 'vlc-pl-autonext', false)
-	setDefault(obj, 'vlc-wide-width', '86%');
-	setDefault(obj, "vlc-wide", false);
-	setDefault(obj, 'vlc_vol', 100);
-	setDefault(obj, "vlc-formats", undefined);
-	setDefault(obj, 'ytquality', null); //undefined); toString blahblah WTF
-	setDefault(obj, 'vlc-cache', "5");
-	setDefault(obj, 'vlc-volume-max', "100");
-	setDefault(obj, 'vlc-rate-min', "0.25");
-	setDefault(obj, 'vlc-rate-max', "2");
+	var values = GM_listValues();
+	for(var val in values)
+		obj[values[val]] = GM_getValue(values[val], undefined);
 
 	if(typeof(cloneInto) === 'function') // GM nightly / 2.0 beta
 	{
-		var unsafeObj = createObjectIn(unsafeWindow, {defineAs: "GMValuesDFGe4S6G"});
-		unsafeWindow.GMValuesDFGe4S6G = cloneInto(obj, unsafeWindow);
+		var unsafeObj = createObjectIn(unsafeWindow, {defineAs: "VLC"});
+		unsafeWindow.VLC.GMValues = cloneInto(obj, unsafeWindow);
 	}
 	else
-		unsafeWindow.GMValuesDFGe4S6G = obj;
+	{
+		unsafeWindow.VLC = {GMValues: obj};
+	}
 
-	//if(!this.isPopup && this.isCiphered && this.ytplayer &&
+	///Get signature decipherer from html5 player
 	if(unsafeWindow["ytplayer"].config.assets.js)
 	{
 		var url = window.location.protocol + unsafeWindow["ytplayer"].config.assets.js;
@@ -4310,7 +4264,8 @@ function loadDefaults()
 					console.log("sigDecodeParam:",sigDecodeParam);
 					injectScript("function GetDecodeParam(){return " + (sigDecodeParam ? sigDecodeParam.toSource() : 'null') +";}");
 					//injectScript("(" + VLCTube.toSource() + ")();");
-				}
+				} else
+					console.log("VLCTube: failed to retrieve decipherer.");
 			}
 		});
 	}
@@ -4319,10 +4274,10 @@ function loadDefaults()
 
 	function SaveGMValues()
 	{
-		for(var key in unsafeWindow.GMValuesDFGe4S6G)
+		for(var key in unsafeWindow.GMValues)
 		{
-			//console.log(key, unsafeWindow.GMValuesDFGe4S6G[key]);
-			GM_setValue(key, unsafeWindow.GMValuesDFGe4S6G[key]);
+			//console.log(key, unsafeWindow.VLC.GMValues[key]);
+			GM_setValue(key, unsafeWindow.VLC.GMValues[key]);
 		}
 	}
 	// Don't save if embedded video or it overwrites changes made on 'watch' page.
