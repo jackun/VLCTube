@@ -3418,39 +3418,26 @@ function getXML(url, callback)
 
 ScriptInstance.prototype.parseLive = function(pl) 
 {
-	var that = this;
-	if(this.swf_args && this.swf_args.hlsvp && 
-			this.swf_args.hlsvp.length && typeof(pl) === 'undefined')
-		return true;
-	/*if(this.swf_args.hlsvp && this.swf_args.hlsvp.length)
+	//console.log(pl);
+	var m, t = pl.split('\n');
+	for(var i=0;i<t.length-1;i++)
 	{
-		getXML(this.swf_args.hlsvp, function(pl)
-		{*/
-			//console.log(pl);
-			t = pl.split('\n');
-			for(var i=0;i<t.length-1;i++)
-			{
-				if((m = /#EXT-X-STREAM-INF.*?RESOLUTION=(\d+\w\d+)/.exec(t[i])) &&
-					/http/i.test(t[i+1]))
-				{
-					var obj = {};
-					obj.name = /itag\/(\d+)/.exec(t[i+1])[1];
-					obj.url  = t[i+1];
-					if(itagToText.hasOwnProperty(obj.name))
-						obj.text = itagToText[obj.name];
-					else
-						obj.text = "Live " + m[1];
-					that.urlMap.push(obj);
-					that.qualityLevels.push(obj.name);
-				}
-			}
-			//regen with live feeds
-			that.genUrlMapSelect();
-		/*}
-		);
-	} else
-		return false;*/
-	return true;
+		if((m = /#EXT-X-STREAM-INF.*?RESOLUTION=(\d+\w\d+)/.exec(t[i])) &&
+			/http/i.test(t[i+1]))
+		{
+			var obj = {};
+			obj.name = /itag\/(\d+)/.exec(t[i+1])[1];
+			obj.url  = t[i+1];
+			if(itagToText.hasOwnProperty(obj.name))
+				obj.text = itagToText[obj.name];
+			else
+				obj.text = "Live " + m[1];
+			this.urlMap.push(obj);
+			this.qualityLevels.push(obj.name);
+		}
+	}
+	//regen with live feeds
+	this.genUrlMapSelect();
 }
 
 ScriptInstance.prototype.parseUrlMap = function(urls, clean)
@@ -3591,7 +3578,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 			if(gotVars) {
 				var hasStreams = this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map'], true);
 				hasStreams = (this.badaptiveFmts && this.parseUrlMap(this.swf_args['adaptive_fmts'])) || hasStreams;
-				hasStreams = this.parseLive() || hasStreams;
+				hasStreams = (this.swf_args.hlsvp && this.swf_args.hlsvp.length) || hasStreams;
 
 				if(!hasStreams)
 				{
