@@ -3900,33 +3900,15 @@ ScriptInstance.prototype.setupStoryboard = function()
 
 ScriptInstance.prototype.initialAddToPlaylist = function(dohash)
 {
-	var that = this;
-	function helperPlay()
+	if(this.restoreSettings())
 	{
-		var sel = that.$(vlc_id+'_select');
+		var sel = this.$(vlc_id+'_select');
 		var opt = sel.options.item(sel.selectedIndex);
-		that.onFmtChange(null, opt);
+		this.onFmtChange(null, opt);
 		//Fake hashchange
 		//FIXME jump when video plays for vlc to seek to
 		//if(dohash)
-			setTimeout(function(e){that.onHashChange(that.win.location.href);}, 500);
-	}
-
-	if(this.restoreSettings())
-	{
-		/*
-		if(!this.isPopup && this.isCiphered && this.ytplayer && this.ytplayer.config.assets.js)
-		{
-			getXML(this.ytplayer.config.assets.js,
-				function(r){
-					that.sigDecodeParam = GetDecodeParam(r);
-					//console.log("sigDecodeParam:",that.sigDecodeParam);
-					helperPlay();
-				});
-		}
-		else
-		*/
-			helperPlay();
+			setTimeout(this.onHashChange.bind(this, this.win.location.href), 500);
 		return true;
 	}
 	return false;
