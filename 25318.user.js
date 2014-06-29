@@ -437,7 +437,6 @@ function removeChildren(node, keepThis)
 	}
 
 	//silence html5 element
-	//because invalid access just if/else this thing...
 	if(typeof(node.pauseVideo) === 'function')
 		node.pauseVideo();
 	else if(typeof(node.pause) === 'function')
@@ -447,7 +446,7 @@ function removeChildren(node, keepThis)
 }
 
 //ScriptInstance.prototype.str2obj = function (a, b) {
-function str2obj(obj, a, b) {
+function yt_str2obj(obj, a, b) {
 	m = {};
 	m.l = function (a) {
         return void 0 !== a
@@ -457,6 +456,13 @@ function str2obj(obj, a, b) {
 	for (var e; c.length && (e = c.shift()); ) !c.length && (0, m.l) (b) ? d[e] = b : d[e] ? d = d[e] : d = d[e] = {}
 	console.log(d);
 };
+
+function str2obj(obj, a) {
+	var c = a.split('.'), d = obj;
+	for (var e; c.length && (e = c.shift()); )
+		if(d[e]) d = d[e]; else return null;
+	return d;
+}
 
 function fakeTimeout(callback) {
 	function ftcb(ev)
@@ -3437,7 +3443,7 @@ ScriptInstance.prototype.parseLive = function(pl)
 		}
 	}
 	//regen with live feeds
-	this.genUrlMapSelect();
+	this.genUrlSelect();
 }
 
 ScriptInstance.prototype.parseUrlMap = function(urls, clean)
@@ -3520,7 +3526,7 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 	return true;
 }
 
-ScriptInstance.prototype.genUrlMapSelect = function()
+ScriptInstance.prototype.genUrlSelect = function()
 {
 	this.selectNode = this.selectNode || this.$(vlc_id+"_select") || this.doc.createElement('select');
 	removeChildren(this.selectNode, true);
@@ -3558,6 +3564,31 @@ ScriptInstance.prototype.getPL = function()
 	return this.$('watch-appbar-playlist');//if in playlist mode
 }
 
+
+ScriptInstance.prototype.getStreams = function()
+{
+	var gotVars = this.pullYTVars();
+	if(this.swf_args == null) {
+		console.log("no source");
+		this.insertYTmessage ('VLCTube: Unable to find video source');
+		return false;
+	}
+
+	if(gotVars) {
+		var hasStreams = this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map'], true);
+		hasStreams = (this.badaptiveFmts && this.parseUrlMap(this.swf_args['adaptive_fmts'])) || hasStreams;
+		hasStreams = (this.swf_args.hlsvp && this.swf_args.hlsvp.length) || hasStreams;
+
+		if(!hasStreams)
+		{
+			console.log("Nothing to play! Bailing...");
+			that.insertYTmessage ('VLCTube: Nothing to play! Bailing... Flash player should load now.');
+			return false;
+		}
+	}
+	return true;
+}
+
 ///On 'watch' page
 ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 {
@@ -3566,38 +3597,12 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 	var watchPage = /^\/watch/.test(this.win.location.pathname);
 	if(!spfNav /*|| (!upsell && this.doc.querySelector("#movie_player"))*/)
 	{
-		//Keeping it here for early bail
-		var gotVars = this.pullYTVars();
-		//TODO merge, cleanup
-		if(watchPage) {
-			if(this.swf_args == null) {
-				console.log("no source");
-				this.insertYTmessage ('VLCTube: Unable to find video source');
-				return false;
-			}
-			if(gotVars) {
-				var hasStreams = this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map'], true);
-				hasStreams = (this.badaptiveFmts && this.parseUrlMap(this.swf_args['adaptive_fmts'])) || hasStreams;
-				hasStreams = (this.swf_args.hlsvp && this.swf_args.hlsvp.length) || hasStreams;
-
-				if(!hasStreams)
-				{
-					that.insertYTmessage ('VLCTube: Nothing to play! Bailing... Flash player should load now.');
-					console.log("Nothing to play! Bailing...");
-					return;
-				}
-			}
-		}
+		if(watchPage && !this.getStreams())
+			return;
 
 		//FIXME Already removed, but html5 player element doesn't get the hint
 		if(oldNode)
-		{
-			if(oldNode.querySelector('video')) oldNode.querySelector('video').src = '';
-			for(var i=0;i<oldNode.childNodes.length;i++)
-			{
-				removeChildren(oldNode.childNodes[i]);
-			}
-		}
+			removeChildren(oldNode, true);
 		else
 			this.exterminate();
 
@@ -3626,7 +3631,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 		this.makeDraggable();
 
 		this.setupVLC();
-		this.genUrlMapSelect();
+		this.genUrlSelect();
 	}
 
 	this.setThumbnailVisible(this.buseThumbnail);
@@ -3675,27 +3680,10 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 		if(!this.isPopup && !watchPage && !upsell) return;
 		if(spfNav)
 		{
-			this.pullYTVars();
-			if(this.swf_args == null) {
-				this.insertYTmessage ('VLCTube: Unable to find video source');
-				console.log("no swf args");
+			if(!this.getStreams())
 				return;
-			}
 
-			var hasStreams = this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map'], true);
-			hasStreams = (this.badaptiveFmts && this.parseUrlMap(this.swf_args['adaptive_fmts'])) || hasStreams;
-			hasStreams = this.parseLive() || hasStreams;
-
-			if(!hasStreams)
-			{
-				//Bit iffy with spf
-				this.insertYTmessage ('VLCTube: Unable to find video streams. Reloading in 3 seconds for flash player.');
-				console.log("Nothing to play! Bailing...");
-				this.win.setTimeout(window.location.reload.bind(this.win.location), 3000);
-				return;
-			}
-
-			this.genUrlMapSelect();
+			this.genUrlSelect();
 
 			this.thumb = this.doc.querySelector("span[itemprop='thumbnail'] link[itemprop='url']");
 			var tn = this.doc.querySelector("#vlc-thumbnail");
@@ -3771,7 +3759,7 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 			}catch(e){}
 
 			that.parseUrlMap(decodeURIComponent(param_map['url_encoded_fmt_stream_map']), true);
-			that.genUrlMapSelect();
+			that.genUrlSelect();
 
 			//set global width/height before generation
 			that.width = "100%";
@@ -3964,21 +3952,23 @@ ScriptInstance.prototype.setupVLC = function()
 	//this.player.watch.player = {};
 	//unsafeWindow._yt_www.v('yt.www.watch.player', {});
 	//unsafeWindow._yt_www.v('yt.www.watch.player.init', function(e){console.log("init called", arguments);});
-	node = this.fakeApiNode;
-	node.seekTo = function(e){that.myvlc._seekTo(e);}
-	node.pauseVideo = function(){that.myvlc.pauseVideo();}
-	node.playVideo = function(){that.myvlc.playVideo();}
-	node.stopVideo = function(){that.myvlc.stopVideo();}
-	node.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
-	node.getDuration = function(){return that.myvlc.getDuration();}
-	node.getAvailableQualityLevels = function(){return that.myvlc.getAvailableQualityLevels();}
-	node.getPlaybackQuality = function(){return that.myvlc.getPlaybackQuality();}
-	node.setPlaybackQuality = function(e){that.myvlc.setPlaybackQuality(e);}
-	node.getVolume = function(){return that.myvlc.getVolume();}
-	node.setVolume = function(e){that.myvlc.setVolume(e);}
-	node.isMuted = function(){return false;}
-	node.isReady = function(){return true;}
-	node.getPlayerState = function(){
+	//str2obj(window, 'yt.www.watch').player = this.fakeApiNode;
+
+	//FIXME sometimes needs a reload
+	this.fakeApiNode.seekTo = function(e){that.myvlc._seekTo(e);}
+	this.fakeApiNode.pauseVideo = function(){that.myvlc.pauseVideo();}
+	this.fakeApiNode.playVideo = function(){that.myvlc.playVideo();}
+	this.fakeApiNode.stopVideo = function(){that.myvlc.stopVideo();}
+	this.fakeApiNode.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
+	this.fakeApiNode.getDuration = function(){return that.myvlc.getDuration();}
+	this.fakeApiNode.getAvailableQualityLevels = function(){return that.myvlc.getAvailableQualityLevels();}
+	this.fakeApiNode.getPlaybackQuality = function(){return that.myvlc.getPlaybackQuality();}
+	this.fakeApiNode.setPlaybackQuality = function(e){that.myvlc.setPlaybackQuality(e);}
+	this.fakeApiNode.getVolume = function(){return that.myvlc.getVolume();}
+	this.fakeApiNode.setVolume = function(e){that.myvlc.setVolume(e);}
+	this.fakeApiNode.isMuted = function(){return false;}
+	this.fakeApiNode.isReady = function(){return true;}
+	this.fakeApiNode.getPlayerState = function(){
 		if(!that.myvlc.input) return 0;
 		switch(that.myvlc.input.state){
 			case 0: case 7: return -1;//idle, error
@@ -4018,6 +4008,7 @@ ScriptInstance.prototype.exterminate = function()
 }
 
 //Ah, stupid, brute-force it /wtf
+//FIXME sometimes needs a reload :/
 ScriptInstance.prototype.hasSettled = 0;
 ScriptInstance.prototype.overrideRef = function()
 {
