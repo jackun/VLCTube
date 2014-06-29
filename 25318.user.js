@@ -23,7 +23,7 @@
 // @updateURL      http://userscripts.org:8080/scripts/source/25318.meta.js
 // @downloadURL    http://userscripts.org:8080/scripts/source/25318.user.js
 // http://wiki.videolan.org/Documentation:WebPlugin
-// Tested on Arch linux, Fx28+, vlc 2.1.4, npapi-vlc-git from AUR
+// Tested on Arch linux, Fx30+, vlc 2.1.4, (or vlc-git & npapi-vlc-git from AUR)
 //TODO cleanup on aisle 3
 //2014-06-25 Fix deciphering for firefox v30 and below
 //2014-05-21 Try to resume if unexpected EOS. Use bind(). Playlist next item fix.
