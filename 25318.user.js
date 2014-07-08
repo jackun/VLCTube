@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        57.1
+// @version        57.2
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -4183,7 +4183,7 @@ function GetDecodeParam(str)
 	var arr = [], m;
 	if((m = str.match(/\.signature=([$\w]+)\(/)))
 	{
-		rFuncCode = new RegExp('function \\'+m[1]+'\\((\\w+)\\){(.*?)}');
+		var rFuncCode = new RegExp('function '+(m[1][0] == '$' ? '\\' : '') + m[1]+'\\((\\w+)\\){(.*?)}');
 		m = rFuncCode.exec(str);
 		if(!m) return null;
 
