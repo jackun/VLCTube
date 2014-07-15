@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        57.2
+// @version        57.3
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -1287,7 +1287,7 @@ VLCObj.prototype = {
 				
 				title = this.instance.ytplayer.config.args.title;
 				// Youtube server sends content-disposition header then
-				if(fmt != 'dash') src += "&title=" + title.replace("&", "%26");
+				if(fmt != 'dash') src += "&title=" + escape(title.replace(/&/g, "%26")).replace(/%/g,'%25');
 				//Just in case firefox respects the html5 "download" attribute
 				//but content-disposition probably overrides this with useless "videoplayback" anyway
 				this.$('vlclink').setAttribute("download", title + "-" + fmt.replace("/", "."));
@@ -4178,12 +4178,12 @@ function injectScript(src)
 
 //Parse html5 player js (ytplayer.config.assets.js) and feed it to Decode
 //sig.length == 81 special case?
-function GetDecodeParam(str)
+function GetDecodeParamv1(str)
 {
 	var arr = [], m;
 	if((m = str.match(/\.signature=([$\w]+)\(/)))
 	{
-		var rFuncCode = new RegExp('function '+(m[1][0] == '$' ? '\\' : '') + m[1]+'\\((\\w+)\\){(.*?)}');
+		var rFuncCode = new RegExp('function ' + (m[1][0] == '$' ? '\\' : '') + m[1]+'\\((\\w+)\\){(.*?)}');
 		m = rFuncCode.exec(str);
 		if(!m) return null;
 
@@ -4200,6 +4200,49 @@ function GetDecodeParam(str)
 			if((m = rSwap1.exec(funcCodeLines[i])))
 				arr.push(parseInt(m[1]));
 			else if((m = rSwap2.exec(funcCodeLines[i])))
+				arr.push(parseInt(m[1]));
+			else if((m = rSlice.exec(funcCodeLines[i])))
+				arr.push(-parseInt(m[1]));
+			else if(rReverse.test(funcCodeLines[i]))
+				arr.push(0);
+		}
+	}
+	return arr.length ? arr : null;
+}
+
+function GetDecodeParam(str)
+{
+	var arr = [], m;
+
+	//Code crimes /watch?v=8Gv0H-vPoD
+	m = str.match(/(\w+):function\(\w+,\w+\){.*?length/);
+	//console.log(m);
+	var fReplace = m[1];
+
+	m = str.match(/(\w+):function\(\w+\){.*?reverse/);
+	//console.log(m);
+	var fReverse = m[1];
+
+	m = str.match(/(\w+):function\(\w+,\w+\){return\s+.\.slice/);
+	//console.log(m);
+	var fSlice = m[1];
+
+	if((m = str.match(/\.signature=([$\w]+)\(/)))
+	{
+		var rFuncCode = new RegExp('function ' + (m[1][0] == '$' ? '\\' : '') + m[1]+'\\((\\w+)\\){(.*?)}');
+		m = rFuncCode.exec(str);
+		if(!m) return null;
+
+		var funcParam = m[1];
+		var funcCodeLines = m[2].split(';');
+
+		var rSwap = new RegExp(funcParam+'=\\w+\\.'+fReplace+'\\('+funcParam+',(\\d+)');
+		var rSlice = new RegExp(funcParam+'=\\w+\\.'+fSlice+'\\('+funcParam+',(\\d+)');
+		var rReverse = new RegExp(funcParam+'=\\w+\\.'+fReverse+'\\('+funcParam);
+
+		for(var i=0;i<funcCodeLines.length;i++)
+		{
+			if((m = rSwap.exec(funcCodeLines[i])))
 				arr.push(parseInt(m[1]));
 			else if((m = rSlice.exec(funcCodeLines[i])))
 				arr.push(-parseInt(m[1]));
