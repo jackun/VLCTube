@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        57.3
+// @version        57.4
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -4215,7 +4215,7 @@ function GetDecodeParam(str)
 	var arr = [], m;
 
 	//Code crimes /watch?v=8Gv0H-vPoD
-	m = str.match(/(\w+):function\(\w+,\w+\){.*?length/);
+	m = str.match(/(\w+):function\(\w+,\w+\){var\s+c=.*?length/);
 	//console.log(m);
 	var fReplace = m[1];
 
