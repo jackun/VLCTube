@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        57.4
+// @version        57.5
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -4108,7 +4108,7 @@ function GM_xmlhttpRequest(params)
 
 	var oldNode, loader = loadPlayer, 
 		e = document.querySelector('#movie_player') || 
-		document.querySelector('#player1') ||
+		document.querySelector('#player') ||
 		document.querySelector('#p');
 
 	if(e.id == "p") //feather, no flashblock
@@ -4124,11 +4124,11 @@ function GM_xmlhttpRequest(params)
 		});
 	}
 	else if(
-	   (/embed/.test(window.location.href) && e.id == 'player1')//embedded
+	   (/embed/.test(window.location.href) /*&& e.id == 'player1'*/)//embedded
 	   )
 	{
 		console.log("Load player for embed. DOMEvent element: ", e.id, e);
-		removeChildren(e); //FIXME fallback player
+		removeChildren(e, true); //FIXME fallback player
 		//oldNode = e.target;
 	}
 	else if(e.id == 'movie_player')
@@ -4344,7 +4344,7 @@ function DOMevent(mutations)
 				//console.log("    child:", e.id, mutation.target.id);
 
 				if((e.id == "p") || 
-					(/embed/.test(window.location.href) && e.id == 'player1') ||
+					(/embed/.test(window.location.href)/* && e.id == 'player1'*/) ||
 					(e.id == 'movie_player')
 				)
 				{
