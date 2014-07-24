@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        57.5
+// @version        57.6
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -4223,7 +4223,7 @@ function GetDecodeParam(str)
 	//console.log(m);
 	var fReverse = m[1];
 
-	m = str.match(/(\w+):function\(\w+,\w+\){return\s+.\.slice/);
+	m = str.match(/(\w+):function\(\w+,\w+\){\w\.splice/);
 	//console.log(m);
 	var fSlice = m[1];
 
@@ -4236,9 +4236,9 @@ function GetDecodeParam(str)
 		var funcParam = m[1];
 		var funcCodeLines = m[2].split(';');
 
-		var rSwap = new RegExp(funcParam+'=\\w+\\.'+fReplace+'\\('+funcParam+',(\\d+)');
-		var rSlice = new RegExp(funcParam+'=\\w+\\.'+fSlice+'\\('+funcParam+',(\\d+)');
-		var rReverse = new RegExp(funcParam+'=\\w+\\.'+fReverse+'\\('+funcParam);
+		var rSwap = new RegExp('\\w+\\.'+fReplace+'\\('+funcParam+',(\\d+)');
+		var rSlice = new RegExp('\\w+\\.'+fSlice+'\\('+funcParam+',(\\d+)');
+		var rReverse = new RegExp('\\w+\\.'+fReverse+'\\('+funcParam);
 
 		for(var i=0;i<funcCodeLines.length;i++)
 		{
