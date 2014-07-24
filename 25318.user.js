@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        57.6
+// @version        57.7
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -4271,7 +4271,7 @@ function loadDefaults()
 	if(typeof(cloneInto) === 'function') // GM nightly / 2.0 beta
 	{
 		var unsafeObj = createObjectIn(unsafeWindow, {defineAs: "VLC"});
-		unsafeWindow.VLC.GMValues = cloneInto(obj, unsafeWindow);
+		unsafeObj.GMValues = cloneInto(obj, unsafeWindow);
 	}
 	else
 	{
