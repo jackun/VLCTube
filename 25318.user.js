@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        57.8
+// @version        57.9
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -4005,6 +4005,10 @@ ScriptInstance.prototype.exterminate = function()
 	//else
 	// something with 'cued-embed' class :S
 
+	var videos = document.querySelectorAll('video');
+	for(var i=0; i<videos.length; i++)
+		removeChildren(videos[i]);
+
 	this.hasSettled = 0;//reset count
 }
 
@@ -4295,8 +4299,9 @@ function loadDefaults()
 		unsafeWindow.VLC = {GMValues: obj};
 	}
 
+	// Wasn't unsafeWindow supposed to be pretty much window.wrappedJSObject?
 	///Get signature decipherer from html5 player
-	if((js = str2obj(unsafeWindow, "ytplayer.config.assets.js")))
+	if((js = str2obj(window.wrappedJSObject, "ytplayer.config.assets.js")))
 	{
 		var url = window.location.protocol + js;
 		GM_xmlhttpRequest({
@@ -4317,8 +4322,8 @@ function loadDefaults()
 	//else
 	//	injectScript("(" + VLCTube.toSource() + ")();");
 
-	//console.log('hlsvp', str2obj(unsafeWindow, "ytplayer.config.args.hlsvp"));
-	if((hlsvp = str2obj(unsafeWindow, "ytplayer.config.args.hlsvp")))
+	//console.log('hlsvp', str2obj(window.wrappedJSObject, "ytplayer.config.args.hlsvp"));
+	if((hlsvp = str2obj(window.wrappedJSObject, "ytplayer.config.args.hlsvp")))
 	{
 		GM_xmlhttpRequest({
 			method: 'GET',
@@ -4326,7 +4331,7 @@ function loadDefaults()
 			onload: function(r)
 			{
 				if(r.status == 200)
-					unsafeWindow.VLCinstance.parseLive(r.responseText);
+					window.wrappedJSObject.VLCinstance.parseLive(r.responseText);
 			}
 		});
 	}
