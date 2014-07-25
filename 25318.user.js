@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        57.7
+// @version        57.8
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -4264,14 +4264,31 @@ function loadDefaults()
 {
 	///User configurable values
 	var obj = {};
+	obj = cloneInto(obj, unsafeWindow);
 	var values = GM_listValues();
 	for(var val in values)
-		obj[values[val]] = GM_getValue(values[val], undefined);
+	{
+		try {
+			//TODO error if [Object] got saved with GM_setValue
+			obj[values[val]] = GM_getValue(values[val], undefined);
+		} catch(e){ 
+			console.log(e); 
+		}
+	}
 
 	if(typeof(cloneInto) === 'function') // GM nightly / 2.0 beta
 	{
 		var unsafeObj = createObjectIn(unsafeWindow, {defineAs: "VLC"});
-		unsafeObj.GMValues = cloneInto(obj, unsafeWindow);
+		try
+		{
+			//Fx 34
+			unsafeObj.GMValues = obj;
+		}
+		catch(e)
+		{
+			//Fx 30+
+			unsafeWindow.VLC.GMValues = obj;
+		}
 	}
 	else
 	{
@@ -4289,7 +4306,7 @@ function loadDefaults()
 				if(r.status == 200)
 				{
 					var sigDecodeParam = GetDecodeParam(r.responseText);
-					console.log("sigDecodeParam:",sigDecodeParam);
+					//console.log("sigDecodeParam:",sigDecodeParam);
 					injectScript("function GetDecodeParam(){return " + (sigDecodeParam ? sigDecodeParam.toSource() : 'null') +";}");
 					//injectScript("(" + VLCTube.toSource() + ")();");
 				} else
@@ -4300,7 +4317,7 @@ function loadDefaults()
 	//else
 	//	injectScript("(" + VLCTube.toSource() + ")();");
 
-	console.log('hlsvp', str2obj(unsafeWindow, "ytplayer.config.args.hlsvp"));
+	//console.log('hlsvp', str2obj(unsafeWindow, "ytplayer.config.args.hlsvp"));
 	if((hlsvp = str2obj(unsafeWindow, "ytplayer.config.args.hlsvp")))
 	{
 		GM_xmlhttpRequest({
@@ -4316,10 +4333,16 @@ function loadDefaults()
 
 	function SaveGMValues()
 	{
-		for(var key in unsafeWindow.VLC.GMValues)
+		var values; 
+		try {
+			values = unsafeWindow.VLC.GMValues;
+		} catch(e) {
+			values = unsafeObj.GMValues;
+		}
+		for(var key in values)
 		{
-			//console.log(key, unsafeWindow.VLC.GMValues[key]);
-			GM_setValue(key, unsafeWindow.VLC.GMValues[key]);
+			//console.log(key, values[key]);
+			GM_setValue(key, values[key]);
 		}
 	}
 	// Don't save if embedded video or it overwrites changes made on 'watch' page.
