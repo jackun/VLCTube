@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        57.9
+// @version        57.10
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -4266,21 +4266,29 @@ function str2obj(obj, a) {
 
 function loadDefaults()
 {
+	// Wasn't unsafeWindow supposed to be pretty much window.wrappedJSObject?
+	var win = window.wrappedJSObject;
 	///User configurable values
 	var obj = {};
-	obj = cloneInto(obj, unsafeWindow);
+
+	//TODO error if [Object] got saved with GM_setValue
+	//clone it here and use try..catch later
+	if(typeof(cloneInto) === 'function')
+		obj = cloneInto(obj, unsafeWindow);
+
 	var values = GM_listValues();
-	for(var val in values)
+	//GM 0.9 for..in fails??
+	for(var i=0; i<values.length; i++)
 	{
 		try {
 			//TODO error if [Object] got saved with GM_setValue
-			obj[values[val]] = GM_getValue(values[val], undefined);
-		} catch(e){ 
-			console.log(e); 
+			obj[values[i]] = GM_getValue(values[i], undefined);
+		} catch(e){
+			console.log(e);
 		}
 	}
 
-	if(typeof(cloneInto) === 'function') // GM nightly / 2.0 beta
+	if(typeof(createObjectIn) === 'function') // GM nightly / 2.0 beta
 	{
 		var unsafeObj = createObjectIn(unsafeWindow, {defineAs: "VLC"});
 		try
@@ -4291,17 +4299,18 @@ function loadDefaults()
 		catch(e)
 		{
 			//Fx 30+
-			unsafeWindow.VLC.GMValues = obj;
+			win.VLC.GMValues = obj;
 		}
 	}
 	else
 	{
-		unsafeWindow.VLC = {GMValues: obj};
+		win.VLC = {GMValues: obj};
 	}
 
-	// Wasn't unsafeWindow supposed to be pretty much window.wrappedJSObject?
 	///Get signature decipherer from html5 player
-	if((js = str2obj(window.wrappedJSObject, "ytplayer.config.assets.js")))
+	var js = str2obj(win, "ytplayer.config.assets.js") || 
+			str2obj(unsafeWindow, "ytplayer.config.assets.js");
+	if(js)
 	{
 		var url = window.location.protocol + js;
 		GM_xmlhttpRequest({
@@ -4323,7 +4332,7 @@ function loadDefaults()
 	//	injectScript("(" + VLCTube.toSource() + ")();");
 
 	//console.log('hlsvp', str2obj(window.wrappedJSObject, "ytplayer.config.args.hlsvp"));
-	if((hlsvp = str2obj(window.wrappedJSObject, "ytplayer.config.args.hlsvp")))
+	if((hlsvp = str2obj(win, "ytplayer.config.args.hlsvp")))
 	{
 		GM_xmlhttpRequest({
 			method: 'GET',
@@ -4331,7 +4340,7 @@ function loadDefaults()
 			onload: function(r)
 			{
 				if(r.status == 200)
-					window.wrappedJSObject.VLCinstance.parseLive(r.responseText);
+					win.VLCinstance.parseLive(r.responseText);
 			}
 		});
 	}
@@ -4340,13 +4349,13 @@ function loadDefaults()
 	{
 		var values; 
 		try {
-			values = unsafeWindow.VLC.GMValues;
+			values = win.VLC.GMValues;
 		} catch(e) {
 			values = unsafeObj.GMValues;
 		}
 		for(var key in values)
 		{
-			//console.log(key, values[key]);
+			//console.log(key +"="+ values[key]);
 			GM_setValue(key, values[key]);
 		}
 	}
