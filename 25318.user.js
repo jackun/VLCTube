@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        57.10
+// @version        57.11
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -4321,7 +4321,7 @@ function loadDefaults()
 				{
 					var sigDecodeParam = GetDecodeParam(r.responseText);
 					//console.log("sigDecodeParam:",sigDecodeParam);
-					injectScript("function GetDecodeParam(){return " + (sigDecodeParam ? sigDecodeParam.toSource() : 'null') +";}");
+					injectScript("function GetDecodeParam(){return " + (sigDecodeParam ? "[" + sigDecodeParam.toString() + "]" : 'null') +";}");
 					//injectScript("(" + VLCTube.toSource() + ")();");
 				} else
 					console.log("VLCTube: failed to retrieve decipherer.");
@@ -4361,7 +4361,7 @@ function loadDefaults()
 	}
 	// Don't save if embedded video or it overwrites changes made on 'watch' page.
 	if(!/\/embed\//.test(window.location.href))
-		window.addEventListener('unload', SaveGMValues, false);
+		window.addEventListener('beforeunload', SaveGMValues, false);
 }
 
 var domObserver;
@@ -4387,7 +4387,7 @@ function DOMevent(mutations)
 				{
 					domObserver.disconnect();
 					loadDefaults();
-					injectScript("var VLCinstance = " +VLCTube.toSource() + "();");
+					injectScript("var VLCinstance = " +VLCTube.toString() + "();");
 					return;
 				}
 			}
