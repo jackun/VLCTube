@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        57.11
+// @version        57.12
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -2362,25 +2362,23 @@ ScriptInstance.prototype.setWideCookie = function(a)
 
 ScriptInstance.prototype.onHashChange = function(ev)
 {
-	var off = 0, match;
+	var off = 0, m;
 
 	//Should support:
-	// [#&]a?t=2m or [#&]a?t=2m34 or [#&]a?t=2m34s
+	// [#&]a?t=1h2m or [#&]a?t=1h2m34 or [#&]a?t=1h2m34s
+	// [#&]a?t=62m or [#&]a?t=62m34 or [#&]a?t=62m34s
 	// [#&]a?t=34s or [#&]a?t=34
 
 	if(typeof(ev) === 'string')
-		match = ev.match(/[#&]a?t=(\d+)(m)?(\d+)?s?/);
+		m = ev.match(/[#&]a?t=((\d+)h)?((\d+)m)?(\d+)?s?/);
 	else
-		match = ev.newURL.match(/#a?t=(\d+)(m)?(\d+)?s?/);
+		m = ev.newURL.match(/#a?t=((\d+)h)?((\d+)m)?(\d+)?s?/);
 
-	if(!match) return;
+	if(!m) return;
 
-	if(match[3] != undefined)
-		off = 60*match[1] + parseInt(match[3]);
-	else if(match[2])
-		off = match[1] * 60;
-	else
-		off = match[1];
+	off = (m[2] ? parseInt(m[2]) : 0) * 3600 
+		+ (m[4] ? parseInt(m[4]) : 0) * 60
+		+ (m[5] ? parseInt(m[5]) : 0);
 
 	this.myvlc._seekTo(off);
 }
