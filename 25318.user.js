@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        57.12
+// @version        57.13
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -318,7 +318,9 @@ var itagPrio = [
 
 var itagToText = {
 	0:   'dash',
-	264: 'hires/mp4v',
+	272: 'hires/webm',
+	271: '1440p/webm',
+	264: '1440p/mp4v', //hires
 	248: '1080p/webm',
 	247: '720p/webm',
 	246: '480p/webm',
@@ -1461,8 +1463,8 @@ VLCObj.prototype = {
 				rp.innerHTML = VLC_status[this.vlc.input.state][0];
 				rp.title = VLC_status[this.vlc.input.state];
 				//TODO Reloading on error or not if #vlc-error is in url already
-				if(this.vlc.input.state == 7 && typeof this.reloading == 'undefined' && !/#vlc-error/.test(window.location)) 
-					this.reloading = setTimeout(function(){window.location += "#vlc-error"; window.location.reload();}, 3000);
+				//if(this.vlc.input.state == 7 && typeof this.reloading == 'undefined' && !/#vlc-error/.test(window.location)) 
+				//	this.reloading = setTimeout(function(){window.location += "#vlc-error"; window.location.reload();}, 3000);
 				this.setTimes(this.vlc.input.time,
 					this.vlc.input.length > 0 ? this.vlc.input.length : (this.instance.ytplayer ? 1000*this.instance.ytplayer.config.args.length_seconds : 0));
 
@@ -1619,9 +1621,6 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 		this.onEmbedPage();
 	}
 
-	//WIP CSS should kinda work now with 'table' layout
-	//if(popup) this.win.addEventListener('resize', this.setPlayerSize.bind(this), false);
-
 	for(var i in itagToText)
 	{
 		textToItag[itagToText[i]] = parseInt(i);
@@ -1634,7 +1633,7 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 	//TODO re-enable. spf looks to be broken
 	//if(!upsell && !popup) this.hookSPF();
 
-	//HTML5 player. Just bulldozer this thing
+	//HTML5 player. Just bulldozer this thing. See also ytplayer.load()
 	if(this.yt.player.Application && this.yt.player.Application.create)
 		this.yt.player.Application.create = function(a,b)
 		{
@@ -3407,6 +3406,8 @@ ScriptInstance.prototype.makeDraggable = function() {
 function getXML(url, callback)
 {
 	//printStack();
+	//or referrer?
+	//headers["Referer"] = window.location.href;
 	GM_xmlhttpRequest({
 		method: 'GET',
 		url: url,
@@ -3722,7 +3723,9 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 	var that = this;
 	var url = this.win.location.protocol + "//" + 
 			this.win.location.hostname + "/get_video_info?video_id=" + 
-			this.swf_args.video_id;
+			this.swf_args.video_id + 
+			"&html5=1&cver=html5&el=embedded&iframe=1&asv=3&eurl=" + 
+			this.yt.config_.EURL;
 
 	getXML(url,
 		function(resp)
@@ -3758,6 +3761,8 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 			}catch(e){}
 
 			that.parseUrlMap(decodeURIComponent(param_map['url_encoded_fmt_stream_map']), true);
+			if(that.badaptiveFmts)
+				that.parseUrlMap(decodeURIComponent(param_map['adaptive_fmts']), false);
 			that.genUrlSelect();
 
 			//set global width/height before generation
@@ -4307,7 +4312,10 @@ function loadDefaults()
 
 	///Get signature decipherer from html5 player
 	var js = str2obj(win, "ytplayer.config.assets.js") || 
-			str2obj(unsafeWindow, "ytplayer.config.assets.js");
+			str2obj(unsafeWindow, "ytplayer.config.assets.js") ||
+			str2obj(win, "yt.config_.PLAYER_CONFIG.assets.js") ||
+			str2obj(unsafeWindow, "yt.config_.PLAYER_CONFIG.assets.js");
+
 	if(js)
 	{
 		var url = window.location.protocol + js;
