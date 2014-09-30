@@ -1672,11 +1672,11 @@ ScriptInstance.prototype.overrideGetElement = function (id)
 {
 	//console.log("Hijacked getElementById:", id);
 	if(id == 'player-api') {
-		//console.log("Returning fake 'player-api' node");
+		//console.log("Returning own 'player-api' node");
 		return this.fakeApiNode;
 	}
 	/*else if(id == 'movie_player') {
-		//console.log("Returning fake 'movie_player' node");
+		//console.log("Returning own 'movie_player' node");
 		return this.moviePlayer;
 	}*/
 	el = this._getElementById(id);
