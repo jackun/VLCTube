@@ -311,7 +311,9 @@ var itagPrio = [
 
 var itagToText = {
 	0:   'dash',
-	264: 'hires/mp4v',
+	272: 'hires/webm',
+	271: '1440p/webm',
+	264: '1440p/mp4v', //hires
 	248: '1080p/webm',
 	247: '720p/webm',
 	246: '480p/webm',
@@ -379,6 +381,7 @@ var itagToText = {
 	10072 : '72p Live',
 	*/
 };
+
 
 //generates this programmatically
 var textToItag = {};
@@ -519,7 +522,7 @@ function Reverse(str)
 
 //Parse html5 player js (ytplayer.config.assets.js) and feed it to Decode
 //sig.length == 81 special case?
-function GetDecodeParam(str)
+function GetDecodeParamv1(str)
 {
 	var arr = [], m;
 	if((m = str.match(/\.signature=(\w+)/)))
@@ -541,6 +544,49 @@ function GetDecodeParam(str)
 			if((m = rSwap1.exec(funcCodeLines[i])))
 				arr.push(parseInt(m[1]));
 			else if((m = rSwap2.exec(funcCodeLines[i])))
+				arr.push(parseInt(m[1]));
+			else if((m = rSlice.exec(funcCodeLines[i])))
+				arr.push(-parseInt(m[1]));
+			else if(rReverse.test(funcCodeLines[i]))
+				arr.push(0);
+		}
+	}
+	return arr.length ? arr : null;
+}
+
+function GetDecodeParam(str)
+{
+	var arr = [], m;
+
+	//Code crimes /watch?v=8Gv0H-vPoD
+	m = str.match(/(\w+):function\(\w+,\w+\){var\s+c=.*?length/);
+	//console.log(m);
+	var fReplace = m[1];
+
+	m = str.match(/(\w+):function\(\w+\){.*?reverse/);
+	//console.log(m);
+	var fReverse = m[1];
+
+	m = str.match(/(\w+):function\(\w+,\w+\){\w\.splice/);
+	//console.log(m);
+	var fSlice = m[1];
+
+	if((m = str.match(/\.signature=([$\w]+)\(/)))
+	{
+		var rFuncCode = new RegExp('function ' + (m[1][0] == '$' ? '\\' : '') + m[1]+'\\((\\w+)\\){(.*?)}');
+		m = rFuncCode.exec(str);
+		if(!m) return null;
+
+		var funcParam = m[1];
+		var funcCodeLines = m[2].split(';');
+
+		var rSwap = new RegExp('\\w+\\.'+fReplace+'\\('+funcParam+',(\\d+)');
+		var rSlice = new RegExp('\\w+\\.'+fSlice+'\\('+funcParam+',(\\d+)');
+		var rReverse = new RegExp('\\w+\\.'+fReverse+'\\('+funcParam);
+
+		for(var i=0;i<funcCodeLines.length;i++)
+		{
+			if((m = rSwap.exec(funcCodeLines[i])))
 				arr.push(parseInt(m[1]));
 			else if((m = rSlice.exec(funcCodeLines[i])))
 				arr.push(-parseInt(m[1]));
@@ -1123,14 +1169,13 @@ VLCObj.prototype = {
 	},
 	initVLC: function (node, sbPos, sbVol, sbRate){
 		this.vlc = node ? node.wrappedJSObject : this.$(vlc_id).wrappedJSObject;
-		console.log('initVLC', this.vlc);
 		//Browser has probably blocked the plugin, wait for user confirmation.
 		if(!this.vlc.input)
 		{
 			setTimeout(this.initVLC.bind(this, node, sbPos, sbVol, sbRate), 1000);
 			return;
 		}
-		this.vlc.VLCObj = this;
+		//this.vlc.VLCObj = this;
 		this.scrollbarPos = sbPos;
 		this.scrollbarPos.register(this);
 		this.scrollbarVol = sbVol;
@@ -1146,13 +1191,33 @@ VLCObj.prototype = {
 		this._setupEvent("_stop", this.stop.bind(this));
 		this._setupEvent("_fs", this.fs.bind(this));
 
-		this.vlc.addEventListener('MediaPlayerPlaying', this.eventPlaying.bind(this), false);
-		this.vlc.addEventListener('MediaPlayerPaused', this.eventPaused.bind(this), false);
-		this.vlc.addEventListener('MediaPlayerStopped', this.eventStopped.bind(this), false);
-		this.vlc.addEventListener('MediaPlayerNothingSpecial', this.eventStopped.bind(this), false);
-		this.vlc.addEventListener('MediaPlayerEndReached', this.eventEnded.bind(this), false);
-		this.vlc.addEventListener('MediaPlayerEncounteredError', this.eventStopped.bind(this), false);
-		this.vlc.addEventListener('MediaPlayerBuffering', this.eventBuffering.bind(this), false);
+		//Fx 33 but seems to work on v32.0.1
+		//Export callbacks into DOM and make VLC call these
+		exportFunction(this.eventPlaying.bind(this), unsafeWindow, 
+						{defineAs: "eventPlaying", allowCallbacks: true});
+		exportFunction(this.eventPaused.bind(this), unsafeWindow, 
+						{defineAs: "eventPaused", allowCallbacks: true});
+		exportFunction(this.eventStopped.bind(this), unsafeWindow, 
+						{defineAs: "eventStopped", allowCallbacks: true});
+		exportFunction(this.eventEnded.bind(this), unsafeWindow, 
+						{defineAs: "eventEnded", allowCallbacks: true});
+		exportFunction(this.eventBuffering.bind(this), unsafeWindow, 
+						{defineAs: "eventBuffering", allowCallbacks: true});
+
+		this.vlc.addEventListener('MediaPlayerPlaying',
+						unsafeWindow.eventPlaying, false);
+		this.vlc.addEventListener('MediaPlayerPaused',
+						unsafeWindow.eventPaused, false);
+		this.vlc.addEventListener('MediaPlayerStopped',
+						unsafeWindow.eventStopped, false);
+		this.vlc.addEventListener('MediaPlayerNothingSpecial',
+						unsafeWindow.eventStopped, false);
+		this.vlc.addEventListener('MediaPlayerEndReached',
+						unsafeWindow.eventEnded, false);
+		this.vlc.addEventListener('MediaPlayerEncounteredError',
+						unsafeWindow.eventStopped, false);
+		this.vlc.addEventListener('MediaPlayerBuffering',
+						unsafeWindow.eventBuffering, false);
 		//this.vlc.addEventListener('MediaPlayerPositionChanged', this.eventPos.bind(this),false);
 
 		if(this.$(vlc_id+'_select'))
@@ -3434,7 +3499,7 @@ ScriptInstance.prototype.makeDraggable = function() {
 
 function getXML(url, callback)
 {
-	printStack();
+	//printStack();
 	GM_xmlhttpRequest({
 		method: 'GET',
 		url: url,
