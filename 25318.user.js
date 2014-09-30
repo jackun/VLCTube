@@ -180,7 +180,7 @@ var gLangs = {
 		'vlc-config-cache' : ['Puhverduse pikkus:', 'Sekundites. Maksimum on 60s.'],
 		'vlc-config-volume-max' : ['Maksimum helivaljusus:', 'Limiteeritakse 100% peale video lõppedes'],
 		'vlc-config-scrolltoplayer' : ['Keri pleier vaatesse', ''],
-		'vlc-config-wide-width' : ['Laia pleieri laius:', 'Laius pikselites või lisa protsendi märk, et seada proportsionaalselt akna laiusega.'],
+		'vlc-config-wide-width' : ['Laia pleieri laius:', 'Laius pikslites või lisa protsendi märk, et seada proportsionaalselt akna laiusega.'],
 		'WATCHLATER' : 'Vaata hiljem',
 		},
 	"fi": {
