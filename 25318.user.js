@@ -15,7 +15,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        55
+// @version        56
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -1697,7 +1697,6 @@ ScriptInstance.prototype.init = function(_win, popup, oldNode, upsell)
 	//Hijack 'getElementById' so YT js can do its job and also not overwrite vlc with flash again.
 	//FIXME but srsly, something less intrusive maybe
 	this.fakeApiNode = this.doc.createElement('div');
-	//this.doc.wrappedJSObject._getElementById = this.doc.wrappedJSObject.getElementById;
 	this._getElementById = this.doc.wrappedJSObject.getElementById.bind(this.doc.wrappedJSObject);
 
 	exportFunction(this.overrideGetElement.bind(this), unsafeWindow, {
