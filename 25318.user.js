@@ -1668,6 +1668,21 @@ function ScriptInstance()
 	this.urlMap = [];
 }
 
+ScriptInstance.prototype.overrideGetElement = function (id)
+{
+	//console.log("Hijacked getElementById:", id);
+	if(id == 'player-api') {
+		//console.log("Returning fake 'player-api' node");
+		return this.fakeApiNode;
+	}
+	/*else if(id == 'movie_player') {
+		//console.log("Returning fake 'movie_player' node");
+		return this.moviePlayer;
+	}*/
+	el = this._getElementById(id);
+	return el;
+}
+
 ScriptInstance.prototype.init = function(_win, popup, oldNode, upsell)
 {
 	this.widthWide = GM_getValue('vlc-wide-width', '86%'); //854; //Supports plain numbers as pixels or string as percentages
@@ -1680,24 +1695,17 @@ ScriptInstance.prototype.init = function(_win, popup, oldNode, upsell)
 	this.initVars();
 
 	//Hijack 'getElementById' so YT js can do its job and also not overwrite vlc with flash again.
-	//FIXME but srsly something less intrusive maybe
+	//FIXME but srsly, something less intrusive maybe
 	this.fakeApiNode = this.doc.createElement('div');
 	//this.doc.wrappedJSObject._getElementById = this.doc.wrappedJSObject.getElementById;
-	var _getElementById = this.doc.wrappedJSObject.getElementById.bind(this.doc.wrappedJSObject);
-	this._getElementById = _getElementById;
-	this.doc.wrappedJSObject.getElementById = (function(id){
-		//console.log("Hijacked getElementById:", id);
-		if(id == 'player-api') {
-			//console.log("Returning fake 'player-api' node");
-			return this.fakeApiNode;
-		}
-		/*else if(id == 'movie_player') {
-			//console.log("Returning fake 'movie_player' node");
-			return this.moviePlayer;
-		}*/
-		el = _getElementById(id);
-		return el;
-	}).bind(this);
+	this._getElementById = this.doc.wrappedJSObject.getElementById.bind(this.doc.wrappedJSObject);
+
+	exportFunction(this.overrideGetElement.bind(this), unsafeWindow, {
+		defineAs: "overriddenGetElement",
+		allowCallbacks: true
+	});
+
+	this.doc.wrappedJSObject.getElementById = unsafeWindow.overriddenGetElement;
 
 	var unavail = this.$('player-unavailable');
 	if(unavail && !unavail.classList.contains("hid")) //works?
