@@ -1097,15 +1097,15 @@ VLCObj.prototype = {
 		if(btn)
 			btn.addEventListener('click', fn, true);
 	},
-	initVLC: function (sbPos, sbVol, sbRate){
-		this.vlc = this.$(vlc_id);
+	initVLC: function (node, sbPos, sbVol, sbRate){
+		this.vlc = node ? node : this.$(vlc_id);
 		//Browser has probably blocked the plugin, wait for user confirmation.
 		if(!this.vlc.input)
 		{
-			setTimeout(this.initVLC.bind(this, sbPos, sbVol, sbRate), 1000);
+			setTimeout(this.initVLC.bind(this, node, sbPos, sbVol, sbRate), 1000);
 			return;
 		}
-		this.vlc.VLCObj = this;
+		//this.vlc.VLCObj = this;
 		this.scrollbarPos = sbPos;
 		this.scrollbarPos.register(this);
 		this.scrollbarVol = sbVol;
@@ -1189,6 +1189,7 @@ VLCObj.prototype = {
 			this.prevState = 7;
 	},
 	eventStopped: function(){
+		console.log('event: stopped');
 		this.togglePlayButton(false);
 		this.instance.setThumbnailVisible(true);
 		if(this.vlc && this.vlc.audio /*&& this.vlc.audio.volume > 100*/ && !this.instance.buseRepeat)
@@ -1212,6 +1213,7 @@ VLCObj.prototype = {
 		this.prevState = 6;
 	},
 	eventPlaying: function(){
+		console.log('event: playing');
 		if(this.instance.usingSubs) this.setupMarquee();
 		if(this.prevState != 4 && this.prevState != 2) 
 			this.instance.restoreVolume();
@@ -2851,9 +2853,19 @@ ScriptInstance.prototype.generateDOM = function(options)
 	}
 	else*/
 		//set controls="yes" to show plugin's own controls by default
-	holder.innerHTML = '<div id="vlc-thumbnail"></div><embed type="application/x-vlc-plugin" pluginspage="http://www.videolan.org" \
-						version="VideoLAN.VLCPlugin.2" controls="no" autoplay="no" \
-						width="100%" height="100%" id="'+ vlc_id +'" name="'+ vlc_id +'"/>';
+	holder.innerHTML = '<div id="vlc-thumbnail"></div>';
+	var embedNode = this.doc.createElement("embed");
+	embedNode.setAttribute('type', "application/x-vlc-plugin");
+	embedNode.setAttribute('pluginspage', "http://www.videolan.org");
+	embedNode.setAttribute('version', "VideoLAN.VLCPlugin.2");
+	embedNode.setAttribute('controls', "no");
+	embedNode.setAttribute('autoplay', "no");
+	embedNode.setAttribute('width', "100%");
+	embedNode.setAttribute('height', "100%");
+	embedNode.setAttribute('id', vlc_id);
+	embedNode.setAttribute('name', vlc_id);
+	holder.appendChild(embedNode);
+
 	vlc.appendChild(holder);
 	//may not be there on first load
 	this.thumb = this.doc.querySelector("span[itemprop='thumbnail'] link[itemprop='url']");
@@ -3321,7 +3333,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		vlc.appendChild(controls);
 		vlc.appendChild(config);
 	}
-	return vlc;
+	return {dom: vlc, node: embedNode};
 }
 
 //Shamelessly stolen from http://www.html5rocks.com/en/tutorials/dnd/basics/
@@ -3627,10 +3639,10 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 		removeChildren(this.player, true);
 
 		var vlcNode = this.generateDOM({userPage:userPage, wide:!userPage, dl:!userPage});
-		this.player.appendChild(vlcNode);
+		this.player.appendChild(vlcNode.dom);
 		this.makeDraggable();
 
-		this.setupVLC();
+		this.setupVLC(vlcNode.node);
 		this.genUrlSelect();
 	}
 
@@ -3774,7 +3786,7 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 				vlcNode.style.height = "100%";
 
 				var player = that.$('player');
-				player.appendChild(vlcNode);
+				player.appendChild(vlcNode.dom);
 
 				//Now fix the height
 				var spacer = that.$('vlc-spacer');
@@ -3791,7 +3803,7 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 					//FIXME hidden element height is 0px
 					that.$(vlc_id+"-holder").style.height = (that.$(gMoviePlayerID).clientHeight - that.$("vlc_controls_div").clientHeight) + "px";
 
-				that.setupVLC();
+				that.setupVLC(vlcNode.node);
 			}
 
 			var embed = that.$('cued-embed');
@@ -3906,7 +3918,7 @@ ScriptInstance.prototype.initialAddToPlaylist = function(dohash)
 	return false;
 }
 
-ScriptInstance.prototype.setupVLC = function()
+ScriptInstance.prototype.setupVLC = function(vlcNode)
 {
 	var that = this;
 	this.myvlc = new VLCObj(this);
@@ -3939,7 +3951,7 @@ ScriptInstance.prototype.setupVLC = function()
 	if(spacer)
 		this.$("vlc_controls_div").style.display = '';//reset
 
-	this.myvlc.initVLC(this.sbPos, this.sbVol, this.sbRate);
+	this.myvlc.initVLC(vlcNode, this.sbPos, this.sbVol, this.sbRate);
 
 	if(!this.isEmbed)
 	{
