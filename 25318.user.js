@@ -1676,6 +1676,7 @@ ScriptInstance.prototype.exportFun = function(name, a, b)
 	exportFunction(func.bind(this), this.vlcExports, 
 			{defineAs: name, allowCallbacks: true});
 	if(node) node.wrappedJSObject[name] = this.vlcExports[name];
+	return this.vlcExports[name];
 }
 
 ScriptInstance.prototype.overriddenGetElement = function (id)
@@ -1743,10 +1744,10 @@ ScriptInstance.prototype.init = function(_win, popup, oldNode, upsell)
 
 	//HTML5 player. Just bulldozer this thing
 	if(this.yt.player.Application && this.yt.player.Application.create)
-		this.yt.player.Application.create = function(a,b)
-		{
-			console.log("Suck it Trebek!");
-		}
+	{
+		this.yt.player.Application.create = this.exportFun("appCreate", 
+				function(a,b){ console.log("Suck it Trebek!"); });
+	}
 }
 
 ScriptInstance.prototype.hookSPF = function(){
