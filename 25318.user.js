@@ -4092,8 +4092,7 @@ ScriptInstance.prototype.setupVLC = function(vlcNode)
 
 	this.playerEvents = new CustomEvent();
 	var addEventListener = function(event, fun, bubble) {this.playerEvents.addListener(event, fun);}
-	exportFunction(addEventListener.bind(this), this.vlcExports,
-			{defineAs: "addPlayerEvents", allowCallbacks: true});
+	this.exportFun("addPlayerEvents", addEventListener);
 	this.moviePlayer.wrappedJSObject.addEventListener = this.vlcExports.addPlayerEvents;
 
 	//Compatibility functions
@@ -4175,7 +4174,7 @@ ScriptInstance.prototype.overrideRef = function()
 		//Less security errors, more useful 'no such property' errors?
 		this.yt.setConfig('PLAYER_REFERENCE', this.fakeApiNode);
 		this.yt.www.watch.player = this.fakeApiNode;
-		//this.yt.player.getPlayerByElement = function(id){
+
 		var getPlayerByElement = function(id){
 			//console.log('Hijacked getPlayerByElement', id);
 			if(id == 'player-api')
