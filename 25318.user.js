@@ -3892,7 +3892,7 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 			removeChildren(that.player, true);
 			function insertPlayer() {
 				var vlcNode = that.generateDOM({wide:false, dl:false});
-				vlcNode.style.height = "100%";
+				vlcNode.dom.style.height = "100%";
 
 				var player = that.$('player');
 				player.appendChild(vlcNode.dom);
@@ -4249,7 +4249,7 @@ function DOMevent(mutations)
 				}
 				else if(
 					//(e.id == 'movie_player' && (e.getAttribute('flashvars') || /html5-video-player/.test(e.className)) && e.parentNode) || //not us
-				   (/embed/.test(window.location.href) && e.id == 'player1')//embedded
+				   (/embed/.test(window.location.href) /*&& e.id == 'player1'*/)//embedded
 				   )
 				{
 					console.log("Load player for embed. DOMEvent element: ", e.id, e);
