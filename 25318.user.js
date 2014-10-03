@@ -1487,8 +1487,8 @@ VLCObj.prototype = {
 	playlistNext: function()
 	{
 		if(!this.instance.nextFailed && this.vlc.input.state == 6 && this.instance.yt &&
-				this.instance.ytplayer && 
-				GM_getValue('vlc-pl-autonext', false)
+				this.instance.ytplayer
+				//&& GM_getValue('vlc-pl-autonext', false) //no button watch8 layout
 				)
 		{
 			//Uncomment if you want some delay before next starts to play
