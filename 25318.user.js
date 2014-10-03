@@ -4252,9 +4252,7 @@ function DOMevent(mutations)
 				
 				//console.log("    child:", e.id, mutation.target.id);
 				
-				if(e.id == "p" /*|| (e.id == 'player-api' && 
-					e.querySelector("EMBED") && e.querySelector("EMBED").getAttribute('flashvars'))*/
-					) //feather, no flashblock
+				if(e.id == "p") //feather, no flashblock
 				{
 					el = e.id == "p" ? e : document;
 					el = el.querySelector("EMBED");
@@ -4269,22 +4267,18 @@ function DOMevent(mutations)
 					loadPlayerOnLoad(window);
 				}
 				else if(
-					//(e.id == 'movie_player' && (e.getAttribute('flashvars') || /html5-video-player/.test(e.className)) && e.parentNode) || //not us
 				   (/embed/.test(window.location.href) /*&& e.id == 'player1'*/)//embedded
 				   )
 				{
 					console.log("Load player for embed. DOMEvent element: ", e.id, e);
 					removeChildren(e); //FIXME fallback player
-					var oldNode;// = e.target;
-					//oldNode.parentNode.removeChild(oldNode);
-					//window.removeEventListener('DOMNodeInserted', arguments.callee, true);
 					domObserver.disconnect();
 					//TODO Always a work in progress
 					if(/Chrome/.test(navigator.userAgent) && 
 							/\/embed\//.test(window.location.href))
-						loadPlayer(unsafeWindow, oldNode);
+						loadPlayer(unsafeWindow, null);
 					else
-						loadPlayerOnLoad(window, oldNode);
+						loadPlayerOnLoad(window, null);
 				}
 				else if(e.id == 'movie_player')
 				{
@@ -4298,9 +4292,9 @@ function DOMevent(mutations)
 					domObserver.disconnect();
 					//FIXME
 					if(/Chrome/.test(navigator.userAgent))
-						loader(unsafeWindow, oldNode);
+						loader(unsafeWindow, null);
 					else
-						loader(window, oldNode);
+						loader(window, null);
 				}
 			});
 		}
