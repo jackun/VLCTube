@@ -1666,9 +1666,19 @@ function ScriptInstance()
 	this.sigDecodeParam = null;
 	this.storyboard = null;
 	this.urlMap = [];
+	this.vlcExports = createObjectIn(unsafeWindow, {defineAs: "vlcExports"});
 }
 
-ScriptInstance.prototype.overrideGetElement = function (id)
+ScriptInstance.prototype.exportFun = function(name, a, b)
+{
+	var node = a;
+	var func = b || (a ? a : this[name]);
+	exportFunction(func.bind(this), this.vlcExports, 
+			{defineAs: name, allowCallbacks: true});
+	if(node) node.wrappedJSObject[name] = this.vlcExports[name];
+}
+
+ScriptInstance.prototype.overriddenGetElement = function (id)
 {
 	//console.log("Hijacked getElementById:", id);
 	if(id == 'player-api') {
@@ -1699,12 +1709,7 @@ ScriptInstance.prototype.init = function(_win, popup, oldNode, upsell)
 	this.fakeApiNode = this.doc.createElement('div');
 	this._getElementById = this.doc.wrappedJSObject.getElementById.bind(this.doc.wrappedJSObject);
 
-	exportFunction(this.overrideGetElement.bind(this), unsafeWindow, {
-		defineAs: "overriddenGetElement",
-		allowCallbacks: true
-	});
-
-	this.doc.wrappedJSObject.getElementById = unsafeWindow.overriddenGetElement;
+	this.exportFun("getElementById", this.doc, this.overriddenGetElement);
 
 	var unavail = this.$('player-unavailable');
 	if(unavail && !unavail.classList.contains("hid")) //works?
@@ -4086,7 +4091,10 @@ ScriptInstance.prototype.setupVLC = function(vlcNode)
 	}
 
 	this.playerEvents = new CustomEvent();
-	this.moviePlayer.wrappedJSObject.addEventListener = function(event, fun, bubble) {that.playerEvents.addListener(event, fun);}
+	var addEventListener = function(event, fun, bubble) {this.playerEvents.addListener(event, fun);}
+	exportFunction(addEventListener.bind(this), this.vlcExports,
+			{defineAs: "addPlayerEvents", allowCallbacks: true});
+	this.moviePlayer.wrappedJSObject.addEventListener = this.vlcExports.addPlayerEvents;
 
 	//Compatibility functions
 	//console.log("unsafeWindow.__yt_www", unsafeWindow._yt_www.p);
@@ -4094,28 +4102,21 @@ ScriptInstance.prototype.setupVLC = function(vlcNode)
 	//unsafeWindow._yt_www.v('yt.www.watch.player', {});
 	//unsafeWindow._yt_www.v('yt.www.watch.player.init', function(e){console.log("init called", arguments);});
 	var node = this.fakeApiNode;
-	var vlcApi = createObjectIn(unsafeWindow, {defineAs: "vlcApi"});
 
-	function exportFun(name, node, func) {
-		exportFunction(func.bind(that), vlcApi, 
-				{defineAs: name, allowCallbacks: true});
-		node.wrappedJSObject[name] = vlcApi[name];
-	}
-
-	exportFun("seekTo", node, function(e){this.myvlc._seekTo(e);});
-	exportFun("pauseVideo", node, function(){this.myvlc.pauseVideo();});
-	exportFun("playVideo", node, function(){this.myvlc.playVideo();});
-	exportFun("stopVideo", node, function(){this.myvlc.stopVideo();});
-	exportFun("getCurrentTime", node, function(){return this.myvlc.getCurrentTime();});
-	exportFun("getCurrentTime", node, function(){return this.myvlc.getCurrentTime();});
-	exportFun("getAvailableQualityLevels", node, function(){return this.myvlc.getAvailableQualityLevels();});
-	exportFun("getPlaybackQuality", node, function(){return this.myvlc.getPlaybackQuality();});
-	exportFun("setPlaybackQuality", node, function(e){this.myvlc.setPlaybackQuality(e);});
-	exportFun("getVolume", node, function(){return this.myvlc.getVolume();});
-	exportFun("setVolume", node, function(e){this.myvlc.setVolume(e);});
-	exportFun("isMuted", node, function(){return false;});
-	exportFun("isReady", node, function(){return true;});
-	exportFun("getPlayerState", node, function(){
+	this.exportFun("seekTo", node, function(e){this.myvlc._seekTo(e);});
+	this.exportFun("pauseVideo", node, function(){this.myvlc.pauseVideo();});
+	this.exportFun("playVideo", node, function(){this.myvlc.playVideo();});
+	this.exportFun("stopVideo", node, function(){this.myvlc.stopVideo();});
+	this.exportFun("getCurrentTime", node, function(){return this.myvlc.getCurrentTime();});
+	this.exportFun("getCurrentTime", node, function(){return this.myvlc.getCurrentTime();});
+	this.exportFun("getAvailableQualityLevels", node, function(){return this.myvlc.getAvailableQualityLevels();});
+	this.exportFun("getPlaybackQuality", node, function(){return this.myvlc.getPlaybackQuality();});
+	this.exportFun("setPlaybackQuality", node, function(e){this.myvlc.setPlaybackQuality(e);});
+	this.exportFun("getVolume", node, function(){return this.myvlc.getVolume();});
+	this.exportFun("setVolume", node, function(e){this.myvlc.setVolume(e);});
+	this.exportFun("isMuted", node, function(){return false;});
+	this.exportFun("isReady", node, function(){return true;});
+	this.exportFun("getPlayerState", node, function(){
 		if(!this.myvlc.input) return 0;
 		switch(this.myvlc.input.state){
 			case 0: case 7: return -1;//idle, error
@@ -4175,7 +4176,7 @@ ScriptInstance.prototype.overrideRef = function()
 		this.yt.setConfig('PLAYER_REFERENCE', this.fakeApiNode);
 		this.yt.www.watch.player = this.fakeApiNode;
 		//this.yt.player.getPlayerByElement = function(id){
-		function getPlayerByElement(id){
+		var getPlayerByElement = function(id){
 			//console.log('Hijacked getPlayerByElement', id);
 			if(id == 'player-api')
 				return this.fakeApiNode;
@@ -4183,22 +4184,19 @@ ScriptInstance.prototype.overrideRef = function()
 				return this.moviePlayer;
 		};
 
-		if(!unsafeWindow.getPlayerByElement)
-			exportFunction(getPlayerByElement.bind(this), unsafeWindow, 
-				{defineAs: "getPlayerByElement", allowCallbacks: true});
-		this.yt.player.getPlayerByElement = unsafeWindow.getPlayerByElement;
+		if(!this.vlcExports.getPlayerByElement)
+			this.exportFun("getPlayerByElement", getPlayerByElement);
+		this.yt.player.getPlayerByElement = this.vlcExports.getPlayerByElement;
 
 		//TODO restore seekTo
-		//this.yt.www.watch.player.seekTo = this.myvlc._seekTo;
-		//this.yt.www.watch.player.seekTo = function(t){
-		function _seekTo(t){
+		var _seekTo = function(t){
 			this.myvlc._seekTo(t);
 		}
 
-		if(!unsafeWindow._seekTo)
-			exportFunction(_seekTo.bind(this), unsafeWindow, 
-				{defineAs: "_seekTo", allowCallbacks: true});
-		this.yt.www.watch.player.seekTo = unsafeWindow._seekTo;
+		if(!this.vlcExports._seekTo)
+			this.exportFun("_seekTo", _seekTo);
+		this.yt.www.watch.player.seekTo = this.vlcExports._seekTo;
+
 	}catch(e){ 
 		//console.log(e); 
 	}
