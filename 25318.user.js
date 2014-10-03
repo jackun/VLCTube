@@ -4093,23 +4093,31 @@ ScriptInstance.prototype.setupVLC = function(vlcNode)
 	//this.player.wrappedJSObject.watch.player = {};
 	//unsafeWindow._yt_www.v('yt.www.watch.player', {});
 	//unsafeWindow._yt_www.v('yt.www.watch.player.init', function(e){console.log("init called", arguments);});
-	node = this.fakeApiNode;
-	node.wrappedJSObject.seekTo = function(e){that.myvlc._seekTo(e);}
-	node.wrappedJSObject.pauseVideo = function(){that.myvlc.pauseVideo();}
-	node.wrappedJSObject.playVideo = function(){that.myvlc.playVideo();}
-	node.wrappedJSObject.stopVideo = function(){that.myvlc.stopVideo();}
-	node.wrappedJSObject.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
-	node.wrappedJSObject.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
-	node.wrappedJSObject.getAvailableQualityLevels = function(){return that.myvlc.getAvailableQualityLevels();}
-	node.wrappedJSObject.getPlaybackQuality = function(){return that.myvlc.getPlaybackQuality();}
-	node.wrappedJSObject.setPlaybackQuality = function(e){that.myvlc.setPlaybackQuality(e);}
-	node.wrappedJSObject.getVolume = function(){return that.myvlc.getVolume();}
-	node.wrappedJSObject.setVolume = function(e){that.myvlc.setVolume(e);}
-	node.wrappedJSObject.isMuted = function(){return false;}
-	node.wrappedJSObject.isReady = function(){return true;}
-	node.wrappedJSObject.getPlayerState = function(){
-		if(!that.myvlc.input) return 0;
-		switch(that.myvlc.input.state){
+	var node = this.fakeApiNode;
+	var vlcApi = createObjectIn(unsafeWindow, {defineAs: "vlcApi"});
+
+	function exportFun(name, node, func) {
+		exportFunction(func.bind(that), vlcApi, 
+				{defineAs: name, allowCallbacks: true});
+		node.wrappedJSObject[name] = vlcApi[name];
+	}
+
+	exportFun("seekTo", node, function(e){this.myvlc._seekTo(e);});
+	exportFun("pauseVideo", node, function(){this.myvlc.pauseVideo();});
+	exportFun("playVideo", node, function(){this.myvlc.playVideo();});
+	exportFun("stopVideo", node, function(){this.myvlc.stopVideo();});
+	exportFun("getCurrentTime", node, function(){return this.myvlc.getCurrentTime();});
+	exportFun("getCurrentTime", node, function(){return this.myvlc.getCurrentTime();});
+	exportFun("getAvailableQualityLevels", node, function(){return this.myvlc.getAvailableQualityLevels();});
+	exportFun("getPlaybackQuality", node, function(){return this.myvlc.getPlaybackQuality();});
+	exportFun("setPlaybackQuality", node, function(e){this.myvlc.setPlaybackQuality(e);});
+	exportFun("getVolume", node, function(){return this.myvlc.getVolume();});
+	exportFun("setVolume", node, function(e){this.myvlc.setVolume(e);});
+	exportFun("isMuted", node, function(){return false;});
+	exportFun("isReady", node, function(){return true;});
+	exportFun("getPlayerState", node, function(){
+		if(!this.myvlc.input) return 0;
+		switch(this.myvlc.input.state){
 			case 0: case 7: return -1;//idle, error
 			case 1: return 5;//opening
 			case 2: return 3;//buffering
@@ -4117,7 +4125,7 @@ ScriptInstance.prototype.setupVLC = function(vlcNode)
 			case 4: return 2;//paused
 			case 5: case 6: return 0;//stopped, ended
 		}
-	}
+	});
 }
 
 ScriptInstance.prototype.exterminate = function()
@@ -4166,18 +4174,31 @@ ScriptInstance.prototype.overrideRef = function()
 		//Less security errors, more useful 'no such property' errors?
 		this.yt.setConfig('PLAYER_REFERENCE', this.fakeApiNode);
 		this.yt.www.watch.player = this.fakeApiNode;
-		this.yt.player.getPlayerByElement = function(id){
+		//this.yt.player.getPlayerByElement = function(id){
+		function getPlayerByElement(id){
 			//console.log('Hijacked getPlayerByElement', id);
 			if(id == 'player-api')
-				return that.fakeApiNode;
+				return this.fakeApiNode;
 			else if(id == 'movie_player')
-				return that.moviePlayer;
+				return this.moviePlayer;
 		};
+
+		if(!unsafeWindow.getPlayerByElement)
+			exportFunction(getPlayerByElement.bind(this), unsafeWindow, 
+				{defineAs: "getPlayerByElement", allowCallbacks: true});
+		this.yt.player.getPlayerByElement = unsafeWindow.getPlayerByElement;
+
 		//TODO restore seekTo
 		//this.yt.www.watch.player.seekTo = this.myvlc._seekTo;
-		this.yt.www.watch.player.seekTo = function(t){
-			that.myvlc._seekTo(t);
+		//this.yt.www.watch.player.seekTo = function(t){
+		function _seekTo(t){
+			this.myvlc._seekTo(t);
 		}
+
+		if(!unsafeWindow._seekTo)
+			exportFunction(_seekTo.bind(this), unsafeWindow, 
+				{defineAs: "_seekTo", allowCallbacks: true});
+		this.yt.www.watch.player.seekTo = unsafeWindow._seekTo;
 	}catch(e){ 
 		//console.log(e); 
 	}
