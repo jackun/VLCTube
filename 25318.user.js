@@ -1671,7 +1671,7 @@ function ScriptInstance()
 
 ScriptInstance.prototype.exportFun = function(name, a, b)
 {
-	var node = a;
+	var node = b ? a : null;
 	var func = b || (a ? a : this[name]);
 	exportFunction(func.bind(this), this.vlcExports, 
 			{defineAs: name, allowCallbacks: true});
