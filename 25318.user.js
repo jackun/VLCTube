@@ -3734,13 +3734,14 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 var xhr_state = ["UNSENT", "OPENED", "HEADERS_RECEIVED", "LOADING", "DONE"];
 ScriptInstance.prototype.loadEmbedVideo = function()
 {
-	console.log("In loadEmbedVideo", this);
+	console.log("In loadEmbedVideo");
 	var that = this;
-	var url = this.win.location.protocol + "//" + 
-			this.win.location.hostname + "/get_video_info?video_id=" + 
-			this.swf_args.video_id + 
-			"&html5=1&cver=html5&el=embedded&iframe=1&asv=3&eurl=" + 
-			this.yt.config_.EURL;
+	var url = this.win.location.protocol + "//"
+			+ this.win.location.hostname + "/get_video_info?video_id="
+			+ this.swf_args.video_id
+			+ "&html5=1&cver=html5&el=embedded&iframe=1&asv=3&eurl="
+			+ this.yt.config_.EURL
+			+ "&sts=" + this.yt.config_.PLAYER_CONFIG.sts;
 
 	getXML(url,
 		function(resp)
