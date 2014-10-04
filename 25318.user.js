@@ -1360,7 +1360,6 @@ VLCObj.prototype = {
 		//}
 
 		var id = this.vlc.playlist.add(src, 'muuvi', options);
-		vsTxt = false;
 
 		if(this.instance.fmtChanged || // user changed format
 			this.instance.canAutoplay()) //on embedded, ignore autoplay
@@ -1555,8 +1554,8 @@ VLCObj.prototype = {
 				rp.innerHTML = VLC_status[this.vlc.input.state][0];
 				rp.title = VLC_status[this.vlc.input.state];
 				//TODO Reloading on error or not if #vlc-error is in url already
-				if(this.vlc.input.state == 7 && typeof this.reloading == 'undefined' && !/#vlc-error/.test(window.location)) 
-					this.reloading = setTimeout(function(){window.location += "#vlc-error"; window.location.reload();}, 3000);
+				//if(this.vlc.input.state == 7 && typeof this.reloading == 'undefined' && !/#vlc-error/.test(window.location)) 
+				//	this.reloading = setTimeout(function(){window.location += "#vlc-error"; window.location.reload();}, 3000);
 				this.setTimes(this.vlc.input.time,
 					this.vlc.input.length > 0 ? this.vlc.input.length : (this.instance.ytplayer ? 1000*this.instance.ytplayer.config.args.length_seconds : 0));
 
@@ -3853,13 +3852,15 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 var xhr_state = ["UNSENT", "OPENED", "HEADERS_RECEIVED", "LOADING", "DONE"];
 ScriptInstance.prototype.loadEmbedVideo = function()
 {
-	console.log("In loadEmbedVideo", this);
+	console.log("In loadEmbedVideo");
 	var that = this;
-	var url = this.win.location.protocol + "//" + 
-			this.win.location.hostname + "/get_video_info?video_id=" + 
-			this.swf_args.video_id +
-			"&html5=1&cver=html5&el=embedded&iframe=1&asv=3&eurl=" + 
-			this.yt.config_.EURL;
+	var url = this.win.location.protocol + "//"
+			+ this.win.location.hostname + "/get_video_info?video_id="
+			+ this.swf_args.video_id
+			+ "&html5=1&c=web&cver=html5&el=embedded&iframe=1&asv=3&eurl="
+			+ this.yt.config_.EURL 
+			+ "&sts=" + this.yt.config_.PLAYER_CONFIG.sts
+		;
 
 	getXML(url,
 		function(resp)
@@ -3902,7 +3903,7 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 			that.height = that.doc.body.clientHeight;
 			removeChildren(that.player, true);
 			function insertPlayer() {
-				var vlcNode = that.generateDOM({wide:false, dl:false});
+				var vlcNode = that.generateDOM({wide:false, dl:true});
 				vlcNode.dom.style.height = "100%";
 
 				var player = that.$('player');
@@ -3935,13 +3936,14 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 					_vid = thumb[0];
 
 				function playEmbed(ev){
+					console.log('playEmbed');
 					//Do once or crash the plugin
 					if(!that.$('movie_player')) {
 						insertPlayer();
 						var player = that.$('player');
 						player.style.width = "100%";
 						player.style.height = "100%";
-						that.initialAddToPlaylist();
+						that.initialAddToPlaylist(false, true);
 						that.queryCC();
 						that.overrideRef();
 						that.setupStoryboard();
@@ -3949,6 +3951,7 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 					embed.classList.add('hid');
 					that.myvlc.playVideo();
 					that.onHashChange(that.win.location.href);
+					console.log('exit', that.myvlc.playVideo);
 				}
 
 				_vid.removeEventListener('click', arguments.callee , false); //???
@@ -4022,7 +4025,7 @@ ScriptInstance.prototype.setupStoryboard = function()
 	}
 }
 
-ScriptInstance.prototype.initialAddToPlaylist = function(dohash)
+ScriptInstance.prototype.initialAddToPlaylist = function(dohash, doplay)
 {
 	var that = this;
 	function helperPlay()
@@ -4030,6 +4033,7 @@ ScriptInstance.prototype.initialAddToPlaylist = function(dohash)
 		var sel = that.$(vlc_id+'_select');
 		var opt = sel.options.item(sel.selectedIndex);
 		that.onFmtChange(null, opt);
+		if(doplay) that.myvlc.playVideo();
 		//Fake hashchange
 		//FIXME jump when video plays for vlc to seek to
 		//if(dohash)
@@ -4038,9 +4042,12 @@ ScriptInstance.prototype.initialAddToPlaylist = function(dohash)
 
 	if(this.restoreSettings())
 	{
-		if(!this.isPopup && this.isCiphered && this.ytplayer && this.ytplayer.config.assets.js)
+		var html5js = this.ytplayer ? this.ytplayer.config.assets.js : 
+				this.yt.config_.PLAYER_CONFIG.assets.js;
+
+		if(!this.isPopup && this.isCiphered && html5js)
 		{
-			getXML(this.ytplayer.config.assets.js,
+			getXML(html5js,
 				function(r){
 					that.sigDecodeParam = GetDecodeParam(r);
 					//console.log("sigDecodeParam:",that.sigDecodeParam);
