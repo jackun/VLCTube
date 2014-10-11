@@ -2144,6 +2144,7 @@ ScriptInstance.prototype.putCSS = function(){
 
 	//Some newererrreerererererrr YT layout fixes
 	this.addCSS("#masthead-positioner {position: relative;}\
+		.appbar-hidden #masthead-positioner-height-offset,\
 		#masthead-positioner-height-offset, .exp-top-guide #masthead-positioner-height-offset, \
 		.exp-appbar-onebar.site-center-aligned.appbar-hidden #masthead-positioner-height-offset {height: 0px;}\
 		.site-center-aligned #player.watch-medium, \
