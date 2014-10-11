@@ -2903,9 +2903,9 @@ ScriptInstance.prototype.generateDOM = function(options)
 		controls.id = "vlc_controls_div";
 
 		var volbar;
-		//TODO finalize table layout; for dynamic seekbar width
+		//TODO finalize table layout; for dynamic seekbar width, bit weird padding
 		var cellClone, cell = this.doc.createElement("div");
-		cell.setAttribute('style', "display: table-cell;padding: 0px 5px");
+		cell.setAttribute('style', "display: table-cell;padding-left: 5px");
 
 		var sliders = this.doc.createElement("div");
 		{
@@ -2930,7 +2930,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 				el.classList.add('sb-narrow');
 			el.innerHTML = '<div class="knob"><div id="vlc-sb-tooltip"></div></div><div id="vlctime">00:00/00:00</div>';
 			cellClone = cell.cloneNode();
-			cellClone.setAttribute('style', "display: table-cell; width:100%;min-width:100px;");
+			cellClone.setAttribute('style', "display: table-cell; width:100%;min-width:100px;padding: 0 2px");
 			cellClone.appendChild(el);
 			sliders.appendChild(cellClone);
 
