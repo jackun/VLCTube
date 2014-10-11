@@ -2150,7 +2150,7 @@ ScriptInstance.prototype.putCSS = function(){
 		.site-center-aligned #player.watch-large {margin-bottom:0px;}\
 		.site-center-aligned #player.watch-medium {width:1040px;}\
 		.site-center-aligned #player.watch-large {width:1040px;}\
-		/*TODO what's the deal with this?*/\
+		/*TODO integrate with VLCTube*/\
 		#theater-background {display: none;}");
 }
 
