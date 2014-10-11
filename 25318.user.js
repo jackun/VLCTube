@@ -2025,8 +2025,10 @@ ScriptInstance.prototype.putCSS = function(){
 	.vlc_hid { display:none; }\
 	.vlccontrols {padding:2px 5px; color: #333333;display: table}\
 	/*.vlccontrols div {margin-right:5px; }*/\
-	.vlc-scrollbar{cursor: default;position: relative;width: 90%;height: 15px;border: 1px solid #000;display: inline-block;text-align: center;\
-	/*margin-right: 5px;*/border-radius: 3px;background: #FFF;color: #444;}\
+	.vlc-scrollbar{cursor: default;position: relative;width: 90%;height: 15px;border: 1px solid rgba(126, 182, 226, 0.25);display: inline-block;text-align: center;\
+		/*margin-right: 5px;*/border-radius: 3px;background: #FFF;color: #444;\
+		/*background: radial-gradient(ellipse at 50% 50% , rgba(27,127,204,0.25), rgba(255, 255, 255, 0.1) 90%);*/\
+		text-shadow: 1px 1px 1px #FFF;}\
 	#sbVol { width: 80px; } #ratebar { width: 150px; } \
 	.vlc-scrollbar .knob {left:0px;top:-1px;position:absolute;width:7px;height:15px;background:rgba(27,127,204,0.5);border:1px solid rgba(27,127,204,0.7);box-shadow:0px 0px 3px rgba(27,127,204,0.7);}\
 	/*#sbVol .knob {background: rgba(0,51,153,0.8);}\
