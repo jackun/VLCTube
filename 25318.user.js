@@ -22,7 +22,7 @@
 // @updateURL      http://userscripts.org:8080/scripts/source/25318.meta.js
 // @downloadURL    http://userscripts.org:8080/scripts/source/25318.user.js
 // http://wiki.videolan.org/Documentation:WebPlugin
-// Tested on Arch linux, Fx28+, vlc 2.1.4, npapi-vlc-git from AUR
+// Tested on Arch linux, Fx32+, vlc 2.1.4+, npapi-vlc-git from AUR
 //TODO cleanup on aisle 3
 
 //TODO that=this to bind()
