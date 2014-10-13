@@ -721,10 +721,10 @@ ScrollBar.prototype = {
 		}
 	},
 	emitValue:function(instant){
+		if(this.formatter) this.formatter(this.value);
 		for(var i in this.events){
 			this.events[i].emitValue(this, this.value, instant);
 		}
-		if(this.formatter) this.formatter(this.value);
 	},
 	setValue: function(val){//FIXME minValue
 		if(val<0) val=0;
@@ -1328,8 +1328,8 @@ VLCObj.prototype = {
 		}
 		else if(this.scrollbarVol == sb)
 		{
-			this.vlc.audio.volume = pos;
 			this.instance.saveVolume(pos); //messes with a player in another tab
+			this.vlc.audio.volume = pos;
 			//this.scrollbarVol.bar.children.namedItem('vlcvol').innerHTML = Math.round(pos);
 		}
 		else if(this.scrollbarRate == sb)
