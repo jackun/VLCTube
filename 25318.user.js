@@ -1941,6 +1941,7 @@ ScriptInstance.prototype.putCSS = function(){
 	.sb-narrow { width: 125px; }\
 	.vlc-volume-holder { display:inline-block; } \
 	#vlcvol:after {content: '%';}\
+	.bar-text { position: relative /*should fix z-index*/;}\
 	.movie_player_vlc { background: white; height:100%}\
 	.progress-radial {\
 		margin-right: 5px;\
@@ -2930,7 +2931,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			el.setAttribute('style', "width:100%;");
 			if(this.bembedControls && this.isEmbed)
 				el.classList.add('sb-narrow');
-			el.innerHTML = '<div class="knob"><div id="vlc-sb-tooltip"></div></div><div id="vlctime">00:00/00:00</div>';
+			el.innerHTML = '<div class="knob"><div id="vlc-sb-tooltip"></div></div><div id="vlctime" class="bar-text">00:00/00:00</div>';
 			cellClone = cell.cloneNode();
 			cellClone.setAttribute('style', "display: table-cell; width:100%;min-width:100px;padding: 0 2px");
 			cellClone.appendChild(el);
@@ -2939,7 +2940,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			volbar = this.doc.createElement("div");
 			volbar.className = 'vlc-volume-holder';
 			volbar.title = _("VOLUME");
-			volbar.innerHTML = '<span class="yt-uix-button-content"><div id="sbVol" class="vlc-scrollbar"><span id="vlcvol">0</span><div class="knob"/></div></span>';
+			volbar.innerHTML = '<span class="yt-uix-button-content"><div id="sbVol" class="vlc-scrollbar"><div class="knob"/></div><span id="vlcvol" class="bar-text">0</span></span>';
 
 			if(!this.bcompactVolume && (!this.buseWidePosBar || this.isEmbed))
 			{
@@ -2953,7 +2954,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 				el = this.doc.createElement("div"); el.id = 'ratebar';
 				el.className = 'vlc-scrollbar';
 				el.title = _("PLAYBACKRATE");
-				el.innerHTML = '<div class="knob"></div><span id="vlcrate">1.0</span>';
+				el.innerHTML = '<div class="knob"></div><span id="vlcrate" class="bar-text">1.0</span>';
 				cellClone = cell.cloneNode();
 				cellClone.appendChild(el);
 				sliders.appendChild(cellClone);
