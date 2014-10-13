@@ -723,9 +723,9 @@ ScrollBar.prototype = {
 		if(typeof(maxval) == 'undefined') maxval = 100;
 		if(typeof(insta) == 'undefined') insta = false;
 		this.bar = this.instance.doc.querySelector(barId);
-		this.bar.wrappedJSObject.ScrollBar = this;
+		//this.bar.wrappedJSObject.ScrollBar = this;
 		this.knob = this.instance.doc.querySelector(knobId);
-		this.knob.wrappedJSObject.ScrollBar = this;
+		//this.knob.wrappedJSObject.ScrollBar = this;
 		this.instant = insta;
 		this.formatter = formatter;
 
@@ -739,8 +739,14 @@ ScrollBar.prototype = {
 		this.minValue = minval;
 		this.maxValue = maxval;
 		//this.knob.onmousedown = ScrollBar.eventHandlers.mouseDown;
-		this.knob.addEventListener('mousedown',ScrollBar.eventHandlers.mouseDown,true);
-		this.bar.addEventListener('mousedown',ScrollBar.eventHandlers.mouseDownBar,true);
+		this.knob.addEventListener('mousedown',ScrollBar.prototype.mouseDown.bind(this),true);
+		this.bar.addEventListener('mousedown',ScrollBar.prototype.mouseDownBar.bind(this),true);
+
+		// Keep reference so these event handlers can be removed
+		this.event = {
+			up: ScrollBar.prototype.mouseUp.bind(this),
+			move: ScrollBar.prototype.mouseMove.bind(this)
+		};
 	},
 	register: function(ev)
 	{
@@ -771,83 +777,87 @@ ScrollBar.prototype = {
 			this.knob.style.left = Math.round( ((this.value - this.minValue)/(this.maxValue - this.minValue)) * (this.bar.clientWidth - this.knob.clientWidth)) + "px";
 		if(this.type == 1)
 			this.knob.style.top = Math.round(((this.maxValue - this.value)/this.maxValue) * (this.bar.clientHeight - this.knob.clientHeight)) + "px";
+
+		//Set knob width
+		if(this.type == 2)
+			this.knob.style.width = Math.round( ((this.value - this.minValue)/(this.maxValue - this.minValue)) * this.bar.clientWidth) + "px";
+		// TODO vertical if you want
 		if(this.formatter) this.formatter(this.value);
 	},
 	getValue: function(){ return this.value; },
 	setMaxValue: function(max){ this.maxValue = max; },
 	setMinValue: function(min){ this.minValue = min; },
-};
-
-ScrollBar.eventHandlers = {
 	mouseDownBar: function(ev){
-		var s = ev.target.wrappedJSObject.ScrollBar || ev.target.parentNode.wrappedJSObject.ScrollBar;
-		if(ev.explicitOriginalTarget == s.knob) return;
-		s.userSeeking = true;
-		var off = 0;
-		var node = s.bar;
+		if(this.type < 2 && ev.explicitOriginalTarget == this.knob) return;
+		this.userSeeking = true;
+		this.off = 0;
+		var node = this.bar;
 		while(node.offsetParent)	// bar's position is relative so loop through parent nodes
 		{							// maybe there's some better tricks
-			off += node.offsetLeft;
+			this.off += node.offsetLeft;
 			node = node.offsetParent;
 		}
-		if(s.type == 0)
-			s.knob.style.left = ev.pageX - off - s.knob.clientWidth / 2 + "px";
-		else
-			s.knob.style.top = ev.pageY - off - s.knob.clientHeight / 2 + "px";
+		if(this.type == 0)
+			this.knob.style.left = ev.pageX - this.off - this.knob.clientWidth / 2 + "px";
+		else if(this.type == 1)
+			this.knob.style.top = ev.pageY - this.off - this.knob.clientHeight / 2 + "px";
 		//Simulate events
-		ScrollBar.eventHandlers.mouseDown(ev);
-		ScrollBar.eventHandlers.mouseMove(ev);
+		this.mouseDown(ev);
+		this.mouseMove(ev);
 	},
 	mouseDown: function(ev){
-		var s = ev.target.wrappedJSObject.ScrollBar || ev.target.parentNode.wrappedJSObject.ScrollBar;
-		s.instance.doc.addEventListener('mouseup',ScrollBar.eventHandlers.mouseUp,true);
-		s.instance.doc.addEventListener('mousemove',ScrollBar.eventHandlers.mouseMove,true);
-		s.userSeeking = true;
-		ScrollBar._currentScrollBar = s;
-		//Maybe pageX, clientX is affected by page scroll?
-		s.offX = ev.clientX - s.knob.offsetLeft;
-		s.offY = ev.clientY - s.knob.offsetTop;
-		ScrollBar._ScrollBarDragData = {
+		this.userSeeking = true;
+		this._ScrollBarDragData = {
 				screenX:    ev.screenX,
 				screenY:    ev.screenY,
-				dx:         ev.screenX - s.knob.offsetLeft,
-				dy:         ev.screenY - s.knob.offsetTop,
-				startValue: s.value,
-				ScrollBar:      s
+				dx:         ev.screenX - this.knob.offsetLeft,
+				dy:         ev.screenY - this.knob.offsetTop,
+				startValue: this.value,
 			};
+		this.instance.doc.addEventListener('mouseup',this.event.up,true);
+		this.instance.doc.addEventListener('mousemove',this.event.move,true);
 	},
 	mouseUp: function(ev){
-		var s = ScrollBar._currentScrollBar;
-		s.userSeeking = false;
-		ScrollBar._ScrollBarDragData = null;
-		s.instance.doc.removeEventListener('mouseup',ScrollBar.eventHandlers.mouseUp,true);
-		s.instance.doc.removeEventListener('mousemove',ScrollBar.eventHandlers.mouseMove,true);
-		s.emitValue(false);
+		this.userSeeking = false;
+		// or this.mouseUp?
+		this.instance.doc.removeEventListener('mouseup',this.event.up,true);
+		this.instance.doc.removeEventListener('mousemove',this.event.move,true);
+		this._ScrollBarDragData = null;
+		this.emitValue(false);
 	},
 	mouseMove: function(ev){
-		var s = ScrollBar._currentScrollBar;
-		switch(s.type){
+		switch(this.type){
 			case 0:
-				var x = ev.screenX - ScrollBar._ScrollBarDragData.dx;
-				var w = s.bar.clientWidth - s.knob.clientWidth;
+				var x = ev.screenX - this._ScrollBarDragData.dx;
+				var w = this.bar.clientWidth - this.knob.clientWidth;
 				if( x < 0 ) x = 0;
 				if( x > w ) x = w;
-				s.knob.style.left = x + "px";
+				this.knob.style.left = x + "px";
 				if(w != 0) //eh weird, otherwise NaN sometimes if user drags 'over the edge'
-					s.value = x/w * (s.maxValue - s.minValue) + s.minValue;
-				//s.knob.title = Math.floor(x/w * 100) + '%';
+					this.value = x/w * (this.maxValue - this.minValue) + this.minValue;
+				//this.knob.title = Math.floor(x/w * 100) + '%';
 				break;
 			case 1: //FIXME minValue
-				var y = ev.screenY - ScrollBar._ScrollBarDragData.dy;
-				var h = s.bar.clientHeight - s.knob.clientHeight;
+				var y = ev.screenY - this._ScrollBarDragData.dy;
+				var h = this.bar.clientHeight - this.knob.clientHeight;
 				if( y < 0 ) y = 0;
 				if( y > h ) y = h;
-				s.knob.style.top = y + "px";
+				this.knob.style.top = y + "px";
 				if(h != 0) //eh weird, otherwise NaN sometimes if user drags 'over the edge'
-					s.value = s.maxValue - (y/h * s.maxValue);
+					this.value = this.maxValue - (y/h * this.maxValue);
+				break;
+			case 2:
+				//Seems that 'border' width of 2px comes into play
+				var x = ev.screenX - this.off - 2;
+				var w = this.bar.clientWidth;
+				if( x < 0 ) x = 0;
+				if( x > w ) x = w;
+				this.knob.style.width = x + "px";
+				if(w != 0)
+					this.value = x/w * (this.maxValue - this.minValue) + this.minValue;
 				break;
 		}
-		if(s.instant) s.emitValue(true);
+		if(this.instant) this.emitValue(true);
 	},
 };
 
@@ -2002,7 +2012,10 @@ ScriptInstance.prototype.putCSS = function(){
 		/*background: radial-gradient(ellipse at 50% 50% , rgba(27,127,204,0.25), rgba(255, 255, 255, 0.1) 90%);*/\
 		text-shadow: 1px 1px 1px #FFF;}\
 	#sbVol { width: 80px; } #ratebar { width: 150px; } \
-	.vlc-scrollbar .knob {left:0px;top:-1px;position:absolute;width:7px;height:15px;background:rgba(27,127,204,0.5);border:1px solid rgba(27,127,204,0.7);box-shadow:0px 0px 3px rgba(27,127,204,0.7);}\
+	.vlc-scrollbar .knob {left:-1px;top:-1px;position:absolute;width:7px;height:15px;\
+		/*background:rgba(27,127,204,0.5);*/\
+		background:linear-gradient(to right, rgba(27,127,204,0), rgba(27,127,204,0.5)); \
+		border:1px solid rgba(27,127,204,0.7); box-shadow:0px 0px 3px rgba(27,127,204,0.7);}\
 	/*#sbVol .knob {background: rgba(0,51,153,0.8);}\
 	#ratebar .knob {background: rgba(0,153,51,0.8);}*/\
 	.sb-narrow { width: 125px; }\
@@ -4029,7 +4042,7 @@ ScriptInstance.prototype.setupVLC = function(vlcNode)
 	var that = this;
 	this.myvlc = new VLCObj(this);
 	this.sbPos = new ScrollBar(this);
-	this.sbPos.initSB('#sbSeek', '#sbSeek div.knob', 0, 0, 1, true);
+	this.sbPos.initSB('#sbSeek', '#sbSeek div.knob', 2, 0, 1, true);
 	var spacer = that.$('vlc-spacer');
 
 	if(spacer)
@@ -4039,7 +4052,7 @@ ScriptInstance.prototype.setupVLC = function(vlcNode)
 	if(maxvolume < 100) maxvolume = 100;
 
 	this.sbVol = new ScrollBar(this);
-	this.sbVol.initSB('#sbVol', '#sbVol div.knob', bcompactVolume?1:0, 0, maxvolume, true, 
+	this.sbVol.initSB('#sbVol', '#sbVol div.knob', bcompactVolume?1:2, 0, maxvolume, true, 
 		function(pos){this.bar.children.namedItem('vlcvol').innerHTML = Math.round(pos);});
 
 	if(this.bshowRate)
@@ -4049,7 +4062,7 @@ ScriptInstance.prototype.setupVLC = function(vlcNode)
 		//Limiting default range to 0.25 to 2 so that 150px bar still has some precision
 		var ratemin = tryParseFloat(GM_getValue('vlc-rate-min', "0.25"), 0.25);
 		var ratemax = tryParseFloat(GM_getValue('vlc-rate-max', "2"), 2);
-		this.sbRate.initSB('#ratebar', '#ratebar div.knob', 0, ratemin, ratemax, true, 
+		this.sbRate.initSB('#ratebar', '#ratebar div.knob', 2, ratemin, ratemax, true, 
 			function(pos){this.bar.children.namedItem('vlcrate').innerHTML = pos.toFixed(3);});
 		this.sbRate.setValue(1.0);
 	}
