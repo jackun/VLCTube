@@ -2000,7 +2000,7 @@ ScriptInstance.prototype.putCSS = function(){
 
 	var css = ".player-api {overflow: visible;} /*for storyboard tooltip*/\
 	#"+ vlc_id + "-holder {overflow: hidden;}\
-	#cued-embed #video-title {position: absolute; left: 5px; top: 5px; background: rgba(0,0,0,0.75)} \
+	#cued-embed #video-title {position: absolute; left: 5px; top: 5px; background: rgba(0,0,0,0.75); z-index: 1;} \
 	.movie_player_vlc select {padding: 5px 0;}\
 	a.vlclink { color:#438BC5; margin:5px;}\
 	.vlc_hidden { display:none !important; }\
@@ -2536,7 +2536,7 @@ ScriptInstance.prototype.queryCC = function()
 ScriptInstance.prototype.getListUrl = function()
 {
 	return "//"+ this.win.location.hostname +"/api/timedtext?type=list&v=" + 
-		(this.yt.getConfig ? this.yt.getConfig('VIDEO_ID', '') : this.swf_args['video_id']);
+		this.swf_args.video_id;
 }
 
 ScriptInstance.prototype.getTrackUrl = function(lang, name)
@@ -2950,7 +2950,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 	}
 	else if((this.thumb && this.buseThumbnail) /*|| options.userPage*/ || this.feather)
 	{
-		var href = this.feather ? "http://i4.ytimg.com/vi/"+ this.swf_args.video_id +"/hqdefault.jpg" : this.thumb.href;
+		var href = this.feather ? "//i.ytimg.com/vi/"+ this.swf_args.video_id +"/hqdefault.jpg" : this.thumb.href;
 		holder.childNodes[0].setAttribute('src', href);
 		holder.style.backgroundImage = "url(" + href + ")";
 		holder.style.backgroundRepeat = "no-repeat";
@@ -3149,7 +3149,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		{
 			var link = this.doc.createElement("A");
 			link.className = "yt-uix-button yt-uix-button-default";
-			link.setAttribute("href", "//" + this.win.location.hostname + "/watch?v=" + this.yt.getConfig('VIDEO_ID',''));
+			link.setAttribute("href", "//" + this.win.location.hostname + "/watch?v=" + this.swf_args.video_id);
 			link.setAttribute("target", "_new");
 			link.innerHTML = (this.bbtnIcons ? '<i class="fa fa-youtube fa-lg"></i>' : '') + 
 				'<span class="yt-uix-button-content">' + _("WATCHYT") + ' </span>';
@@ -3866,9 +3866,8 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 			}
 
 			try{
-				that.$('video-title').appendChild(
-						that.doc.createTextNode(" - " +
-						decodeURIComponent(param_map['title']).replace(/\+/g,' ')));
+				that.$('video-title').innerHTML =
+						decodeURIComponent(param_map['title']).replace(/\+/g,' ');
 			}catch(e){}
 
 			that.parseUrlMap(decodeURIComponent(param_map['url_encoded_fmt_stream_map']), true);
@@ -3927,11 +3926,11 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 					embed.classList.add('hid');
 					that.myvlc.playVideo();
 					that.onHashChange(that.win.location.href);
-					console.log('exit', that.myvlc.playVideo);
 				}
 
 				_vid.removeEventListener('click', arguments.callee , false); //???
-				_vid.addEventListener('click', playEmbed , false);
+				//_vid.addEventListener('click', playEmbed , false);
+				playEmbed();
 			}
 		}
 	);
@@ -3942,17 +3941,6 @@ ScriptInstance.prototype.onEmbedPage = function()
 	var that = this;
 	// writeEmbed(); overwrites
 	this.pullYTVars();
-	//HACKY Make getList/TrackUrl work
-	this.yt.setConfig('VIDEO_ID', this.yt.config_.PLAYER_CONFIG.args.video_id);
-	if(!this.yt.getConfig)
-	{
-		this.yt.getConfig = function(p,d)
-		{
-			if(this.config_[p])
-				return this.config_[p];
-			return d;
-		}
-	}
 
 	if(!this.swf_args)
 	{
@@ -3962,20 +3950,19 @@ ScriptInstance.prototype.onEmbedPage = function()
 
 	//Faking old html5 'cued-embed' player
 	//yt.config_ doesn't seem to have video title, so just link to YT
-	var vid = this.yt.getConfig('VIDEO_ID','Oops, missing id.');
 	this.$('player').innerHTML = '<div id="cued-embed" title="Click to play." style="cursor:pointer">\
 			<h2 style="color:white"><div id="video-title" class="html5-title">\
 			<a style="color:white" target="_new" href="//www.youtube.com/watch?v='+
-			vid+'">Watch on YT: '+vid+'</a>\
-		</div></h2><img id="video-thumbnail" class="video-thumbnail" style="height:'+
-		this.doc.body.clientHeight +'px; width:100%;" src="http://i4.ytimg.com/vi/'+
-		vid +'/hqdefault.jpg"></div>'; //maxresdefault.jpg
+			this.swf_args.video_id + '">' + this.swf_args.title + '</a>\
+		</div></h2><img id="video-thumbnail" class="video-thumbnail" style="height: 100vh; width:100%;" src="'+
+		(this.doc.body.clientWidth < 800 ? this.swf_args.iurlsd /*hq*/ : this.swf_args.iurlmaxres) +
+		'"></div>';
 
-	if(this.bforceLoadEmbed)
+	/*if(this.bforceLoadEmbed)
 	{
 		this.loadEmbedVideo();
 	}
-	else
+	else*/
 	{
 		this.$('video-thumbnail').addEventListener('click', this.loadEmbedVideo.bind(this) , false);
 	}
