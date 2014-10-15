@@ -3906,9 +3906,7 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 			if(embed)
 			{
 				var _vid = embed;//use as fallback
-				var thumb = that.$$('video-thumbnail');
-				if(thumb.length)
-					_vid = thumb[0];
+				var thumb = that.$('video-thumbnail');
 
 				function playEmbed(ev){
 					console.log('playEmbed');
@@ -3928,8 +3926,9 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 					that.onHashChange(that.win.location.href);
 				}
 
-				_vid.removeEventListener('click', arguments.callee , false); //???
-				//_vid.addEventListener('click', playEmbed , false);
+				//Blah, arguments.callee no worky in strict mode
+				thumb.removeEventListener('click', that._loadEmbedCB, false);
+				_vid.addEventListener('click', playEmbed , false);
 				playEmbed();
 			}
 		}
@@ -3948,8 +3947,6 @@ ScriptInstance.prototype.onEmbedPage = function()
 		return;
 	}
 
-	//Faking old html5 'cued-embed' player
-	//yt.config_ doesn't seem to have video title, so just link to YT
 	this.$('player').innerHTML = '<div id="cued-embed" title="Click to play." style="cursor:pointer">\
 			<h2 style="color:white"><div id="video-title" class="html5-title">\
 			<a style="color:white" target="_new" href="//www.youtube.com/watch?v='+
@@ -3964,7 +3961,8 @@ ScriptInstance.prototype.onEmbedPage = function()
 	}
 	else*/
 	{
-		this.$('video-thumbnail').addEventListener('click', this.loadEmbedVideo.bind(this) , false);
+		this._loadEmbedCB = this.loadEmbedVideo.bind(this);
+		this.$('video-thumbnail').addEventListener('click', this._loadEmbedCB, false);
 	}
 }
 
