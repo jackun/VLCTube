@@ -808,10 +808,10 @@ ScrollBar.prototype = {
 	mouseDown: function(ev){
 		this.userSeeking = true;
 		this._ScrollBarDragData = {
-				screenX:    ev.screenX,
-				screenY:    ev.screenY,
-				dx:         ev.screenX - this.knob.offsetLeft,
-				dy:         ev.screenY - this.knob.offsetTop,
+				pageX:    ev.pageX,
+				pageY:    ev.pageY,
+				dx:         ev.pageX - this.knob.offsetLeft,
+				dy:         ev.pageY - this.knob.offsetTop,
 				startValue: this.value,
 			};
 		this.instance.doc.addEventListener('mouseup',this.event.up,true);
@@ -828,7 +828,7 @@ ScrollBar.prototype = {
 	mouseMove: function(ev){
 		switch(this.type){
 			case 0:
-				var x = ev.screenX - this._ScrollBarDragData.dx;
+				var x = ev.pageX - this._ScrollBarDragData.dx;
 				var w = this.bar.clientWidth - this.knob.clientWidth;
 				if( x < 0 ) x = 0;
 				if( x > w ) x = w;
@@ -838,7 +838,7 @@ ScrollBar.prototype = {
 				//this.knob.title = Math.floor(x/w * 100) + '%';
 				break;
 			case 1: //FIXME minValue
-				var y = ev.screenY - this._ScrollBarDragData.dy;
+				var y = ev.pageY - this._ScrollBarDragData.dy;
 				var h = this.bar.clientHeight - this.knob.clientHeight;
 				if( y < 0 ) y = 0;
 				if( y > h ) y = h;
@@ -848,7 +848,7 @@ ScrollBar.prototype = {
 				break;
 			case 2:
 				//Seems that 'border' width of 2px comes into play
-				var x = ev.screenX - this.off - 2;
+				var x = ev.pageX - this.off - 2;
 				var w = this.bar.clientWidth;
 				if( x < 0 ) x = 0;
 				if( x > w ) x = w;
