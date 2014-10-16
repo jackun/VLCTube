@@ -1039,7 +1039,7 @@ Storyboard.prototype = {
 
 				this.element.style.width = img.w*scale+"px";
 				this.element.style.height = img.h*scale+"px";
-				this.element.style.left = (-(img.w*scale)/2 + 5) + "px";
+				this.element.style.left = ((img.w*scale)/2 + 5) + "px";
 				//above
 				//this.element.style.top = (-img.h-7)+"px";
 				this.onetimeonly = false;
@@ -1962,7 +1962,7 @@ ScriptInstance.prototype.putCSS = function(){
 		line-height: 16px; text-align: center; color: #EEE; font-size: 12px; \
 		display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #2f3439; background-color: tomato;}\
 	#vlc-thumbnail { width: 100%; height: 100%; cursor: pointer; }\
-	#vlc-sb-tooltip { border: 2px solid black; background: #000 no-repeat; z-index:9999; width: 80px; height: 45px; \
+	#vlc-sb-tooltip { float:right; border: 2px solid black; background: #000 no-repeat; z-index:9999; width: 80px; height: 45px; \
 		position: relative; border-radius: 3px;left: -100%;top: 24px; \
 		/* flip in and out version */ \
 		/*display:none;*/ \
