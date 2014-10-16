@@ -2072,6 +2072,22 @@ ScriptInstance.prototype.putCSS = function(){
 		.site-center-aligned #player.watch-large {width:1040px;}\
 		/*TODO integrate with VLCTube*/\
 		#theater-background {display: none;}");
+
+	// Media event detector
+	// http://css-tricks.com/media-query-change-detection-in-javascript-through-css-animations/
+	this.addCSS(".vlc-media-event-detector { animation-duration: 0.001s; }\
+	\
+	/* Keep in sync with YT's CSS */\
+	@media screen and (min-width: 894px) and (min-height: 630px) { .vlc-media-event-detector { animation-name: media-event-0; } } \
+	@media screen and (min-width: 1320px) and (min-height: 870px) { .vlc-media-event-detector { animation-name: media-event-1; } } \
+	@media screen and (min-width: 1294px) and (min-height: 630px) { .vlc-media-event-detector { animation-name: media-event-2; } } \
+	@media screen and (min-width: 1720px) and (min-height: 980px) { .vlc-media-event-detector { animation-name: media-event-3; } } \
+	\
+	@keyframes media-event-0 { from { clip: rect(1px, auto, auto, auto); } to { clip: rect(0px, auto, auto, auto); } }\
+	@keyframes media-event-1 { from { clip: rect(1px, auto, auto, auto); } to { clip: rect(0px, auto, auto, auto); } }\
+	@keyframes media-event-2 { from { clip: rect(1px, auto, auto, auto); } to { clip: rect(0px, auto, auto, auto); } }\
+	@keyframes media-event-3 { from { clip: rect(1px, auto, auto, auto); } to { clip: rect(0px, auto, auto, auto); } }\
+	");
 }
 
 //Commented out are 'watch' page versions
@@ -2197,13 +2213,17 @@ ScriptInstance.prototype.setSideBar = function(wide)
 	}
 }
 
-ScriptInstance.prototype.setPlayerSize = function(wide, subs)
+ScriptInstance.prototype.setPlayerSize = function(wide)
 {
 	if(wide != undefined)
 	{
 		this.isWide = wide;
 		this.setWideCookie(wide);
 	}
+
+	var content = this.$('watch7-content');
+	if(content)
+		this.width = content.clientWidth;
 
 	var w = /\/user\//i.test(this.win.location.href) ? "100%" : this.width, h = this.height;
 	var vlc = this.$(gMoviePlayerID);
@@ -2855,6 +2875,17 @@ ScriptInstance.prototype.generateDOM = function(options)
 			.movie_player_vlc {background: transparent;}\
 		");
 	}
+	
+	// check the animation name and operate accordingly
+	function dispatchMEvent(event) {
+		this.setPlayerSize(this.isWide);
+	}
+
+	// window.matchMedia()
+	var mediaEvents = this.doc.createElement('div');
+	mediaEvents.className = "vlc-media-event-detector";
+	mediaEvents.addEventListener('animationstart', dispatchMEvent.bind(this), false);
+	this.doc.body.appendChild(mediaEvents);
 
 	var vlc = this.doc.createElement('div');
 	vlc.id = gMoviePlayerID;
