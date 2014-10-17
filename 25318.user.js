@@ -3787,7 +3787,7 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 			+ this.win.location.hostname + "/get_video_info?video_id="
 			+ this.swf_args.video_id
 			+ "&html5=1&cver=html5&el=embedded&iframe=1&asv=3&eurl="
-			+ this.yt.config_.EURL
+			+ escape(this.yt.config_.EURL)
 			+ "&sts=" + this.yt.config_.PLAYER_CONFIG.sts;
 
 	getXML(url,
