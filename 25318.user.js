@@ -1813,6 +1813,12 @@ ScriptInstance.prototype.getStyle = function(el, pseudo)
 	return this.win.getComputedStyle(el, pseudo);
 }
 
+function getComputedPx(element, property)
+{
+	var p = window.getComputedStyle(element).getPropertyCSSValue(property);
+	return p.getFloatValue(CSSPrimitiveValue.CSS_PX);
+}
+
 //eh, vlc not restoring volume so brute force it. timing issues? also greasemonkey access violation?
 ScriptInstance.prototype.saveVolume = function(sbVol)
 {
@@ -2001,14 +2007,15 @@ ScriptInstance.prototype.putCSS = function(){
 	var css = ".player-api {overflow: visible;} /*for storyboard tooltip*/\
 	#"+ vlc_id + "-holder {overflow: hidden;}\
 	#cued-embed #video-title {position: absolute; left: 5px; top: 5px; background: rgba(0,0,0,0.75); z-index: 1;} \
+	.movie_player_vlc { background: white; height:100%}\
 	.movie_player_vlc select {padding: 5px 0;}\
 	a.vlclink { color:#438BC5; margin:5px;}\
 	.vlc_hidden { display:none !important; }\
 	.vlc_hid { display:none; }\
 	.vlccontrols {padding:2px 5px; color: #333333;display: table}\
 	/*.vlccontrols div {margin-right:5px; }*/\
-	.vlc-scrollbar{cursor: default;position: relative;width: 90%;height: 15px;border: 1px solid rgba(126, 182, 226, 0.25);display: inline-block;text-align: center;\
-		/*margin-right: 5px;*/border-radius: 3px;background: #FFF;color: #444;\
+	.vlc-scrollbar {cursor: default;position: relative;width: 90%;height: 15px;border: 1px solid rgba(126, 182, 226, 0.25);display: inline-block;text-align: center;\
+		/*margin-right: 5px;*/border-radius: 3px;background: #FFF; color: #444;\
 		/*background: radial-gradient(ellipse at 50% 50% , rgba(27,127,204,0.25), rgba(255, 255, 255, 0.1) 90%);*/\
 		text-shadow: 1px 1px 1px #FFF;}\
 	#sbVol { width: 80px; } #ratebar { width: 150px; } \
@@ -2022,7 +2029,6 @@ ScriptInstance.prototype.putCSS = function(){
 	.vlc-volume-holder { display:inline-block; } \
 	#vlcvol:after {content: '%';}\
 	.bar-text { position: relative /*should fix z-index*/;}\
-	.movie_player_vlc { background: white; height:100%}\
 	.progress-radial {\
 		margin-right: 5px;\
 		background-repeat: no-repeat; \
@@ -2051,7 +2057,7 @@ ScriptInstance.prototype.putCSS = function(){
 	#sbSeek:active #vlc-sb-tooltip.hid, .knob:active #vlc-sb-tooltip.hid { display:none; }\
 	/*#sbSeek:active {border: 2px dashed red;}*//*wtf, .knob make active, #vlctime doesn't */\
 	#vlc-sb-tooltip:before {border: 7px solid transparent;border-bottom: 7px solid #000;content: '';display: inline-block;left: 45%; position: absolute; top: -14px;}\
-	#vlc_buttons_div {text-align:left; padding: 5px; color:#333333; clear:both;}\
+	#vlc_buttons_div {text-align:left; padding: 0 5px; color:#333333; clear:both;}\
 	#vlc_buttons_div button, #vlc_buttons_div select { margin-right: 2px;}\
 	#vlc_buttons_div input[type='checkbox']{vertical-align: middle;}\
 	#watch7-playlist-tray { border-bottom: 1px solid #1B1B1B !important;}\
@@ -2262,9 +2268,17 @@ ScriptInstance.prototype.setSideBar = function(wide)
 
 	var branded = this.$('player-branded-banner');
 	var sidebar = this.$('watch7-sidebar');
-	//if(!this.getPL() && sidebar)
+	if(sidebar && !sidebar.classList.contains('watch7-sidebar-vlc'))
 	{
-		sidebar.style.marginTop = (-this.player.clientHeight - (branded?branded.clientHeight:0)) + "px";
+		//FIXME try again, if player is wide when loading the page then marginTop == 0px duh
+		var f = -390; //getComputedPx(sidebar, 'margin-top');
+		//TODO clientHeight is 5px higher than final computed still ...
+		f += 5;
+		var h = this.$('vlc_controls_div').clientHeight;
+		//TODO Branded channels are a thing still?
+		this.addCSS(".watch7-sidebar-vlc {margin-top: " + (f - h) + "px !important}");
+		sidebar.classList.add('watch7-sidebar-vlc');
+		console.log('setSideBar', this.player.clientHeight, h, f, sidebar.style.marginTop);
 	}
 }
 
@@ -2276,16 +2290,29 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 		this.setWideCookie(wide);
 	}
 
-	var content = this.$('watch7-content');
-	if(content)
-		this.width = content.clientWidth;
+	var pageDiv = this.$('page');
+	if(!wide) {
+		pageDiv.classList.remove('watch-stage-mode');
+		pageDiv.classList.add('watch-non-stage-mode');
+		this.$('player').classList.add('watch-small');
+		this.$('player').classList.remove('watch-medium');
+	} else {
+		pageDiv.classList.add('watch-stage-mode');
+		pageDiv.classList.remove('watch-non-stage-mode');
+		this.$('player').classList.add('watch-medium');
+		this.$('player').classList.remove('watch-small');
+	}
 
-	var w = /\/user\//i.test(this.win.location.href) ? "100%" : this.width, h = this.height;
 	var vlc = this.$(gMoviePlayerID);
-
 	if(this.isPopup) this.widthWide = "100%";
+	var content = this.$('watch7-content');
+	var w = this.player.clientWidth;//content.clientWidth;
+	var h = this.player.clientHeight;//content.clientWidth;
 
-	if(typeof(w) != 'string' && (wide || this.isPopup))
+
+	//TODO 'Temporarily' disable custom wide size
+	//var w = /\/user\//i.test(this.win.location.href) ? "100%" : this.width, h = this.height;
+	/*if(typeof(w) != 'string' && (wide || this.isPopup))
 	{
 		var ratio = this.width/this.height;
 		if( (""+this.widthWide).indexOf("%")>-1 )
@@ -2301,7 +2328,7 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 		else
 			w = this.widthWide;
 		h = Math.floor(w / ratio);
-	}
+	}*/
 
 	var vw,vh;
 	try{
@@ -2315,16 +2342,14 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 		(vw&&vh&&((vw/vh==16/9) || vh == '1080' || vh == '720' || vw == '853'))
 		)
 	{
-		h = Math.floor(w * 9/16);//TODO use video size from vlc?
+		//h = Math.floor(w * 9/16);//TODO use video size from vlc?
 	}
 
+	// Apply size
 	this.$(vlc_id).style.width = this.isPopup ? "100%" : w + 'px';
 	this.$(vlc_id).style.height = this.isPopup ? "100%" : h + 'px';
 	//TODO call setPlayerSize only when isPopup is finally set (or not)
-	this.$(vlc_id+'-holder').style.height = this.isPopup ? '' : h + 'px';
-
-	//player.style.height = (vlc.clientHeight+ (subs?50:0)) + 'px';
-	this.player.style.width = this.isPopup ? '100%' : w + 'px';
+	//this.$(vlc_id+'-holder').style.height = this.isPopup ? '' : h + 'px';
 
 	var playlist = this.getPL();
 	if(playlist)
@@ -2759,7 +2784,7 @@ ScriptInstance.prototype.openAsPopup = function(w,h)
 	this.addCSS("#player.watch-medium{max-width:100%;min-width:100px;}");
 	this.addCSS("#player.watch-large{max-width:100%;min-width:100px;}");
 	this.addCSS("#player{margin:0;padding:0;}");
-	this.addCSS("#player,#player-api-vlc,#movie_player, #mymovie-holder, #player-mole-container{height:100%; width:100%;}");
+	this.addCSS("#player,#player-api,#movie_player, #mymovie-holder, #player-mole-container{height:100%; width:100%;}");
 	this.addCSS("#movie_player{display:table}");
 	this.addCSS("#mymovie-holder,#vlc_controls_div{display:table-row}");
 	this.addCSS("#mymovie-holder > div{display:table-cell}");
@@ -2921,6 +2946,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 	// check the animation name and operate accordingly
 	function dispatchMEvent(event) {
 		this.setPlayerSize(this.isWide);
+		this.setSideBar(this.isWide);
 	}
 
 	// window.matchMedia()
@@ -2937,6 +2963,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 
 	var holder = this.doc.createElement("div");
 	holder.id = vlc_id + "-holder";
+	holder.className = "player-height";
 	/*if(options.userPage)
 	{
 		holder.innerHTML = '<img id="vlc-thumbnail">';
@@ -3730,9 +3757,9 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 		}
 
 		//this.player.innerHTML="";
-		this.player.classList.remove('player-width');
+		//this.player.classList.remove('player-width');
 		this.player.classList.remove('player-height');
-		this.player.id = upsell ? 'upsell-video-vlc' : gPlayerApiID+"-vlc"; //Use youtube CSS and also so that JS would work
+		this.player.id = upsell ? 'upsell-video' /*-vlc'*/ : gPlayerApiID /*+"-vlc"*/; //Use youtube CSS and also so that JS would work
 
 		//just in case
 		removeChildren(this.player, true);
