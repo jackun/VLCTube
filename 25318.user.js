@@ -2211,7 +2211,7 @@ ScriptInstance.prototype.setSideBar = function(wide)
 		//TODO Branded channels are a thing still?
 		this.addCSS(".watch7-sidebar-vlc {margin-top: " + (f - h) + "px !important}");
 		sidebar.classList.add('watch7-sidebar-vlc');
-		console.log('setSideBar', this.player.clientHeight, h, f, sidebar.style.marginTop);
+		//console.log('setSideBar', this.player.clientHeight, h, f, sidebar.style.marginTop);
 	}
 }
 
