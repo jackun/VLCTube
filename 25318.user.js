@@ -2061,18 +2061,6 @@ ScriptInstance.prototype.putCSS = function(){
 	if(this.bconfigDropdown)
 		this.addCSS("#vlc-config { position: absolute; z-index: 9999; border: 1px solid #CCC;}");
 
-	//Some newererrreerererererrr YT layout fixes
-	this.addCSS("#masthead-positioner {position: relative;}\
-		.appbar-hidden #masthead-positioner-height-offset,\
-		#masthead-positioner-height-offset, .exp-top-guide #masthead-positioner-height-offset, \
-		.exp-appbar-onebar.site-center-aligned.appbar-hidden #masthead-positioner-height-offset {height: 0px;}\
-		.site-center-aligned #player.watch-medium, \
-		.site-center-aligned #player.watch-large {margin-bottom:0px;}\
-		.site-center-aligned #player.watch-medium {width:1040px;}\
-		.site-center-aligned #player.watch-large {width:1040px;}\
-		/*TODO integrate with VLCTube*/\
-		#theater-background {display: none;}");
-
 	// Media event detector
 	// http://css-tricks.com/media-query-change-detection-in-javascript-through-css-animations/
 	this.addCSS(".vlc-media-event-detector { animation-duration: 0.001s; }\
