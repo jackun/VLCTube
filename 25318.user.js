@@ -2284,19 +2284,6 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 	//TODO call setPlayerSize only when isPopup is finally set (or not)
 	//this.$(vlc_id+'-holder').style.height = this.isPopup ? '' : h + 'px';
 
-	//With CSS display:table etc. not needed probably
-	/// Calculate position seekbar's width
-	// Fixed-width CSS should work also for now if you want
-	//if(/*buseWidePosBar && */ this.$('sbSeek'))
-	//{
-		//// Hardcoded for 50px wide #vlcstate
-		//// Mystery 22/7/2px (margins+paddings+border sizes?) and 5px for margin
-		//var cw = w /*- this.$('vlcstate').clientWidth*/ - 22 - 26 - 10;
-		//if(!this.buseWidePosBar && !this.bcompactVolume) cw -= this.$('sbVol').clientWidth + 7 + 5;
-		//if(this.bshowRate) cw -= this.$('ratebar').clientWidth + 2 + 5;
-		//this.$('sbSeek').style.width = Math.max(cw,100) + 'px';
-	//}
-
 	var playlist = this.getPL();
 	if(playlist)
 	{
