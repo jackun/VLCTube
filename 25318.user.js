@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        57.24
+// @version        57.25
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
