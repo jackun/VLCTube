@@ -3910,11 +3910,6 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 				return;
 			}
 
-			try{
-				that.$('video-title').innerHTML =
-						decodeURIComponent(param_map['title']).replace(/\+/g,' ');
-			}catch(e){}
-
 			that.parseUrlMap(decodeURIComponent(param_map['url_encoded_fmt_stream_map']), true);
 			that.genUrlMapSelect();
 
