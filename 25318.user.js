@@ -3998,7 +3998,8 @@ ScriptInstance.prototype.onEmbedPage = function()
 			<a style="color:white" target="_new" href="//www.youtube.com/watch?v='+
 			this.swf_args.video_id + '">' + this.swf_args.title + '</a>\
 		</div></h2><img id="video-thumbnail" class="video-thumbnail" style="height: 100vh; width:100%;" src="'+
-		(this.doc.body.clientWidth < 800 ? this.swf_args.iurlsd /*hq*/ : thumb) +
+		(this.doc.body.clientWidth < 800 ? 
+			(this.swf_args.iurlsd ? this.swf_args.iurlsd : this.swf_args.iurlhq) : thumb) +
 		'"></div>';
 
 	/*if(this.bforceLoadEmbed)
