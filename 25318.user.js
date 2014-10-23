@@ -3987,19 +3987,23 @@ ScriptInstance.prototype.onEmbedPage = function()
 		return;
 	}
 
+	var thumb = this.swf_args.iurlsd ? this.swf_args.iurlsd :
+			this.swf_args.iurlmq ? this.swf_args.iurlmq :
+			this.swf_args.iurl;
+
+	if(this.doc.body.clientWidth > 800)
+		thumb = this.swf_args.iurlhq ? this.swf_args.iurlhq : thumb;
+
 	// iurlmaxres with 4k video though... maybe too much
-	var thumb = this.swf_args.iurlmaxres ? this.swf_args.iurlmaxres :
-				this.swf_args.iurlhq ? this.swf_args.iurlhq :
-				this.swf_args.iurlsd ? this.swf_args.iurlsd :
-				this.swf_args.iurlmq ? this.swf_args.iurlmq :
-				this.swf_args.iurl;
+	if(this.doc.body.clientWidth > 1200)
+		thumb = this.swf_args.iurlmaxres ? this.swf_args.iurlmaxres : thumb;
+
 	this.$('player').innerHTML = '<div id="cued-embed" title="Click to play." style="cursor:pointer">\
 			<h2 style="color:white"><div id="video-title" class="html5-title">\
 			<a style="color:white" target="_new" href="//www.youtube.com/watch?v='+
 			this.swf_args.video_id + '">' + this.swf_args.title + '</a>\
 		</div></h2><img id="video-thumbnail" class="video-thumbnail" style="height: 100vh; width:100%;" src="'+
-		(this.doc.body.clientWidth < 800 ? this.swf_args.iurlsd /*hq*/ : thumb) +
-		'"></div>';
+		thumb + '"></div>';
 
 	/*if(this.bforceLoadEmbed)
 	{
