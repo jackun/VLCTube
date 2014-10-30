@@ -1559,15 +1559,14 @@ VLCObj.prototype = {
 	{
 		if(!this.instance.nextFailed && this.vlc.input.state == 6 && this.instance.yt &&
 				this.instance.ytplayer
+				&& this.instance.bautoplayPL
 				//&& GM_getValue('vlc-pl-autonext', false) //no button watch8 layout
 				)
 		{
 			//Uncomment if you want some delay before next starts to play
 			//setTimeout(function(){
 				var current = this.instance.doc.querySelector('ol.playlist-videos-list li.currently-playing');
-				var index = current ? parseInt(current.getAttribute('data-index')) : undefined;
-
-				var next = index ? this.instance.doc.querySelector('li[data-index="'+index+'"]').nextElementSibling : null;
+				var next = current ? current.nextElementSibling : null;
 				next = next ? next.querySelector('a') : null;
 				if(next)
 				{
