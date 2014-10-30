@@ -2934,6 +2934,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		holder.style.backgroundRepeat = "no-repeat";
 		holder.style.backgroundSize = "100%";
 		holder.style.backgroundPosition = "50%";
+		holder.style.backgroundColor = "#1A1A1A";
 		holder.style.overflow = "hidden";
 		/*if(options.userPage)
 			holder.childNodes[0].addEventListener('click', (function(ev){ this.win.location.pathname = '/watch?v=' + this.swf_args.video_id; }).bind(this), false);
