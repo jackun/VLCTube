@@ -3771,6 +3771,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 		//this.setThumbnailVisible(true);
 		this.myvlc.stopVideo();
 		this.initialAddToPlaylist();
+		this.doViewTracking();
 		this.queryCC();
 		this.overrideRef();
 		this.setupStoryboard();
@@ -3780,6 +3781,31 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 	this.win.setTimeout(setup.bind(this), 1000);
 
 	return true;
+}
+
+ScriptInstance.prototype.doViewTracking = function()
+{
+	var user_watch = '//' + window.location.hostname + '/user_watch?'
+		+ 't=1&asv=3'
+		+ '&video_id=' + this.swf_args.video_id
+		+ '&ei=' + this.swf_args.eventid
+		//+ '&fmt=' + xxx
+		//+ '&plid=' + this.swf_args.plid
+		//+ '&ptk=' + this.swf_args.ptk
+	;
+
+	var ptracking = '//' + window.location.hostname + '/ptracking?'
+		+ 'video_id=' + this.swf_args.video_id
+		+ '&ei=' + this.swf_args.eventid
+		+ '&plid=' + this.swf_args.plid
+		+ '&pltype=' + this.swf_args.pltype
+		+ '&ptk=' + this.swf_args.ptk
+	;
+
+	// Seems to be enough to add to view history
+	getXML(user_watch, function(r){});
+	// ?
+	getXML(ptracking, function(r){});
 }
 
 var xhr_state = ["UNSENT", "OPENED", "HEADERS_RECEIVED", "LOADING", "DONE"];
