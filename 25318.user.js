@@ -3988,6 +3988,7 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 						that.queryCC();
 						that.overrideRef();
 						that.setupStoryboard();
+						that.doViewTracking();
 					}
 					embed.classList.add('hid');
 					that.myvlc.playVideo();
