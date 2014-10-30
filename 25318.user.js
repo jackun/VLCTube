@@ -283,6 +283,8 @@ var itagPrio = [
 
 var itagToText = {
 	0:   'dash',
+	299: '1080p60/m4v',
+	298: '720p60/m4v',
 	272: 'hires/webm',
 	271: '1440p/webm',
 	264: '1440p/mp4v', //hires
