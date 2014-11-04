@@ -1186,14 +1186,18 @@ VLCObj.prototype = {
 			//vlc.video.marquee.color = 0;
 		//}catch(e){console.log(e);}
 	},
+	toggleMute: function()
+	{
+		if(!this._mute) this._mute = this.$('_mute');
+		if(this._mute && this._mute.muteStyleToggle) this._mute.muteStyleToggle(this.vlc.audio.mute);
+	},
 	eventPos: function(e){
 		//e is normalized 0..1
 	},
 	eventBuffering: function(e){
 		if(e != undefined) this.instance.setBuffer(e);
 		this.instance.playerEvents.fire('onStateChange', this.instance.moviePlayer, 2);
-		mute = this.$(vlc_id + '_mute');
-		if(mute && mute.muteStyleToggle) mute.muteStyleToggle();
+		this.toggleMute();
 		if(this.prevState == 3 || this.prevState == 2 || 
 				this.prevState == 4)
 			this.prevState = 2;
@@ -1209,6 +1213,7 @@ VLCObj.prototype = {
 		vsTxt = false;
 		this.clearUpdate();
 		this.instance.playerEvents.fire('onStateChange', this.instance.moviePlayer, 0);
+		this.toggleMute();
 		if(this.instance.isEmbed)
 			this.$('cued-embed').classList.remove('hid');
 		this.prevState = 5;
@@ -1238,8 +1243,7 @@ VLCObj.prototype = {
 			this.repeatTimer = null;
 		}
 		this.instance.playerEvents.fire('onStateChange', this.instance.moviePlayer, 1);
-		mute = this.$(vlc_id + '_mute');
-		if(mute && mute.muteStyleToggle) mute.muteStyleToggle();
+		this.toggleMute();
 		this.prevState = 3;
 	},
 	eventPaused: function(){
@@ -3052,23 +3056,21 @@ ScriptInstance.prototype.generateDOM = function(options)
 		/// Mute
 		if(this.bshowMute) {
 			btn = this._makeButton('_mute', _('MUTE'));
-			btn.muteStyleToggle = (function() {
-				try {
-					if(this.myvlc && this.myvlc.vlc && this.myvlc.vlc.audio.mute) {
-						this.classList.add('vlc-boo-bg');
-						this.classList.add('vlc-wl-state');
-					} else {
-						this.classList.remove('vlc-boo-bg');
-						this.classList.remove('vlc-wl-state');
-					}
-				} catch(e) {}
-			}).bind(this);
+			btn.muteStyleToggle = function(mute) {
+				if(mute) {
+					this.classList.add('vlc-boo-bg');
+					this.classList.add('vlc-wl-state');
+				} else {
+					this.classList.remove('vlc-boo-bg');
+					this.classList.remove('vlc-wl-state');
+				}
+			};
 			btn.addEventListener('click', (function(ev) {
 				this.myvlc.vlc.audio.toggleMute();
+				var vlc = this.myvlc.vlc;
 				//wait for vlc to change state
-				setTimeout(function(){ev.target.muteStyleToggle();}, 100);
+				setTimeout(function(){ev.target.muteStyleToggle(vlc.audio.mute);}, 100);
 			}).bind(this), false);
-			btn.muteStyleToggle();
 			buttons.appendChild(btn);
 		}
 
