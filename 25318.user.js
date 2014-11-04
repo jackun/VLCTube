@@ -3645,7 +3645,7 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 	}
 
 	//YT generated MPD that VLC can't play yet
-	if(clean && this.ytplayer && this.ytplayer.config.args.dashmpd
+	if(clean && this.ytplayer && this.ytplayer.config && this.ytplayer.config.args.dashmpd
 		&& this.ytplayer.config.args.dashmpd !== '')
 	{
 		var obj = {};
