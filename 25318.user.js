@@ -2292,16 +2292,19 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 	}
 
 	var pageDiv = this.$('page');
-	if(!wide) {
-		pageDiv.classList.remove('watch-stage-mode');
-		pageDiv.classList.add('watch-non-stage-mode');
-		this.$('player').classList.add('watch-small');
-		this.$('player').classList.remove('watch-medium');
-	} else {
-		pageDiv.classList.add('watch-stage-mode');
-		pageDiv.classList.remove('watch-non-stage-mode');
-		this.$('player').classList.add('watch-medium');
-		this.$('player').classList.remove('watch-small');
+	if(pageDiv)
+	{
+		if(!wide) {
+			pageDiv.classList.remove('watch-stage-mode');
+			pageDiv.classList.add('watch-non-stage-mode');
+			this.$('player').classList.add('watch-small');
+			this.$('player').classList.remove('watch-medium');
+		} else {
+			pageDiv.classList.add('watch-stage-mode');
+			pageDiv.classList.remove('watch-non-stage-mode');
+			this.$('player').classList.add('watch-medium');
+			this.$('player').classList.remove('watch-small');
+		}
 	}
 
 	var vlc = this.$(gMoviePlayerID);
@@ -4056,7 +4059,7 @@ ScriptInstance.prototype.setupStoryboard = function()
 	//hide/reset
 	el.style.backgroundImage = '';
 	el.classList.add('hid');
-	if(this.ytplayer && this.ytplayer.config.args.storyboard_spec)
+	if(this.ytplayer && this.ytplayer.config && this.ytplayer.config.args.storyboard_spec)
 	{
 		this.storyboard = new Storyboard(el, this.ytplayer.config.args.storyboard_spec);
 		this.sbPos.register(this.storyboard);
@@ -4082,7 +4085,7 @@ ScriptInstance.prototype.initialAddToPlaylist = function(dohash, doplay)
 
 	if(this.restoreSettings())
 	{
-		var html5js = this.ytplayer ? this.ytplayer.config.assets.js : 
+		var html5js = this.ytplayer && this.ytplayer.config ? this.ytplayer.config.assets.js : 
 				this.yt.config_.PLAYER_CONFIG.assets.js;
 
 		if(!this.isPopup && this.isCiphered && html5js)
