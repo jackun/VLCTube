@@ -2175,7 +2175,7 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 				"/addto_ajax?" + action + "=1&feature=player_embedded",
 				//"/addto_ajax?action_add_to_playlist=1&add_to_top=False",
 			headers: xheaders,
-			data: 'video_ids=' + this.swf_args.video_id + '&authuser=0&session_token=' + sess_token,
+			data: 'video_ids=' + this.swf_args.video_id + '&authuser=' + this.swf_args.authuser +'&session_token=' + sess_token,
 			//'&full_list_id=' + plid + '&plid=' + this.swf_args.plid + '&session_token=' + this.yt.tokens_.addto_ajax,
 			onload: (function(r){
 				if(r.status==200){
@@ -2207,7 +2207,7 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 					"/token_ajax?action_get_wl_token=1",
 					//"/playlist_ajax?action_get_addto_panel=1&video_id=" + this.swf_args.video_id,
 			headers: headers,
-			data: 'authuser=0',
+			data: 'authuser=' + this.swf_args.authuser,
 			onload: (function(r){
 				if(r.status==200){
 					//console.log(r.responseText);
@@ -3172,7 +3172,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		if(!this.isEmbed) buttons.appendChild(configbtn);
 
 		//if embed and logged in
-		if((this.isEmbed || this.bshowWLOnMain) && typeof(this.swf_args.authuser) != 'undefined' && this.swf_args.authuser == 0)
+		if((this.isEmbed || this.bshowWLOnMain)  && typeof(this.swf_args.authuser) != 'undefined')
 		{
 			var watchbtn = this._makeButton('vlc-watchlater-btn', _('WATCHLATER'), 'fa-clock-o fa-lg');
 			watchbtn.addEventListener('click', this.ajaxWatchLater.bind(this), false);
