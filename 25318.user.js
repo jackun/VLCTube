@@ -1305,9 +1305,9 @@ VLCObj.prototype = {
 			var title;
 			try{
 				
-				title = this.instance.ytplayer.config.args.title;
+				title = this.instance.swf_args.title;
 				// Youtube server sends content-disposition header then
-				if(fmt != 'dash') src += "&title=" + escape(title.replace(/&/g, "%26")).replace(/%/g,'%25');
+				if(fmt != 'dash') src += "&title=" + title.replace(/&/g, "%26");
 				//Just in case firefox respects the html5 "download" attribute
 				//but content-disposition probably overrides this with useless "videoplayback" anyway
 				this.$('vlclink').setAttribute("download", title + "-" + fmt.replace("/", "."));
@@ -1484,7 +1484,7 @@ VLCObj.prototype = {
 				//if(this.vlc.input.state == 7 && typeof this.reloading == 'undefined' && !/#vlc-error/.test(window.location)) 
 				//	this.reloading = setTimeout(function(){window.location += "#vlc-error"; window.location.reload();}, 3000);
 				this.setTimes(this.vlc.input.time,
-					this.vlc.input.length > 0 ? this.vlc.input.length : (this.instance.ytplayer ? 1000*this.instance.ytplayer.config.args.length_seconds : 0));
+					this.vlc.input.length > 0 ? this.vlc.input.length : (this.instance.swf_args ? 1000*this.instance.swf_args.length_seconds : 0));
 
 				this.eosCheck(this.lastState, this.lastPos, this.lastDur);
 				this.lastState = this.vlc.input.state;
@@ -1497,7 +1497,7 @@ VLCObj.prototype = {
 		}
 		catch(e)
 		{
-			if(console) console.log('stateUpdate: '+e);
+			if(console) console.log('stateUpdate: ' + e);
 		}
 	},
 	playlistNext: function()
@@ -1649,37 +1649,31 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 	//TODO which works the best
 	this.win.addEventListener('beforeunload', this.saveSettings.bind(this), true);
 	//this.win.addEventListener('unload', this.saveSettings.bind(this), true);
-	
-	//TODO re-enable. spf looks to be broken
-	//if(!upsell && !popup) this.hookSPF();
 
+	yt.pubsub.instance_.subscribe('navigate', (function() {
+		console.log("navigate");
+		this.navigating = true;
+	}).bind(this));
+
+	yt.pubsub.instance_.subscribe('init', (function() {
+		console.log("init");
+		if(this.navigating)
+		{
+			this.onMainPage(null, true);
+			if(/\/user\//.test(this.win.location.href))
+				loadPlayer(this.win, null, true);
+		}
+		this.navigating = false;
+	}).bind(this));
+
+	//TODO SPF compatibility
 	//HTML5 player. Just bulldozer this thing. See also ytplayer.load()
-	if(this.yt.player.Application && this.yt.player.Application.create)
+	if(this.yt && this.yt.player.Application && this.yt.player.Application.create)
 		this.yt.player.Application.create = function(a,b)
 		{
 			console.log("Suck it Trebek!");
 		}
 	this.inited = true;
-}
-
-ScriptInstance.prototype.hookSPF = function(){
-
-	if(window["_spf_state"] === undefined) {
-		this.win.setTimeout(this.hookSPF.bind(this), 50);
-		return;
-	}
-
-	var spf_cb = window["_spf_state"].config["navigate-processed-callback"];
-	window["_spf_state"].config["navigate-processed-callback"] = (function(e){
-		//console.log('navigate-processed-callback', e);
-		spf_cb(e);
-		//FIXME GM_getValue fails otherwise, uh
-		this.win.setTimeout((function(){
-			this.onMainPage(null, true);
-			if(/\/user\//.test(this.win.location.href))
-				loadPlayer(this.win, null, true);
-		}).bind(this), 10);
-	}).bind(this);
 }
 
 ScriptInstance.prototype.initVars = function(){
@@ -2537,8 +2531,8 @@ ScriptInstance.prototype.pullYTVars = function()
 	// unsafeWindow is deprecated but...
 	this.yt = this.win.yt;//unsafeWindow['yt'];
 	this.ytplayer = this.win.ytplayer;//unsafeWindow['ytplayer'];
-	
-	if(this.isEmbed && this.yt)
+
+	if((!this.ytplayer || this.isEmbed) && this.yt)
 	{
 		this.swf_args = this.yt.config_.PLAYER_CONFIG.args;
 		return;
@@ -3113,7 +3107,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		if(!this.isEmbed) buttons.appendChild(configbtn);
 
 		//if embed and logged in
-		if((this.isEmbed || this.bshowWLOnMain)  && typeof(this.swf_args.authuser) != 'undefined')
+		if((this.isEmbed || this.bshowWLOnMain) && this.swf_args && typeof(this.swf_args.authuser) != 'undefined')
 		{
 			var watchbtn = this._makeButton('vlc-watchlater-btn', _('WATCHLATER'), 'fa-clock-o fa-lg');
 			watchbtn.addEventListener('click', this.ajaxWatchLater.bind(this), false);
@@ -3788,6 +3782,9 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 		this.queryCC();
 		this.overrideRef();
 		this.setupStoryboard();
+		//FIXME still few pixels off
+		this.setPlayerSize(this.isWide);
+		this.setSideBar(this.isWide);
 		if(/#popup/.test(this.win.location.href))
 			this.openAsPopup();
 	};
