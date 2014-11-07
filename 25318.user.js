@@ -2164,6 +2164,10 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 	else
 		action = "action_add_to_watch_later_list";
 
+	var pageid = "";
+	if(typeof(ytplayer.config.args.pageid) != 'undefined')
+		pageid = "&pageid=" + ytplayer.config.args.pageid;
+
 	var addToWatchLater = (function(sess_token)
 	{
 		xheaders = headers;
@@ -2175,7 +2179,7 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 				"/addto_ajax?" + action + "=1&feature=player_embedded",
 				//"/addto_ajax?action_add_to_playlist=1&add_to_top=False",
 			headers: xheaders,
-			data: 'video_ids=' + this.swf_args.video_id + '&authuser=' + this.swf_args.authuser +'&session_token=' + sess_token,
+			data: 'video_ids=' + this.swf_args.video_id + '&authuser=' + this.swf_args.authuser +'&session_token=' + sess_token + pageid,
 			//'&full_list_id=' + plid + '&plid=' + this.swf_args.plid + '&session_token=' + this.yt.tokens_.addto_ajax,
 			onload: (function(r){
 				if(r.status==200){
@@ -2207,7 +2211,7 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 					"/token_ajax?action_get_wl_token=1",
 					//"/playlist_ajax?action_get_addto_panel=1&video_id=" + this.swf_args.video_id,
 			headers: headers,
-			data: 'authuser=' + this.swf_args.authuser,
+			data: 'authuser=' + this.swf_args.authuser + pageid,
 			onload: (function(r){
 				if(r.status==200){
 					//console.log(r.responseText);
