@@ -2171,7 +2171,7 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 	var addToWatchLater = (function(sess_token)
 	{
 		xheaders = headers;
-		//xheaders['Cookie'] = this.doc.cookie;
+		xheaders['Cookie'] = this.doc.cookie;
 		xheaders['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
 		GM_xmlhttpRequest({
 			method: 'POST',
@@ -3552,10 +3552,12 @@ ScriptInstance.prototype.makeDraggable = function() {
 function getXML(url, callback)
 {
 	//printStack();
+	var xheaders = headers;
+	xheaders['Cookie'] = this.doc.cookie;
 	GM_xmlhttpRequest({
 		method: 'GET',
 		url: url,
-		headers: headers,
+		headers: xheaders,
 		onload: function(r){
 			if(r.status==200){
 				callback(r.responseText);
