@@ -3553,7 +3553,7 @@ function getXML(url, callback)
 {
 	//printStack();
 	var xheaders = headers;
-	xheaders['Cookie'] = this.doc.cookie;
+	xheaders['Cookie'] = document.cookie;
 	GM_xmlhttpRequest({
 		method: 'GET',
 		url: url,
