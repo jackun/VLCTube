@@ -1366,7 +1366,7 @@ VLCObj.prototype = {
 			var title;
 			try{
 				
-				title = this.instance.ytplayer.config.args.title;
+				title = this.instance.swf_args.title;
 				// Youtube server sends content-disposition header then
 				if(fmt != 'dash') src += "&title=" + title.replace("&", "%26");
 				//Just in case firefox respects the html5 "download" attribute
@@ -1545,7 +1545,7 @@ VLCObj.prototype = {
 				//if(this.vlc.input.state == 7 && typeof this.reloading == 'undefined' && !/#vlc-error/.test(window.location)) 
 				//	this.reloading = setTimeout(function(){window.location += "#vlc-error"; window.location.reload();}, 3000);
 				this.setTimes(this.vlc.input.time,
-					this.vlc.input.length > 0 ? this.vlc.input.length : (this.instance.ytplayer ? 1000*this.instance.ytplayer.config.args.length_seconds : 0));
+					this.vlc.input.length > 0 ? this.vlc.input.length : (this.instance.ytplayer ? 1000*this.instance.swf_args.length_seconds : 0));
 
 				this.eosCheck(this.lastState, this.lastPos, this.lastDur);
 				this.lastState = this.vlc.input.state;
@@ -2168,10 +2168,11 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 	if(typeof(this.swf_args.pageid) != 'undefined')
 		pageid = "&pageid=" + this.swf_args.pageid;
 
+	var xheaders = headers;
+	xheaders['Cookie'] = this.doc.cookie;
+
 	var addToWatchLater = (function(sess_token)
 	{
-		xheaders = headers;
-		xheaders['Cookie'] = this.doc.cookie;
 		xheaders['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
 		GM_xmlhttpRequest({
 			method: 'POST',
@@ -2205,12 +2206,13 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 	if(this.session_token)
 		addToWatchLater(this.session_token);
 	else
+	{
 		GM_xmlhttpRequest({
 			method: 'POST',
 			url: this.win.location.protocol + "//" + this.win.location.host + 
 					"/token_ajax?action_get_wl_token=1",
 					//"/playlist_ajax?action_get_addto_panel=1&video_id=" + this.swf_args.video_id,
-			headers: headers,
+			headers: xheaders,
 			data: 'authuser=' + this.swf_args.authuser + pageid,
 			onload: (function(r){
 				if(r.status==200){
@@ -2223,6 +2225,7 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 				}
 			}).bind(this)
 		});
+	}
 }
 
 ScriptInstance.prototype.canAutoplay = function(){
