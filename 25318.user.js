@@ -2660,6 +2660,8 @@ ScriptInstance.prototype._makeCheckbox = function(id, setting, text, title)
 		ck.checked = GM_getValue(setting, false);
 		ck.addEventListener('click', (function(ev)
 			{
+				if(setting in this)
+					this[setting] = ev.target.checked;
 				if(setting in window.VLC.GMValues)
 					window.VLC.GMValues[setting] = ev.target.checked;
 				//GM_setValue(setting, ev.target.checked);
