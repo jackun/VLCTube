@@ -2303,9 +2303,13 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 			pageDiv.classList.add('watch-non-stage-mode');
 			this.$('player').classList.add('watch-small');
 			this.$('player').classList.remove('watch-medium');
+			// FIXME A bit hackish
+			this.$('player').classList.remove('watch-large');
 		} else {
 			pageDiv.classList.add('watch-stage-mode');
 			pageDiv.classList.remove('watch-non-stage-mode');
+			//TODO watch-large
+			//this.$('player').classList.add('watch-large');
 			this.$('player').classList.add('watch-medium');
 			this.$('player').classList.remove('watch-small');
 		}
