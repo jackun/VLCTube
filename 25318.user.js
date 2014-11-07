@@ -1728,8 +1728,25 @@ ScriptInstance.prototype.init = function(_win, popup, oldNode, upsell)
 		textToItag[itagToText[i]] = parseInt(i);
 	}
 
-	//TODO re-enable. spf looks to be broken
-	//if(!upsell && !popup) this.hookSPF();
+	this.exportFun("spf_navigate", function() {
+		console.log("navigate");
+		this.navigating = true;
+	});
+
+	this.exportFun("spf_init", function() {
+		console.log("init");
+
+		if(this.navigating)
+		{
+			this.onMainPage(null, true);
+			if(/\/user\//.test(this.win.location.href))
+				loadPlayer(this.win, null, true);
+		}
+		this.navigating = false;
+	});
+
+	this.yt.pubsub.instance_.subscribe('navigate', this.vlcExports.spf_navigate);
+	this.yt.pubsub.instance_.subscribe('init', this.vlcExports.spf_init);
 
 	//HTML5 player. Just bulldozer this thing
 	if(this.yt.player.Application && this.yt.player.Application.create)
@@ -1737,26 +1754,6 @@ ScriptInstance.prototype.init = function(_win, popup, oldNode, upsell)
 		this.yt.player.Application.create = this.exportFun("appCreate", 
 				function(a,b){ console.log("Suck it Trebek!"); });
 	}
-}
-
-ScriptInstance.prototype.hookSPF = function(){
-
-	if(unsafeWindow["_spf_state"] === undefined) {
-		this.win.setTimeout(this.hookSPF.bind(this), 50);
-		return;
-	}
-
-	var spf_cb = unsafeWindow["_spf_state"].config["navigate-processed-callback"];
-	unsafeWindow["_spf_state"].config["navigate-processed-callback"] = (function(e){
-		//console.log('navigate-processed-callback', e);
-		spf_cb(e);
-		//FIXME GM_getValue fails otherwise, uh
-		this.win.setTimeout((function(){
-			this.onMainPage(null, true);
-			if(/\/user\//.test(this.win.location.href))
-				loadPlayer(this.win, null, true);
-		}).bind(this), 10);
-	}).bind(this);
 }
 
 ScriptInstance.prototype.initVars = function(){
@@ -3202,8 +3199,8 @@ ScriptInstance.prototype.generateDOM = function(options)
 			link.innerHTML = (this.bbtnIcons ? '<i class="fa fa-lg fa-download"></i>' : '') + //bool just for consistency
 				'<span class="yt-uix-button-content">' + _("DOWNLOAD") + '</span>';
 			//https://bugzilla.mozilla.org/show_bug.cgi?id=676619
-			if(!this.isEmbed && this.ytplayer && this.ytplayer.config)
-				link.setAttribute("download", this.ytplayer.config.args.title + ".mp4"); //TODO link filename
+			if(!this.isEmbed && this.swf_args)
+				link.setAttribute("download", this.swf_args.title + ".mp4"); //TODO link filename
 			if(dl)// && isEmbed)
 				buttons.appendChild(link);
 		}
@@ -3663,12 +3660,12 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 	}
 
 	//YT generated MPD that VLC can't play yet
-	if(clean && this.ytplayer && this.ytplayer.config && this.ytplayer.config.args.dashmpd
-		&& this.ytplayer.config.args.dashmpd !== '')
+	if(clean && this.swf_args & this.swf_args.dashmpd
+		&& this.swf_args.dashmpd !== '')
 	{
 		var obj = {};
 		obj.name = "0";
-		obj.url = this.ytplayer.config.args.dashmpd;
+		obj.url = this.swf_args.dashmpd;
 		obj.text = "DASH";
 		this.qualityLevels.push(0);
 		this.urlMap.push(obj);
@@ -4074,9 +4071,9 @@ ScriptInstance.prototype.setupStoryboard = function()
 	//hide/reset
 	el.style.backgroundImage = '';
 	el.classList.add('hid');
-	if(this.ytplayer && this.ytplayer.config && this.ytplayer.config.args.storyboard_spec)
+	if(this.swf_args && this.swf_args.storyboard_spec)
 	{
-		this.storyboard = new Storyboard(el, this.ytplayer.config.args.storyboard_spec);
+		this.storyboard = new Storyboard(el, this.swf_args.storyboard_spec);
 		this.sbPos.register(this.storyboard);
 		this.storyboard.setImg(0);
 		el.classList.remove('hid');
@@ -4100,6 +4097,7 @@ ScriptInstance.prototype.initialAddToPlaylist = function(dohash, doplay)
 
 	if(this.restoreSettings())
 	{
+		//TODO just this.swf_args
 		var html5js = this.ytplayer && this.ytplayer.config ? this.ytplayer.config.assets.js : 
 				this.yt.config_.PLAYER_CONFIG.assets.js;
 
