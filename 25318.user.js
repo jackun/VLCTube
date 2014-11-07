@@ -2092,14 +2092,14 @@ ScriptInstance.prototype.putCSS = function(){
 //Commented out are 'watch' page versions
 ScriptInstance.prototype.ajaxWatchLater = function()
 {
-	if(this.ytplayer && /feed\/watch_later/.test(this.ytplayer.config.args.sdetail))
+	if(this.swf_args && /feed\/watch_later/.test(this.swf_args.sdetail))
 		action = "action_delete_from_watch_later_list";
 	else
 		action = "action_add_to_watch_later_list";
 
 	var pageid = "";
-	if(typeof(ytplayer.config.args.pageid) != 'undefined')
-		pageid = "&pageid=" + ytplayer.config.args.pageid;
+	if(typeof(this.swf_args.pageid) != 'undefined')
+		pageid = "&pageid=" + this.swf_args.pageid;
 
 	var addToWatchLater = (function(sess_token)
 	{
