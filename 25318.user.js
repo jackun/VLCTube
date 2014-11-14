@@ -15,7 +15,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        57.37
+// @version        57.39
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -545,7 +545,7 @@ function GetDecodeParam(str)
 	//console.log(m);
 	var fSlice = m[1];
 
-	if((m = str.match(/\.signature=([$\w]+)\(/)))
+	if((m = str.match(/\"signature",\s*([$\w]+)\(/)))
 	{
 		var rFuncCode = new RegExp('function ' + (m[1][0] == '$' ? '\\' : '') + m[1]+'\\((\\w+)\\){(.*?)}');
 		m = rFuncCode.exec(str);
@@ -1746,7 +1746,7 @@ ScriptInstance.prototype.init = function(_win, popup, oldNode, upsell)
 	});
 
 	this.yt.pubsub.instance_.subscribe('navigate', this.vlcExports.spf_navigate);
-	this.yt.pubsub.instance_.subscribe('init', this.vlcExports.spf_init);
+	this.yt.pubsub.instance_.subscribe('init-watch', this.vlcExports.spf_init);
 
 	//HTML5 player. Just bulldozer this thing
 	if(this.yt.player.Application && this.yt.player.Application.create)
@@ -2282,7 +2282,7 @@ ScriptInstance.prototype.setSideBar = function(wide)
 		//FIXME try again, if player is wide when loading the page then marginTop == 0px duh
 		var f = -390; //getComputedPx(sidebar, 'margin-top');
 		//TODO clientHeight is 5px higher than final computed still ...
-		f += 5;
+		//f += 5;
 		var h = this.$('vlc_controls_div').clientHeight;
 		//TODO Branded channels are a thing still?
 		this.addCSS(".watch7-sidebar-vlc {margin-top: " + (f - h) + "px !important}");
