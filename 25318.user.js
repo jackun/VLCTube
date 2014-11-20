@@ -105,7 +105,7 @@ var gLangs = {
 		'vlc-config-forcews' : ['Force 16:9 aspect ratio', '4:3 videos get black bars duh'],
 		'vlc-config-forcewide' : ['Always in wide mode', ''],
 		'vlc-config-add3d'   : ['Add 3D formats', 'If you wanna watch cross-eyed'],
-		'vlc-config-hover'   : ['Hover controls for embedded', ''],
+		'vlc-config-hover'   : ['Auto hide controls for embedded', ''],
 		'vlc-config-loadembed'     : ['Load embedded video info', 'Load video title etc.'],
 		'vlc-config-embedcontrols' : ['Fewer controls on embedded video', 'But not so compact for now atleast'],
 		'vlc-config-vertvolume'    : ['Vertical volume bar', 'Experimental'],
