@@ -132,7 +132,7 @@ var gLangs = {
 		'vlc-config-uri-fallback' : ['Use fallback host for URIs', 'Use alternative server for videos if available.'],
 		'vlc-config-discard-flvs' : ['Discard FLV formats', 'Don\'t add FLV formats as selectable.'],
 		'vlc-config-dark-theme' : ['Dark theme', 'Make a little friendlier for dark themes.'],
-		'vlc-config-autoplay-pl' : ['Autoplay playlists', ''],
+		'vlc-config-autoplay-pl' : ['Autoplay playlists', 'Also if checked, plays next video automatically.'],
 		'vlc-config-adaptives' : ['Add adaptive formats', 'Video only or audio only streams. Currently kinda useless.'],
 		'WATCHLATER' : 'Watch later',
 		//v43+
@@ -3351,7 +3351,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-forcews",  'bforceWS'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-add3d",    'badd3DFormats'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-hover",    'buseHoverControls'));
-		chkboxes.appendChild(this._makeCheckbox("vlc-config-loadembed",     'bforceLoadEmbed'));
+		//chkboxes.appendChild(this._makeCheckbox("vlc-config-loadembed",     'bforceLoadEmbed')); //unused
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-embedcontrols", 'bembedControls'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-vertvolume",    'bcompactVolume'));
 		//chkboxes.appendChild(this._makeCheckbox("vlc-config-forcepl",  'bforceWidePL')); //eh no need
