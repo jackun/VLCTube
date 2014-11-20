@@ -4092,7 +4092,7 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 
 				//Blah, arguments.callee no worky in strict mode
 				thumb.removeEventListener('click', that._loadEmbedCB, false);
-				_vid.addEventListener('click', playEmbed , false);
+				thumb.addEventListener('click', playEmbed , false);
 				playEmbed();
 			}
 		}
