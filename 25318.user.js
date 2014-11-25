@@ -1091,6 +1091,8 @@ function VLCObj (instance){
 	this.stopUpdate = true; //true by default so that stateUpdate() would update only once
 	this.lastPos = -1;
 	this.lastDur = -1;
+	this.ctrlDown = false;
+	this.shiftDown = false;
 }
 
 //https://developer.mozilla.org/en-US/docs/XPConnect_wrappers???
@@ -1148,6 +1150,87 @@ VLCObj.prototype = {
 			this.$(vlc_id+'_select').addEventListener('change', 
 				ScriptInstance.prototype.onFmtChange.bind(this.instance), false);
 		}
+
+		var keyDown = (function(ev){
+			console.log(this.ctrlDown, ev);
+			if(ev.target.tagName == "INPUT" || 
+					ev.target.tagName == "TEXTAREA")
+				return;
+
+			switch(ev.keyCode)
+			{
+				//Start play or pause
+				case 32:
+					// Special casing focused BUTTON
+					if(ev.target.tagName == "BUTTON")
+						return;
+					ev.preventDefault();
+					this.play();
+				break;
+				case 38: /* up */
+					if(this.ctrlDown)
+					{
+						ev.preventDefault();
+						var v = this.getVolume();
+						if(v > -1)
+						{
+							this.setVolume(v + 1);
+							this.instance.saveVolume(v + 1);
+						}
+					}
+				break;
+				case 40: /* down */
+					if(this.ctrlDown)
+					{
+						ev.preventDefault();
+						var v = this.getVolume();
+						if(v > -1)
+						{
+							console.log("vol:", v);
+							v -= 1;
+							if(v < 0) v = 0;
+							this.setVolume(v);
+							this.instance.saveVolume(v);
+						}
+					}
+				break;
+				case 37: /* left */
+					if(this.ctrlDown)
+					{
+						ev.preventDefault();
+						var v = this.getCurrentTime() - 10;
+						console.log("seek:", v);
+						if(v < 0) v = 0;
+						this._seekTo(v);
+					}
+				break;
+				case 39: /* right */
+					if(this.ctrlDown)
+					{
+						ev.preventDefault();
+						var v = this.getCurrentTime() + 10;
+						console.log("seek:", v);
+						if(v > this.getDuration())
+							v = this.getDuration();
+						this._seekTo(v);
+					}
+				break;
+				case 16: this.shiftDown = true; break;
+				case 17: this.ctrlDown = true; break;
+			}
+		}).bind(this);
+
+		var keyUp = (function(ev){
+			switch(ev.keyCode)
+			{
+				case 16: this.shiftDown = false; break;
+				case 17: this.ctrlDown = false; break;
+			}
+		}).bind(this);
+
+		window.addEventListener("keydown", keyDown);
+		window.addEventListener("keyup", keyUp);
+
 		this.stateUpdate(); //initial update
 	},
 	togglePlayButton: function(isPlaying) {
