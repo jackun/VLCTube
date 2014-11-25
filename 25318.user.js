@@ -1153,8 +1153,8 @@ VLCObj.prototype = {
 
 		var keyDown = (function(ev){
 			//console.log(this.ctrlDown, ev);
-			if(ev.target.tagName == "INPUT" || 
-					ev.target.tagName == "TEXTAREA")
+			if(ev.target.tagName == "TEXTAREA" ||
+				(ev.target.tagName == "INPUT" && ev.target.type != "button"))
 				return;
 
 			switch(ev.keyCode)
@@ -1162,7 +1162,8 @@ VLCObj.prototype = {
 				//Start play or pause
 				case 32:
 					// Special casing focused BUTTON
-					if(ev.target.tagName == "BUTTON")
+					if(ev.target.tagName == "BUTTON" ||
+						(ev.target.tagName == "INPUT" && ev.target.type == "button"))
 						return;
 					ev.preventDefault();
 					this.play();
