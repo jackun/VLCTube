@@ -1175,8 +1175,9 @@ VLCObj.prototype = {
 						var v = this.getVolume();
 						if(v > -1)
 						{
-							this.setVolume(v + 1);
-							this.instance.saveVolume(v + 1);
+							v = Math.min(v + 1, this.instance.maxVolume);
+							this.setVolume(v);
+							this.instance.saveVolume(v);
 						}
 					}
 				break;
@@ -1187,8 +1188,7 @@ VLCObj.prototype = {
 						var v = this.getVolume();
 						if(v > -1)
 						{
-							v -= 1;
-							if(v < 0) v = 0;
+							v = Math.max(v - 1, 0);
 							this.setVolume(v);
 							this.instance.saveVolume(v);
 						}
@@ -1198,8 +1198,7 @@ VLCObj.prototype = {
 					if(this.ctrlDown)
 					{
 						ev.preventDefault();
-						var v = this.getCurrentTime() - 10;
-						if(v < 0) v = 0;
+						var v = Math.max(this.getCurrentTime() - 10, 0);
 						this._seekTo(v);
 					}
 				break;
@@ -1207,9 +1206,7 @@ VLCObj.prototype = {
 					if(this.ctrlDown)
 					{
 						ev.preventDefault();
-						var v = this.getCurrentTime() + 10;
-						if(v > this.getDuration())
-							v = this.getDuration();
+						var v = Math.min(this.getCurrentTime() + 10, this.getDuration());
 						this._seekTo(v);
 					}
 				break;
@@ -1758,6 +1755,7 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 }
 
 ScriptInstance.prototype.initVars = function(){
+	this.maxVolume = tryParseFloat(GM_getValue('vlc-volume-max', "100"), 100.0).toFixed(0);
 	///User configurable booleans
 	this.setDefault("bautoplay", true);
 	this.setDefault("bautoplayPL", true);
@@ -3363,6 +3361,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			inp.addEventListener('change', (function(e){
 				GM_setValue('vlc-volume-max', e.target.value);
 				var f = parseFloat(e.target.value);
+				this.maxVolume = f;
 				this.sbVol.setMaxValue(f); this.sbVol.setValue(Math.min(this.sbVol.getValue(), f));
 				}).bind(this), false);
 
