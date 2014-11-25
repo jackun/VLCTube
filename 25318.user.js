@@ -15,7 +15,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        57.39
+// @version        58.0
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -1133,6 +1133,8 @@ function VLCObj (instance){
 	this.stopUpdate = true; //true by default so that stateUpdate() would update only once
 	this.lastPos = -1;
 	this.lastDur = -1;
+	this.ctrlDown = false;
+	this.shiftDown = false;
 }
 
 //https://developer.mozilla.org/en-US/docs/XPConnect_wrappers???
@@ -1210,6 +1212,82 @@ VLCObj.prototype = {
 			this.$(vlc_id+'_select').addEventListener('change', 
 				ScriptInstance.prototype.onFmtChange.bind(this.instance), false);
 		}
+
+		var keyDown = (function(ev){
+			//console.log(this.ctrlDown, ev);
+			if(ev.target.tagName == "TEXTAREA" ||
+				(ev.target.tagName == "INPUT" && ev.target.type != "button"))
+				return;
+
+			switch(ev.keyCode)
+			{
+				//Start play or pause
+				case 32:
+					// Special casing focused BUTTON
+					if(ev.target.tagName == "BUTTON" ||
+						(ev.target.tagName == "INPUT" && ev.target.type == "button"))
+						return;
+					ev.preventDefault();
+					this.play();
+				break;
+				case 38: /* up */
+					if(this.ctrlDown)
+					{
+						ev.preventDefault();
+						var v = this.getVolume();
+						if(v > -1)
+						{
+							v = Math.min(v + 1, this.instance.maxVolume);
+							this.setVolume(v);
+							this.instance.saveVolume(v);
+						}
+					}
+				break;
+				case 40: /* down */
+					if(this.ctrlDown)
+					{
+						ev.preventDefault();
+						var v = this.getVolume();
+						if(v > -1)
+						{
+							v = Math.max(v - 1, 0);
+							this.setVolume(v);
+							this.instance.saveVolume(v);
+						}
+					}
+				break;
+				case 37: /* left */
+					if(this.ctrlDown)
+					{
+						ev.preventDefault();
+						var v = Math.max(this.getCurrentTime() - 10, 0);
+						this._seekTo(v);
+					}
+				break;
+				case 39: /* right */
+					if(this.ctrlDown)
+					{
+						ev.preventDefault();
+						var v = Math.min(this.getCurrentTime() + 10, this.getDuration());
+						this._seekTo(v);
+					}
+				break;
+				case 16: this.shiftDown = true; break;
+				case 17: this.ctrlDown = true; break;
+			}
+		}).bind(this);
+
+		var keyUp = (function(ev){
+			switch(ev.keyCode)
+			{
+				case 16: this.shiftDown = false; break;
+				case 17: this.ctrlDown = false; break;
+			}
+		}).bind(this);
+
+		window.addEventListener("keydown", keyDown);
+		window.addEventListener("keyup", keyUp);
+
 		this.stateUpdate(); //initial update
 	},
 	togglePlayButton: function(isPlaying) {
@@ -1757,6 +1835,7 @@ ScriptInstance.prototype.init = function(_win, popup, oldNode, upsell)
 }
 
 ScriptInstance.prototype.initVars = function(){
+	this.maxVolume = tryParseFloat(GM_getValue('vlc-volume-max', "100"), 100.0).toFixed(0);
 	///User configurable booleans
 	this.setDefault("bautoplay", true);
 	this.setDefault("bautoplayPL", true);
@@ -3353,6 +3432,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			inp.addEventListener('change', (function(e){
 				GM_setValue('vlc-volume-max', e.target.value);
 				var f = parseFloat(e.target.value);
+				this.maxVolume = f;
 				this.sbVol.setMaxValue(f); this.sbVol.setValue(Math.min(this.sbVol.getValue(), f));
 				}).bind(this), false);
 
