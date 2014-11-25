@@ -1152,7 +1152,7 @@ VLCObj.prototype = {
 		}
 
 		var keyDown = (function(ev){
-			console.log(this.ctrlDown, ev);
+			//console.log(this.ctrlDown, ev);
 			if(ev.target.tagName == "INPUT" || 
 					ev.target.tagName == "TEXTAREA")
 				return;
@@ -1186,7 +1186,6 @@ VLCObj.prototype = {
 						var v = this.getVolume();
 						if(v > -1)
 						{
-							console.log("vol:", v);
 							v -= 1;
 							if(v < 0) v = 0;
 							this.setVolume(v);
@@ -1199,7 +1198,6 @@ VLCObj.prototype = {
 					{
 						ev.preventDefault();
 						var v = this.getCurrentTime() - 10;
-						console.log("seek:", v);
 						if(v < 0) v = 0;
 						this._seekTo(v);
 					}
@@ -1209,7 +1207,6 @@ VLCObj.prototype = {
 					{
 						ev.preventDefault();
 						var v = this.getCurrentTime() + 10;
-						console.log("seek:", v);
 						if(v > this.getDuration())
 							v = this.getDuration();
 						this._seekTo(v);
