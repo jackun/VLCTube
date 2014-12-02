@@ -1775,7 +1775,7 @@ ScriptInstance.prototype.init = function(_win, popup, oldNode, upsell)
 	//Hijack 'getElementById' so YT js can do its job and also not overwrite vlc with flash again.
 	//FIXME but srsly, something less intrusive maybe
 	this.fakeApiNode = this.doc.createElement('div');
-	this._getElementById = this.doc.wrappedJSObject.getElementById.bind(this.doc.wrappedJSObject);
+	this._getElementById = this.doc.getElementById.bind(this.doc);
 
 	exportFunction(this.overriddenGetElement.bind(this), 
 		document, 
