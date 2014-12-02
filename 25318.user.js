@@ -1777,7 +1777,9 @@ ScriptInstance.prototype.init = function(_win, popup, oldNode, upsell)
 	this.fakeApiNode = this.doc.createElement('div');
 	this._getElementById = this.doc.wrappedJSObject.getElementById.bind(this.doc.wrappedJSObject);
 
-	this.exportFun("getElementById", this.doc, this.overriddenGetElement);
+	exportFunction(this.overriddenGetElement.bind(this), 
+		document, 
+		{defineAs: "getElementById", allowCallbacks: true});
 
 	var unavail = this.$('player-unavailable');
 	if(unavail && !unavail.classList.contains("hid")) //works?
