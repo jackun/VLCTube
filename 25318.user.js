@@ -1825,8 +1825,8 @@ ScriptInstance.prototype.init = function(_win, popup, oldNode, upsell)
 		this.navigating = false;
 	});
 
-	this.yt.pubsub.instance_.subscribe('navigate', this.vlcExports.spf_navigate);
-	this.yt.pubsub.instance_.subscribe('init-watch', this.vlcExports.spf_init);
+	this.yt.pubsub.instance_.subscribe('navigate', this.vlcExports.wrappedJSObject.spf_navigate);
+	this.yt.pubsub.instance_.subscribe('init-watch', this.vlcExports.wrappedJSObject.spf_init);
 
 	//HTML5 player. Just bulldozer this thing
 	if(this.yt.player.Application && this.yt.player.Application.create)
