@@ -3742,13 +3742,14 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 	}
 
 	//YT generated MPD that VLC can't play yet
-	if(clean && this.swf_args & this.swf_args.dashmpd
+	if(clean && this.swf_args && this.swf_args.dashmpd
 		&& this.swf_args.dashmpd !== '')
 	{
-		var obj = {};
-		obj.name = "0";
-		obj.url = this.swf_args.dashmpd;
-		obj.text = "DASH";
+		var obj = {
+			name: "0",
+			url: this.swf_args.dashmpd,
+			text: "DASH"
+		};
 		this.qualityLevels.push(0);
 		this.urlMap.push(obj);
 	}
