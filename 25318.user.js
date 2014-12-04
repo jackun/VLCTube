@@ -3664,10 +3664,11 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 	if(clean && this.ytplayer && this.ytplayer.config && this.ytplayer.config.args.dashmpd
 		&& this.ytplayer.config.args.dashmpd !== '')
 	{
-		var obj = {};
-		obj.name = "0";
-		obj.url = this.ytplayer.config.args.dashmpd;
-		obj.text = "DASH";
+		var obj = {
+			name: "0",
+			url: this.ytplayer.config.args.dashmpd,
+			text: "DASH"
+		};
 		this.qualityLevels.push(0);
 		this.urlMap.push(obj);
 	}
