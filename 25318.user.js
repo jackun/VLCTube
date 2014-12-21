@@ -1731,6 +1731,7 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 	yt.pubsub.instance_.subscribe('navigate', (function() {
 		console.log("navigate");
 		this.navigating = true;
+		this.myvlc.stopVideo();
 	}).bind(this));
 
 	yt.pubsub.instance_.subscribe('init', (function() {
