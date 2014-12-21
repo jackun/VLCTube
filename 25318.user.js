@@ -1811,6 +1811,7 @@ ScriptInstance.prototype.init = function(_win, popup, oldNode, upsell)
 	this.exportFun("spf_navigate", function() {
 		console.log("navigate");
 		this.navigating = true;
+		this.myvlc.stopVideo();
 	});
 
 	this.exportFun("spf_init", function() {
