@@ -2676,7 +2676,7 @@ ScriptInstance.prototype.getTrackUrl = function(lang, name)
 	return "//"+ this.win.location.hostname +"/api/timedtext?type=track&" +
 						"name=" + name +
 						"&lang=" + lang +
-						"&v=" + this.yt.getConfig('VIDEO_ID', '');
+						"&v=" + this.swf_args.video_id;
 }
 
 ScriptInstance.prototype.pullYTVars = function()
