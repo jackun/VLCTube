@@ -1785,7 +1785,7 @@ ScriptInstance.prototype.initVars = function(){
 	//this.setDefault("bignoreVol", false); //well, 'Always reset audio level to' doesn't appear to work with the plugin :/
 	//this.setDefault("bnormVol", false); //security, ignored
 	this.setDefault("bscrollToPlayer", false);
-	this.setDefault("bconfigDropdown", false);
+	this.setDefault("bconfigDropdown", true);
 	this.setDefault("buseFallbackHost", false);
 	//flv sucks at seeking
 	this.setDefault("bdiscardFLVs", true);
