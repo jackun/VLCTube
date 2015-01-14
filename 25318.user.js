@@ -4458,7 +4458,9 @@ function loadDefaults()
 	if(typeof(cloneInto) === 'function')
 		obj = cloneInto(obj, unsafeWindow);
 
-	var values = GM_listValues();
+	var tmp = GM_listValues();
+	var values = cloneInto(tmp, this);
+
 	//GM 0.9 for..in fails??
 	for(var i=0; i<values.length; i++)
 	{
