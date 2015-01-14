@@ -2361,7 +2361,6 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 	
 	//Sometimes IS_WIDESCREEN "lies" that video is not widescreenish
 	if(this.bforceWS || 
-		(this.yt.getConfig && this.yt.getConfig('IS_WIDESCREEN',false)) || 
 		(vw&&vh&&((vw/vh==16/9) || vh == '1080' || vh == '720' || vw == '853'))
 		)
 	{
