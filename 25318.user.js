@@ -2019,7 +2019,7 @@ ScriptInstance.prototype.putCSS = function(){
 	var css = ".player-api {overflow: visible;} /*for storyboard tooltip*/\
 	#"+ vlc_id + "-holder {overflow: hidden;}\
 	#cued-embed #video-title {position: absolute; left: 5px; top: 5px; background: rgba(0,0,0,0.75); z-index: 1;} \
-	.movie_player_vlc { background: white; height:100%}\
+	.movie_player_vlc { background: white; height:100%; position:relative;}\
 	.movie_player_vlc select {padding: 5px 0;}\
 	a.vlclink { color:#438BC5; margin:5px;}\
 	.vlc_hidden { display:none !important; }\
@@ -2292,7 +2292,8 @@ ScriptInstance.prototype.setSideBar = function(wide)
 		f += 5;
 		var h = this.$('vlc_controls_div').clientHeight;
 		//TODO Branded channels are a thing still?
-		this.addCSS(".watch7-sidebar-vlc {margin-top: " + (f - h) + "px !important}");
+		this.addCSS("#watch7-sidebar.watch7-sidebar-vlc {margin-top: " + (f - h) + "px;}\
+			.watch-wide #watch7-sidebar.watch7-sidebar-vlc { margin-top: 10px;}");
 		sidebar.classList.add('watch7-sidebar-vlc');
 		//console.log('setSideBar', this.player.clientHeight, h, f, sidebar.style.marginTop);
 	}
