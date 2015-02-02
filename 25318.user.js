@@ -142,6 +142,7 @@ var gLangs = {
 		'vlc-config-wl-main' : ['Always show Watch Later button', 'Not just embedded videos.'],
 		'vlc-config-subs-on' : ['Auto enable subtitle', 'Selects first subtitle and enables it if any is available.'],
 		'vlc-config-btn-icons' : ['Use button icons', 'Show icons instead of text.'],
+		'vlc-config-custom-wide' : ['Use custom wide width', ''],
 		'CONFIG' : 'Configuration',
 		},
 	"et": {
@@ -1729,13 +1730,13 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 	//this.win.addEventListener('unload', this.saveSettings.bind(this), true);
 
 	yt.pubsub.instance_.subscribe('navigate', (function() {
-		console.log("navigate");
+		//console.log("navigate");
 		this.navigating = true;
 		this.myvlc.stopVideo();
 	}).bind(this));
 
 	yt.pubsub.instance_.subscribe('init', (function() {
-		console.log("init");
+		//console.log("init");
 		if(this.navigating)
 		{
 			this.onMainPage(null, true);
@@ -1797,6 +1798,7 @@ ScriptInstance.prototype.initVars = function(){
 	this.setDefault("bshowWLOnMain", false);
 	this.setDefault("bautoSubEnable", false);
 	this.setDefault("bbtnIcons", true);
+	this.setDefault("bcustomWide", false);
 }
 
 /// Helpers
@@ -2018,6 +2020,7 @@ ScriptInstance.prototype.putCSS = function(){
 
 	var css = ".player-api {overflow: visible;} /*for storyboard tooltip*/\
 	#"+ vlc_id + "-holder {overflow: hidden;}\
+	#movie_player * {transition: 100ms;} \
 	#cued-embed #video-title {position: absolute; left: 5px; top: 5px; background: rgba(0,0,0,0.75); z-index: 1;} \
 	.movie_player_vlc { background: white; height:100%; position:relative;}\
 	.movie_player_vlc select {padding: 5px 0;}\
@@ -2333,16 +2336,16 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 	var w = this.player.clientWidth;//content.clientWidth;
 	var h = this.player.clientHeight;//content.clientWidth;
 
-
-	//TODO 'Temporarily' disable custom wide size
 	//var w = /\/user\//i.test(this.win.location.href) ? "100%" : this.width, h = this.height;
-	/*if(typeof(w) != 'string' && (wide || this.isPopup))
+	if(this.bcustomWide && typeof(w) != 'string' && (wide || this.isPopup))
 	{
+		this.player.style.width = "100%";
 		var ratio = this.width/this.height;
 		if( (""+this.widthWide).indexOf("%")>-1 )
 		{
 			// set to percentage
-			this.player.style.width = this.widthWide;
+			//this.player.style.width = this.widthWide;
+			this.$('player').style.width = this.widthWide;
 			// and now get corresponding width in pixels
 			if(this.isPopup)
 				w = this.player.clientWidth;
@@ -2350,29 +2353,55 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 				w = Math.max(this.player.clientWidth, this.minWidthWide); //limit smallest size to minWidthWide
 		}
 		else
-			w = this.widthWide;
+		{
+			w = parseInt(this.widthWide);
+			this.$('player').style.width = w + 'px';
+		}
 		h = Math.floor(w / ratio);
-	}*/
+	}
 
+	// Is it really not widescreen?
 	var vw,vh;
 	try{
 		vw = document.querySelector('meta[property="og:video:width"]').content;
 		vh = document.querySelector('meta[property="og:video:height"]').content;
 	}catch(e){}
-	
-	//Sometimes IS_WIDESCREEN "lies" that video is not widescreenish
+
 	if(this.bforceWS || 
 		(vw&&vh&&((vw/vh==16/9) || vh == '1080' || vh == '720' || vw == '853'))
 		)
 	{
-		//h = Math.floor(w * 9/16);//TODO use video size from vlc?
+		h = Math.floor(w * 9/16);//TODO use video size from vlc?
 	}
 
-	// Apply size
+	//console.log("Custom size:", w,h, ratio, this.widthWide);
+
+	// Apply size to embed element
 	this.$(vlc_id).style.width = this.isPopup ? "100%" : w + 'px';
 	this.$(vlc_id).style.height = this.isPopup ? "100%" : h + 'px';
-	//TODO call setPlayerSize only when isPopup is finally set (or not)
-	//this.$(vlc_id+'-holder').style.height = this.isPopup ? '' : h + 'px';
+
+	if(this.bcustomWide)
+	{
+		if(wide)
+		{
+			//TODO call setPlayerSize only when isPopup is finally set (or not)
+			this.$(vlc_id+'-holder').style.height = this.isPopup ? '' : h + 'px';
+			this.player.style.height = (h + this.$('vlc_controls_div').clientHeight) + "px";
+			var clsHeights = this.doc.querySelectorAll('.player-height');
+			for(var i=0; i < clsHeights.length; i++)
+				clsHeights[i].style.height = h + 'px';
+		}
+		else // Reset explicit styles
+		{
+			this.$('player').style.width = '';
+			this.player.style.width = '';
+			this.player.style.height = '';
+			this.$(vlc_id+'-holder').style.height = '';
+			var clsHeights = this.doc.querySelectorAll('.player-height');
+			for(var i=0; i < clsHeights.length; i++)
+				clsHeights[i].style.height = '';
+		}
+	}
 
 	var playlist = this.getPL();
 	if(playlist)
@@ -3014,12 +3043,12 @@ ScriptInstance.prototype.generateDOM = function(options)
 	//may not be there on first load
 	this.thumb = this.doc.querySelector("span[itemprop='thumbnail'] link[itemprop='url']");
 
-	if(options.userPage && this.buseThumbnail && this.swf_args.thumbnail_url)
+	if(options.userPage && this.buseThumbnail && this.swf_args && this.swf_args.thumbnail_url)
 	{
 		holder.childNodes[0].setAttribute('src', this.swf_args.thumbnail_url);
 		holder.childNodes[0].addEventListener('click', (function(e){this.myvlc.playVideo();}).bind(this), false);
 	}
-	else if((this.thumb && this.buseThumbnail) /*|| options.userPage*/ || this.feather)
+	else if(this.swf_args && ((this.thumb && this.buseThumbnail) /*|| options.userPage*/ || this.feather))
 	{
 		var href = this.feather ? "//i.ytimg.com/vi/"+ this.swf_args.video_id +"/hqdefault.jpg" : this.thumb.href;
 		holder.childNodes[0].setAttribute('src', href);
@@ -3453,6 +3482,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-wl-main", 'bshowWLOnMain'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-subs-on", 'bautoSubEnable'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-btn-icons", 'bbtnIcons'));
+		chkboxes.appendChild(this._makeCheckbox("vlc-config-custom-wide", 'bcustomWide'));
 		config.appendChild(chkboxes);
 
 	}
@@ -3572,8 +3602,8 @@ function getXML(url, callback)
 			if(r.status==200){
 				callback(r.responseText);
 			}
-			else
-				console.log("getXML status:", r.status);
+			//else
+			//	console.log("getXML status:", r.status);
 		}
 	});
 }
@@ -3859,6 +3889,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 				tn.classList.add("vlc_hidden");//perma hide
 			this.myvlc.stateUpdate();
 		}
+		this.$('player-api').style.overflow = "";
 		//this.setThumbnailVisible(true);
 		this.myvlc.stopVideo();
 		this.initialAddToPlaylist();
@@ -4265,7 +4296,8 @@ function loadPlayerOnLoad(oldNode, upsell)
 
 function GM_getValue(key, val)
 {
-	if(window.VLC.GMValues.hasOwnProperty(key))
+	if(window.VLC.GMValues.hasOwnProperty(key) && 
+			window.VLC.GMValues[key] !== undefined)
 		return window.VLC.GMValues[key];
 	return val;
 }
@@ -4313,7 +4345,7 @@ function GM_xmlhttpRequest(params)
 	   (/embed/.test(window.location.href) /*&& e.id == 'player1'*/)//embedded
 	   )
 	{
-		console.log("Load player for embed. DOMEvent element: ", e.id, e);
+		//console.log("Load player for embed. DOMEvent element: ", e.id, e);
 		removeChildren(e, true); //FIXME fallback player
 		//oldNode = e.target;
 	}
@@ -4322,7 +4354,7 @@ function GM_xmlhttpRequest(params)
 		loader = loadPlayerOnLoad;
 		player = document.querySelector('#player');
 		if(player && player.classList.contains('off-screen')) {
-			console.log("load off-screen player", e);
+			//console.log("load off-screen player", e);
 			loader = loadPlayer;
 		}
 		removeChildren(e); //FIXME fallback player
@@ -4458,19 +4490,29 @@ function loadDefaults()
 	if(typeof(cloneInto) === 'function')
 		obj = cloneInto(obj, unsafeWindow);
 
-	var tmp = GM_listValues();
-	var values = cloneInto(tmp, this);
+	var varNames = [
+		'badaptiveFmts', 'badd3DFormats', 'balwaysBestFormat',
+		'bautoSubEnable', 'bautoplay', 'bautoplayPL', 'bbtnIcons',
+		'bcompactVolume', 'bconfigDropdown', 'bcustomWide', 'bdarkTheme',
+		'bdiscardFLVs', 'bembedControls', 'bforceLoadEmbed', 'bforceWS',
+		'bforceWide', 'bforceWidePL', 'bjumpTS', 'bpopupAutoplay',
+		'bpopupSeparate', 'bresumePlay', 'bscrollToPlayer', 'bshowMute',
+		'bshowRate', 'bshowWLOnMain', 'buseFallbackHost', 'buseHoverControls',
+		'busePopups', 'buseRepeat', 'buseThumbnail', 'buseWidePosBar',
+		'vlc-formats', 'vlc-lang', 'vlc-pl-autonext', 'vlc-rate-max',
+		'vlc-rate-min', 'vlc-volume-max', 'vlc-wide', 'vlc-wide-width',
+		'vlc_vol', 'ytquality'];
 
-	//GM 0.9 for..in fails??
-	for(var i=0; i<values.length; i++)
+	varNames.forEach(function(key)
 	{
 		try {
 			//TODO error if [Object] got saved with GM_setValue
-			obj[values[i]] = GM_getValue(values[i], undefined);
+			var v = GM_getValue(key, undefined);
+			obj[key] = (v !== undefined ? v : undefined);
 		} catch(e){
 			console.log(e);
 		}
-	}
+	});
 
 	if(typeof(createObjectIn) === 'function') // GM nightly / 2.0 beta
 	{
@@ -4540,11 +4582,11 @@ function loadDefaults()
 		} catch(e) {
 			values = unsafeObj.GMValues;
 		}
-		for(var key in values)
+		varNames.forEach(function(key)
 		{
-			//console.log(key +"="+ values[key]);
-			GM_setValue(key, values[key]);
-		}
+			if(values[key] !== undefined)
+				GM_setValue(key, values[key]);
+		});
 	}
 	// Don't save if embedded video or it overwrites changes made on 'watch' page.
 	if(!/\/embed\//.test(window.location.href))
