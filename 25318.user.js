@@ -1161,7 +1161,7 @@ VLCObj.prototype = {
 			switch(ev.keyCode)
 			{
 				//Start play or pause
-				case 32:
+				case KeyEvent.DOM_VK_SPACE:
 					// Special casing focused BUTTON
 					if(ev.target.tagName == "BUTTON" ||
 						(ev.target.tagName == "INPUT" && ev.target.type == "button"))
@@ -1169,7 +1169,7 @@ VLCObj.prototype = {
 					ev.preventDefault();
 					this.play();
 				break;
-				case 38: /* up */
+				case KeyEvent.DOM_VK_UP: /* up */
 					if(this.ctrlDown)
 					{
 						ev.preventDefault();
@@ -1182,7 +1182,7 @@ VLCObj.prototype = {
 						}
 					}
 				break;
-				case 40: /* down */
+				case KeyEvent.DOM_VK_DOWN: /* down */
 					if(this.ctrlDown)
 					{
 						ev.preventDefault();
@@ -1195,7 +1195,7 @@ VLCObj.prototype = {
 						}
 					}
 				break;
-				case 37: /* left */
+				case KeyEvent.DOM_VK_LEFT: /* left */
 					if(this.ctrlDown)
 					{
 						ev.preventDefault();
@@ -1203,7 +1203,7 @@ VLCObj.prototype = {
 						this._seekTo(v);
 					}
 				break;
-				case 39: /* right */
+				case KeyEvent.DOM_VK_RIGHT: /* right */
 					if(this.ctrlDown)
 					{
 						ev.preventDefault();
@@ -1211,16 +1211,16 @@ VLCObj.prototype = {
 						this._seekTo(v);
 					}
 				break;
-				case 16: this.shiftDown = true; break;
-				case 17: this.ctrlDown = true; break;
+				case KeyEvent.DOM_VK_SHIFT: this.shiftDown = true; break;
+				case KeyEvent.DOM_VK_CONTROL: this.ctrlDown = true; break;
 			}
 		}).bind(this);
 
 		var keyUp = (function(ev){
 			switch(ev.keyCode)
 			{
-				case 16: this.shiftDown = false; break;
-				case 17: this.ctrlDown = false; break;
+				case KeyEvent.DOM_VK_SHIFT: this.shiftDown = false; break;
+				case KeyEvent.DOM_VK_CONTROL: this.ctrlDown = false; break;
 			}
 		}).bind(this);
 
