@@ -73,7 +73,6 @@ var gPlayerApiID = 'player-api';//-legacy';
 var gPlayerID = 'player';//-legacy';
 var gMoviePlayerID = 'movie_player'; ///< Change to something else if flash/html5 player keeps overwriting VLC player
 var vsTxt = false;
-var featherVars;
 var stateUpdateFreq = 250;// 250ms
 var vlc_id = 'mymovie';
 var VLC_status = ["Idle", "Opening", "Buffering", "Playing", "Paused", "Stopped", "ended", "Error"];
@@ -1682,7 +1681,6 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 	this.isPopup = popup;
 	//Is on embedded iframe page?
 	this.isEmbed = this.win.location.href.match(/\/embed\//i);
-	this.feather = this.win.fbetatoken || this.doc.querySelector("div#lc div#p") ? true : false;
 	this.initVars();
 
 	//Hijack 'getElementById' so YT js can do its job and also not overwrite vlc with flash again.
@@ -2141,9 +2139,6 @@ ScriptInstance.prototype.putCSS = function(){
 	this.addCSS("#vlc_buttons_div .yt-uix-button {border-radius: 0; margin: 0;} \
 				#vlc_buttons_div .yt-uix-button:first-child {border-radius: 5px 0 0 5px;} \
 				#vlc_buttons_div .yt-uix-button:last-child {border-radius: 0 5px 5px 0;}");
-
-	if(this.feather)
-		this.addCSS("#vlclink {height:26px;line-height:26px;}");
 
 	/* configuration div to be more like a drop-down menu */
 	if(this.bconfigDropdown)
@@ -2663,21 +2658,6 @@ ScriptInstance.prototype.pullYTVars = function()
 		this.swf_args = json['args'];
 		this.ytplayer = {config: {args: this.swf_args}};
 	}
-	else if(this.feather)
-	{
-		if(featherVars) {
-			this.swf_args = featherVars;
-		} else {
-			//shouldn't come here though
-			this.swf_args = {};
-			var vars = this.$('movie_player').getAttribute('flashvars');
-			vars.split('&').forEach((function(v)
-			{
-				var kv = v.split('=');
-				this.swf_args[kv[0]] = unescape(kv[1]);
-			}).bind(this));
-		}
-	}
 	else if(!this.swf_args)
 		this.swf_args = this.yt.getConfig('PLAYER_CONFIG',null) ['args'];
 
@@ -2983,21 +2963,9 @@ function gd(o, v, d){if(v in o) return o[v]; else return d;}
 ScriptInstance.prototype.generateDOM = function(options)
 {
 	if(typeof(options) == 'undefined') options = {};
-	var wide = gd(options, 'wide', true) && !this.feather, fs = gd(options, 'fs', true), pause = gd(options, 'pause', true),
+	var wide = gd(options, 'wide', true), fs = gd(options, 'fs', true), pause = gd(options, 'pause', true),
 		auto = gd(options, 'auto', true), dl = gd(options, 'dl', true), popup = gd(options, 'popup', this.busePopups);
 
-	if(this.feather)
-	{
-		this.addCSS("\
-		.yt-uix-button-default:active, .yt-uix-button-default.yt-uix-button-toggled, .yt-uix-button-default.yt-uix-button-active, .yt-uix-button-default.yt-uix-button-active:focus, .yt-uix-button-text:active {background: none repeat scroll 0 0 #E9E9E9;border-color: #C6C6C6;box-shadow: 0 1px 0 #DDDDDD inset;}\
-		.yt-uix-button {border: 1px solid transparent;border-radius: 2px 2px 2px 2px;box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);cursor: pointer;display: inline-block;font-size: 11px;font-weight: bold;height: 28px;line-height: normal;outline: 0 none;padding: 0 10px;text-decoration: none;vertical-align: middle;white-space: nowrap;word-wrap: normal;}\
-		.yt-uix-button-default, .yt-uix-button-default[disabled], .yt-uix-button-default[disabled]:hover, .yt-uix-button-default[disabled]:active, .yt-uix-button-default[disabled]:focus {background: none repeat scroll 0 0 #F8F8F8; border-color: #D3D3D3; color: #333333;}\
-		", true);
-		this.addCSS("\
-			.movie_player_vlc {background: transparent;}\
-		");
-	}
-	
 	// check the animation name and operate accordingly
 	function dispatchMEvent(event) {
 		this.setPlayerSize(this.isWide);
@@ -3049,9 +3017,9 @@ ScriptInstance.prototype.generateDOM = function(options)
 		holder.childNodes[0].setAttribute('src', this.swf_args.thumbnail_url);
 		holder.childNodes[0].addEventListener('click', (function(e){this.myvlc.playVideo();}).bind(this), false);
 	}
-	else if(this.swf_args && ((this.thumb && this.buseThumbnail) /*|| options.userPage*/ || this.feather))
+	else if(this.swf_args && ((this.thumb && this.buseThumbnail) /*|| options.userPage*/))
 	{
-		var href = this.feather ? "//i.ytimg.com/vi/"+ this.swf_args.video_id +"/hqdefault.jpg" : this.thumb.href;
+		var href = this.thumb.href;
 		holder.childNodes[0].setAttribute('src', href);
 		holder.style.backgroundImage = "url(" + href + ")";
 		holder.style.backgroundRepeat = "no-repeat";
@@ -4328,19 +4296,7 @@ function GM_xmlhttpRequest(params)
 		document.querySelector('#player') ||
 		document.querySelector('#p');
 
-	if(e.id == "p") //feather, no flashblock
-	{
-		var el = e.id == "p" ? e : document;
-		el = el.querySelector("EMBED");
-		//parse early so we get to this before flashblock hopefully
-		featherVars = {};
-		el.getAttribute("flashvars").split('&').forEach(function(v)
-		{
-			var kv = v.split('=');
-			featherVars[kv[0]] = unescape(kv[1]);
-		});
-	}
-	else if(
+	if(
 	   (/embed/.test(window.location.href) /*&& e.id == 'player1'*/)//embedded
 	   )
 	{
@@ -4597,8 +4553,7 @@ function DOMevent(mutations)
 	{
 		var mutation = mutations[k];
 		//console.log(mutation.type, mutation.target.id);
-		if(mutation.target.id == "player-api" || mutation.target.id == "player" 
-		|| mutation.target.id == "p" || mutation.target.id == "lc" //feather
+		if(mutation.target.id == "player-api" || mutation.target.id == "player"
 		)
 		{
 			for(var i=0; i < mutation.target.childNodes.length; i++)
