@@ -4592,12 +4592,12 @@ function DOMevent(mutations)
 				//console.log("    child:", e.id, mutation.target.id);
 
 				if((/\/embed\//.test(window.location.pathname)/* && e.id == 'player1'*/) ||
-					(e.id == 'movie_player') ||
-					unsafeWindow.yt.pubsub
+					(e.id == 'movie_player')
+					//|| unsafeWindow.yt.pubsub
 				)
 				{
-					if(e.id == 'movie_player' && !unsafeWindow.yt.pubsub)
-						continue;
+					//if(e.id == 'movie_player' && !unsafeWindow.yt.pubsub)
+					//	continue;
 					domObserver.disconnect();
 					loadDefaults();
 					injectScript("var VLCinstance = " +VLCTube.toString() + "();");
