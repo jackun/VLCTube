@@ -3853,6 +3853,13 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 		this.SetupAPI();
 		this.overrideRef();
 
+		var unavail = this.$('player-unavailable');
+		if(unavail && !unavail.classList.contains("hid"))
+		{
+			console.log("video seems to be unavailable");
+			return;
+		}
+
 		if(!this.isPopup && !watchPage) return;
 		if(spfNav)
 		{
