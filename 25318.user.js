@@ -1746,7 +1746,8 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 
 	//TODO SPF compatibility
 	//HTML5 player. Just bulldozer this thing. See also ytplayer.load()
-	if(this.yt && this.yt.player.Application && this.yt.player.Application.create)
+	if(this.yt && this.yt.player && 
+		this.yt.player.Application && this.yt.player.Application.create)
 		this.yt.player.Application.create = function(a,b)
 		{
 			console.log("Suck it Trebek!");
@@ -4293,18 +4294,17 @@ function GM_xmlhttpRequest(params)
 
 	var oldNode, loader = loadPlayer, 
 		e = document.querySelector('#movie_player') || 
-		document.querySelector('#player') ||
-		document.querySelector('#p');
+		document.querySelector('#player');
 
 	if(
-	   (/embed/.test(window.location.href) /*&& e.id == 'player1'*/)//embedded
+	   (/\/embed\//.test(window.location.href) /*&& e.id == 'player1'*/)//embedded
 	   )
 	{
 		//console.log("Load player for embed. DOMEvent element: ", e.id, e);
 	}
 	else if(e.id == 'movie_player')
 	{
-		loader = loadPlayerOnLoad;
+		loader = yt.pubsub ? loadPlayer : loadPlayerOnLoad;
 		player = document.querySelector('#player');
 		if(player && player.classList.contains('off-screen')) {
 			//console.log("load off-screen player", e);
@@ -4561,11 +4561,13 @@ function DOMevent(mutations)
 				var e = mutation.target.childNodes[i];
 				//console.log("    child:", e.id, mutation.target.id);
 
-				if((e.id == "p") || 
-					(/embed/.test(window.location.href)/* && e.id == 'player1'*/) ||
-					(e.id == 'movie_player')
+				if((/\/embed\//.test(window.location.href)/* && e.id == 'player1'*/) ||
+					(e.id == 'movie_player') ||
+					unsafeWindow.yt.pubsub
 				)
 				{
+					if(e.id == 'movie_player' && !unsafeWindow.yt.pubsub)
+						continue;
 					domObserver.disconnect();
 					loadDefaults();
 					injectScript("var VLCinstance = " +VLCTube.toString() + "();");
@@ -4576,7 +4578,7 @@ function DOMevent(mutations)
 	}
 }
 
-if(!/embed/.test(window.location.href) && window.top !== window.self)
+if(!/\/embed\//.test(window.location.href) && window.top !== window.self)
 	return;
 
 //if(/\/user\//.test(window.location))
