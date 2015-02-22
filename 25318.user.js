@@ -351,8 +351,8 @@ var itagToText = {
 	84 : '720p/mp4/3D',
 	83 : '240p/mp4/3D',
 	82 : '360p/mp4/3D',
-	//78: '',
-	//59: '',
+	78 : '480p/mp4', //??
+	59 : '480p/mp4',
 	46 : '1080p/webm',
 	37 : '1080p/mp4',
 	45 : '720p/webm',
@@ -2648,6 +2648,7 @@ ScriptInstance.prototype.pullYTVars = function()
 	}
 	else if(this.ytplayer)
 		this.swf_args = this.ytplayer.config.args;
+
 	var index = -1;//0-indexed, while html seems to be 1-indexed :S
 
 	//Stuff below will err out on embed page
@@ -3810,9 +3811,6 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 		this.player.classList.remove('player-height');
 		this.player.id = upsell ? 'upsell-video' /*-vlc'*/ : gPlayerApiID /*+"-vlc"*/; //Use youtube CSS and also so that JS would work
 
-		//just in case
-		removeChildren(this.player, true);
-
 		var vlcNode = this.generateDOM({userPage:userPage, wide:!userPage, dl:!userPage});
 		this.player.appendChild(vlcNode.dom);
 		this.makeDraggable();
@@ -4347,8 +4345,6 @@ function GM_xmlhttpRequest(params)
 	   )
 	{
 		//console.log("Load player for embed. DOMEvent element: ", e.id, e);
-		removeChildren(e, true); //FIXME fallback player
-		//oldNode = e.target;
 	}
 	else if(e.id == 'movie_player')
 	{
