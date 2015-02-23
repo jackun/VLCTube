@@ -4494,6 +4494,16 @@ function DOMevent(mutations)
 	}
 }
 
+var excludedSite = false;
+var excludedSites = [/www\.wimp\.com/];
+
+if(/origin=/.test(window.location.href))
+{
+	for(var i in excludedSites)
+		if(excludedSites[i].test(window.location.href))
+			return;
+}
+
 if(!/\/embed\//.test(window.location.pathname) && window.top !== window.self)
 	return;
 
