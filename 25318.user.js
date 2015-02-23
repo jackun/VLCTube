@@ -4494,7 +4494,6 @@ function DOMevent(mutations)
 	}
 }
 
-var excludedSite = false;
 var excludedSites = [/www\.wimp\.com/];
 
 if(/origin=/.test(window.location.href))
