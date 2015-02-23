@@ -3005,10 +3005,14 @@ ScriptInstance.prototype.generateDOM = function(options)
 	vlc.appendChild(holder);
 	//may not be there on first load
 	this.thumb = this.doc.querySelector("span[itemprop='thumbnail'] link[itemprop='url']");
+	var thumb = this.swf_args.iurlhq ? this.swf_args.iurlhq :
+			this.swf_args.iurlsd ? this.swf_args.iurlsd :
+			this.swf_args.iurlmq ? this.swf_args.iurlmq :
+			this.swf_args.iurl;
 
 	if(this.swf_args && this.buseThumbnail)
 	{
-		var href = this.thumb ? this.thumb.href : this.swf_args.thumbnail_url;
+		var href = thumb ? thumb : this.thumb ? this.thumb.href : this.swf_args.thumbnail_url;
 		holder.childNodes[0].setAttribute('src', href);
 		holder.style.backgroundImage = "url(" + href + ")";
 		holder.style.backgroundRepeat = "no-repeat";
@@ -3868,7 +3872,8 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 
 			this.genUrlSelect();
 
-			var thumb = this.swf_args.iurlsd ? this.swf_args.iurlsd :
+			var thumb = this.swf_args.iurlhq ? this.swf_args.iurlhq :
+						this.swf_args.iurlsd ? this.swf_args.iurlsd :
 						this.swf_args.iurlmq ? this.swf_args.iurlmq :
 						this.swf_args.iurl;
 			var tn = this.elements.thumbnail || this.doc.querySelector("#vlc-thumbnail");
