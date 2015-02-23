@@ -1729,7 +1729,7 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 	//this.win.addEventListener('unload', this.saveSettings.bind(this), true);
 
 	yt.pubsub.instance_.subscribe('navigate', (function() {
-		console.log("navigate");
+		//console.log("navigate");
 		this.navigating = true;
 		this.myvlc.stopVideo();
 	}).bind(this));
@@ -1738,10 +1738,12 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 		//console.log("init");
 		if(this.navigating)
 		{
+			setTimeout((function(){
 			this.onMainPage(null, true);
 			if(/\/user\//.test(this.win.location.href) ||
 				/\/channel\//.test(this.win.location.href))
 				loadPlayer(this.win, null, true);
+			}).bind(this), 10);
 		}
 		this.navigating = false;
 	}).bind(this));
