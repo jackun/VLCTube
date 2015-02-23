@@ -4503,7 +4503,8 @@ if(/origin=/.test(window.location.href))
 			return;
 }
 
-if(!/\/embed\//.test(window.location.pathname) && window.top !== window.self)
+if((!/\/embed\//.test(window.location.pathname) && window.top !== window.self) ||
+	/controls=0/.test(window.location.href))
 	return;
 
 //if(/\/user\//.test(window.location))
