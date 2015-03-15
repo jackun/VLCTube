@@ -4372,7 +4372,7 @@ function loadDefaults()
 		'busePopups', 'buseRepeat', 'buseThumbnail', 'buseWidePosBar',
 		'vlc-formats', 'vlc-lang', 'vlc-pl-autonext', 'vlc-rate-max',
 		'vlc-rate-min', 'vlc-volume-max', 'vlc-wide', 'vlc-wide-width',
-		'vlc_vol', 'ytquality'];
+		'vlc-cache', 'vlc_vol', 'ytquality'];
 
 	varNames.forEach(function(key)
 	{
