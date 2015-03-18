@@ -1887,6 +1887,8 @@ ScriptInstance.prototype.restoreVolume = function(stopped)
 		var c = this.$('vlc_controls_div');
 		//otherwise knob's position doesn't get updated
 		if(s && c) c.style.display = 'block';
+		var c1 = this.$('sbVolHolder');
+		if(c1) c1.style.display = 'block';
 		if(this.bcompactVolume) this.sbVol.bar.style.display = 'block';
 
 		this.sbVol.setValue(v);
@@ -1894,6 +1896,7 @@ ScriptInstance.prototype.restoreVolume = function(stopped)
 
 		if(this.bcompactVolume) this.sbVol.bar.style.display = '';
 		if(s && c) c.style.display = '';
+		if(c1) c1.style.display = '';
 	}).bind(this); //Haa :P
 
 	if(this.sbVol)
@@ -2142,12 +2145,17 @@ ScriptInstance.prototype.putCSS = function(){
 	{
 		this.addCSS("#sbVol { position: relative; top: -65px; width: 100%; height: 80px; display: none; }\
 			#sbVol .knob {width: 100%; left: 0px;} \
-			.vlc-volume-holder { margin-right: 2px; height: 26px; /* hm otherwise 2px higher than buttons */}\
+			.vlc-volume-holder { margin-right: 2px; }\
 			.vlc-volume-holder > span { \
 			/* Faenza 16px audio-volume-medium.png */ \
 			background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAIWSURBVDiNpZM/aFNRFIe/k/ceRWqymfqyhIYMWsqrVGPAJQpditKhYDJKt24d6ya2kxQ7lgx2S0DCGwNODkKlCCIS6tTSxTYxpFZMyZ9H+jwu70ms7VC8cIZzz7nf/d17zhFV5X9W5DLJInJNRKaG98wLcg3AH/Kv7+7uJoGrwBURqatqCwBVPWsJVZ0K/aOjoxtjY2MV27Zf5/P5CeAR8ACIqOo/T7DHx8dfBMoiW1tbuWq1+rDVaqUbjUbacZw7hmH8BEYBO1QQUVVHVTOpVGoT+Kiqd4vFYt40zfcLCwvrs7Oz68DbZDL5anp6ejJQcTNUMGma5qaIlPf39yeAJkCpVMqcnp52K5VKslAoHAL94+Nj5ufnQ9WxsAqW7/vfgB2gAXiAv7Ky8gU46fV6Zi6X8wCv2+1G5+bmrGFAWIWTs2XY29vzgP7IyIjX6XR8oG9ZVm8wGPyVFwEGtm3/CG4OzSoWi7cAL5vNfi+VSjHAS6fTTdd1Q0I7BOzU6/XPqlpbXV39GgDMxcXFw2g02l5aWuq4rhsHPMdx2uVy2R8GnO2Be2tra89V9baq2gcHB09d130mImXTNF/WarUnhmHkgiokVBU5ZxayQCf41NHt7e37y8vLmZmZmUGz2XyzsbGRCOLvVPXXeQAAAcKA5Xne43a73Y/H4x3AAj6ErXwR4DygiEgKiKnqpz+By46ziIgOHfoN2CIPv8Rm1e4AAAAASUVORK5CYII=') no-repeat scroll 50% 50%; \
 			display: block; width: 16px; height: 26px;} \
-			.vlc-volume-holder:hover #sbVol { display:block; } \
+			.vlc-volume-holder:hover + #sbVol, \
+			button:hover + div#sbVolHolder #sbVol, \
+			#sbVol:hover { display:block; } \
+			#sbVolHolder { position: relative; display: none; width: 16px; height: 0px; margin-left: -28px; margin-right: 12px;} \
+			button:hover + div#sbVolHolder, \
+			#sbVolHolder:hover { display: inline-block; } \
 			#vlcvol {display: block; position: relative; top: 40%; transform: rotate(-90deg); }");
 	}
 
@@ -2967,11 +2975,24 @@ ScriptInstance.prototype.generateDOM = function(options)
 			cellClone.appendChild(el);
 			sliders.appendChild(cellClone);
 
-			volbar = this.doc.createElement("div");
+			if(!this.bcompactVolume)
+				volbar = this.doc.createElement("div");
+			else
+				volbar = this.doc.createElement("button");
 			volbar.className = 'vlc-volume-holder';
 			volbar.title = _("VOLUME");
-			volbar.innerHTML = '<span class="yt-uix-button-content"><div id="sbVol" class="vlc-scrollbar"><div class="knob"/></div><span id="vlcvol" class="bar-text">0</span></span>';
-
+			
+			if(this.bcompactVolume)
+			{
+				volbar.innerHTML = '<span class="yt-uix-button-content"></span>';
+			}
+			else
+			{
+				volbar.innerHTML = '<span class="yt-uix-button-content">\
+					<div id="sbVol" class="vlc-scrollbar"><div class="knob"></div>\
+					<span id="vlcvol" class="bar-text">0</span></div></span>';
+			}
+			
 			if(!this.bcompactVolume && (!this.buseWidePosBar || this.isEmbed))
 			{
 				cellClone = cell.cloneNode();
@@ -3014,6 +3035,13 @@ ScriptInstance.prototype.generateDOM = function(options)
 				volbar.classList.add('yt-uix-button');
 				volbar.classList.add('yt-uix-button-default');
 				buttons.appendChild(volbar);
+				var el = this.doc.createElement('div');
+				el.id = "sbVolHolder";
+				el.innerHTML = '<div id="sbVol" class="vlc-scrollbar">\
+					<div class="knob"></div>\
+					<span id="vlcvol" class="bar-text">0</span>\
+				</div>';
+				buttons.appendChild(el);
 			} //else added after download/YT link
 
 			if(this.bshowRate)
