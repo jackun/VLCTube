@@ -751,15 +751,15 @@ ScrollBar.prototype = {
 
 		if(this.type == 0)
 			this.knob.style.left = Math.round(v * (this.bar.clientWidth - this.knob.clientWidth)) + "px";
-		if(this.type == 1)
+		else if(this.type == 1)
 			this.knob.style.top = Math.round(v * (this.bar.clientHeight - this.knob.clientHeight)) + "px";
-
 		//Set knob width
-		if(this.type == 2)
-		{
+		else if(this.type == 2)
 			this.knob.style.width = Math.round(v * this.bar.clientWidth) + "px";
-		}
 		// TODO vertical if you want
+		//else if(this.type == 3)
+		//	...
+
 		if(this.formatter) this.formatter(this.value);
 	},
 	getValue: function(){ return this.value; },
