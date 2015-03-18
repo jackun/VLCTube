@@ -1,4 +1,4 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name           VLCTube
 // @namespace      0d92f6be108e4fbee9a6a0ee4366b72e
 // @run-at         document-start
@@ -95,9 +95,12 @@ var gLangs = {
 		'POSITION' : 'Position',
 		'VOLUME'   : 'Volume',
 		'PLAYBACKRATE': 'Playback rate',
+		'PLAYBACKRATEPRESET': 'Playback rate preset',
 		'RESETRATE': 'Reset playback rate',
+		'SETRATE'  : 'Set playback rate',
 		'MINRATE'  : 'Minimum rate',
 		'MAXRATE'  : 'Maximum rate',
+		'CUSTRATEPRESET'  : 'Custom rate',
 		'vlc-config-autoplay' : ['Autoplay', ''],
 		'vlc-config-priomap' : ['Always use format priority map', 'Otherwise uses last selected format or prio. map as fallback'],
 		'vlc-config-resume'  : ['Resume on format change', ''],
@@ -143,6 +146,7 @@ var gLangs = {
 		'vlc-config-btn-icons' : ['Use button icons', 'Show icons instead of text.'],
 		'vlc-config-custom-wide' : ['Use custom wide width', ''],
 		'CONFIG' : 'Configuration',
+		'vlc-config-cust-speed-preset' : ['Show custom speed preset button', ''],
 		},
 	"et": {
 		'LANG'  : 'Eesti',
@@ -1658,6 +1662,7 @@ function ScriptInstance(win)
 	this.sbPos = null;
 	this.sbVol = null;
 	this.sbRate =null;
+	this.ratePreset = null;
 	// User didn't change format etc so don't save the settings
 	this.fmtChanged = false;
 	this.isWide = false;
@@ -1781,6 +1786,7 @@ ScriptInstance.prototype.initVars = function(){
 	this.setDefault("bforceWidePL", false);
 	this.setDefault("buseThumbnail", true);
 	this.setDefault("bshowRate", false);
+	this.setDefault("bshowRatePreset", false);
 	this.setDefault("buseRepeat", false);
 	this.setDefault("buseWidePosBar", false);
 	this.setDefault("busePopups", false);
@@ -3003,6 +3009,17 @@ ScriptInstance.prototype.generateDOM = function(options)
 					this.myvlc.emitValue(this.sbRate, 1.0);
 				}).bind(this), false);
 				buttons.appendChild(nrm);
+
+				if(this.bshowRatePreset)
+				{
+					this.ratePreset = this._makeButton('_ratePreset', GM_getValue("vlc-rate-preset", 2));
+					this.ratePreset.title = _("SETRATE");
+					this.ratePreset.addEventListener('click', (function(e){
+						this.sbRate.setValue(GM_getValue("vlc-rate-preset", 2));
+						this.myvlc.emitValue(this.sbRate, GM_getValue("vlc-rate-preset", 2));
+					}).bind(this), false);
+					buttons.appendChild(this.ratePreset);
+				}
 			}
 		}
 
@@ -3201,6 +3218,27 @@ ScriptInstance.prototype.generateDOM = function(options)
 			midcolumn.appendChild(el);
 		}
 
+		el = this.doc.createElement("div");
+		{
+			el.id = "vlc-config-rate-preset";
+			inp = this.doc.createElement("input");
+			inp.value = tryParseFloat(GM_getValue('vlc-rate-preset', '2'), 2);
+			inp.title = _("CUSTRATEPRESET");
+			inp.className = "tiny";
+			inp.addEventListener('change', (function(e){
+				var f = parseFloat(e.target.value);
+				GM_setValue('vlc-rate-preset', f);
+				this.ratePreset.innerHTML = f;
+			}).bind(this), false);
+			el.appendChild(inp);
+
+			var lbl;
+			lbl = this.doc.createElement("div");
+			lbl.innerHTML = _("PLAYBACKRATEPRESET") + ":";
+			midcolumn.appendChild(lbl);
+			midcolumn.appendChild(el);
+		}
+
 		///Repeat wait timeout
 		el = this.doc.createElement("div");
 		{
@@ -3307,6 +3345,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		//chkboxes.appendChild(this._makeCheckbox("vlc-config-forcepl",  'bforceWidePL')); //eh no need
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-thumb",  'buseThumbnail'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-rate",   'bshowRate'));
+		chkboxes.appendChild(this._makeCheckbox("vlc-config-cust-speed-preset", 'bshowRatePreset'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-wide-posbar", 'buseWidePosBar'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-popup", 'busePopups'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-popup-separate", 'bpopupSeparate'));
@@ -4368,7 +4407,7 @@ function loadDefaults()
 		'bdiscardFLVs', 'bembedControls', 'bforceLoadEmbed', 'bforceWS',
 		'bforceWide', 'bforceWidePL', 'bjumpTS', 'bpopupAutoplay',
 		'bpopupSeparate', 'bresumePlay', 'bscrollToPlayer', 'bshowMute',
-		'bshowRate', 'bshowWLOnMain', 'buseFallbackHost', 'buseHoverControls',
+		'bshowRate', 'bshowRatePreset', 'bshowWLOnMain', 'buseFallbackHost', 'buseHoverControls',
 		'busePopups', 'buseRepeat', 'buseThumbnail', 'buseWidePosBar',
 		'vlc-formats', 'vlc-lang', 'vlc-pl-autonext', 'vlc-rate-max',
 		'vlc-rate-min', 'vlc-volume-max', 'vlc-wide', 'vlc-wide-width',
