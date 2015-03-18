@@ -2906,7 +2906,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		if(options.upsell)
 			holder.childNodes[0].addEventListener('click', (function(ev){ this.win.location.pathname = '/watch?v=' + this.swf_args.video_id; }).bind(this), false);
 		else
-			holder.childNodes[0].addEventListener('click', (function(e){this.myvlc.playVideo();}).bind(this), false);
+			holder.childNodes[0].addEventListener('click', (function(e){this.myvlc.play();}).bind(this), false);
 	}
 	else
 		holder.childNodes[0].classList.add("vlc_hidden");//perma hide
