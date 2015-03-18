@@ -736,14 +736,29 @@ ScrollBar.prototype = {
 		if(val<0) val=0;
 		if(this.userSeeking || (ScrollBar._ScrollBarDragData && ScrollBar._ScrollBarDragData.Scrollbar == this)) return;
 		this.value = val;
+		var v = 0;
+
+		if(this.type == 0 || this.type == 2)
+		{
+			v = (this.value - this.minValue)/(this.maxValue - this.minValue);
+			v = Math.max(0.0, Math.min(1.0, v));
+		}
+		else
+		{
+			v = (this.maxValue - this.value)/this.maxValue;
+			v = Math.max(0.0, Math.min(1.0, v));
+		}
+
 		if(this.type == 0)
-			this.knob.style.left = Math.round( ((this.value - this.minValue)/(this.maxValue - this.minValue)) * (this.bar.clientWidth - this.knob.clientWidth)) + "px";
+			this.knob.style.left = Math.round(v * (this.bar.clientWidth - this.knob.clientWidth)) + "px";
 		if(this.type == 1)
-			this.knob.style.top = Math.round(((this.maxValue - this.value)/this.maxValue) * (this.bar.clientHeight - this.knob.clientHeight)) + "px";
+			this.knob.style.top = Math.round(v * (this.bar.clientHeight - this.knob.clientHeight)) + "px";
 
 		//Set knob width
 		if(this.type == 2)
-			this.knob.style.width = Math.round( ((this.value - this.minValue)/(this.maxValue - this.minValue)) * this.bar.clientWidth) + "px";
+		{
+			this.knob.style.width = Math.round(v * this.bar.clientWidth) + "px";
+		}
 		// TODO vertical if you want
 		if(this.formatter) this.formatter(this.value);
 	},
