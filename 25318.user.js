@@ -1429,6 +1429,7 @@ VLCObj.prototype = {
 	//Button click events
 	play: function(){
 		//this.instance.setThumbnailVisible(false);
+		var jumpable = (this.prevState == 5 || this.prevState == 6);
 		if(this.vlc.input.state == 3)
 			this.vlc.playlist.pause();
 		else
@@ -1436,7 +1437,7 @@ VLCObj.prototype = {
 
 		this.stateUpdate();
 
-		if(this.instance.bjumpTS)
+		if(this.instance.bjumpTS && jumpable)
 			this.instance.onHashChange(this.instance.win.location.href);
 	},
 	pause: function(){
