@@ -54,32 +54,33 @@
 
 
 ##Older
-//2014-06-25 Fix deciphering for firefox v30 and below
-//2014-05-21 Try to resume if unexpected EOS. Use bind(). Playlist next item fix.
-//2014-04-26 Watch later, regex fix, remove from watch later if viewing WL playlist, hover controls css
-//2014-04-26 Embedded crash. seekTo
-//2014-04-26 Incomplete quick fix the fix the fix for comments not loading, API calls maybe
-//2014-04-25 Fake Live formats for priority map
-//2014-04-24 Separate url map parse from DOM generation so we can fail earlier
-//           and allow flashplayer to take over. May need manual refreshing with SPF.
-//2014-04-24 this -> that. Embed font/css for icons
-//2014-04-24 Cleanup
-//2014-04-24 Alternate method for / quick fix for popups (security errors)
-//2014-04-17 Testing font Awesome Icons
-//2014-04-17 Option to auto select subtitle
-//2014-04-10 focus() leads to random scroll
-//2014-04-07 Signature deciphering flippity-boppity -_-
-//2014-03-30 Signature deciphering. Call focus() on vlc plugin
-//2014-03-13 Watch Later button option
-//2014-03-11 Fixed the playlist?
-//2014-03-10 Jump to timestamp option
-//2014-03-01 CSS hacks and fix some margins
-//2014-02-07 Fix popup. User page > video transition is borked still
-//2014-01-21 Live HLS stream test
-//2014-01-20 Can transition from main page > search results > video or user page > video without shitting itself?
-//2014-01-17 Thumbnails
-//2014-01-17 SPF hooking and volume restore changes
-//2014-01-17 Quick (aka not complete) fix for extra ajaxy 'tube
-//2014-01-06 Call stateUpdate on spf nav.
-//2014-01-04 Pass unsafeWindow to tampermonkey
-//2014-01-03 Mute button test
+```
+2014-06-25 Fix deciphering for firefox v30 and below
+2014-05-21 Try to resume if unexpected EOS. Use bind(). Playlist next item fix.
+2014-04-26 Watch later, regex fix, remove from watch later if viewing WL playlist, hover controls css
+2014-04-26 Embedded crash. seekTo
+2014-04-26 Incomplete quick fix the fix the fix for comments not loading, API calls maybe
+2014-04-25 Fake Live formats for priority map
+2014-04-24 Separate url map parse from DOM generation so we can fail earlier and allow flashplayer to take over. May need manual refreshing with SPF.
+2014-04-24 this -> that. Embed font/css for icons
+2014-04-24 Cleanup
+2014-04-24 Alternate method for / quick fix for popups (security errors)
+2014-04-17 Testing font Awesome Icons
+2014-04-17 Option to auto select subtitle
+2014-04-10 focus() leads to random scroll
+2014-04-07 Signature deciphering flippity-boppity -_-
+2014-03-30 Signature deciphering. Call focus() on vlc plugin
+2014-03-13 Watch Later button option
+2014-03-11 Fixed the playlist?
+2014-03-10 Jump to timestamp option
+2014-03-01 CSS hacks and fix some margins
+2014-02-07 Fix popup. User page > video transition is borked still
+2014-01-21 Live HLS stream test
+2014-01-20 Can transition from main page > search results > video or user page > video without shitting itself?
+2014-01-17 Thumbnails
+2014-01-17 SPF hooking and volume restore changes
+2014-01-17 Quick (aka not complete) fix for extra ajaxy 'tube
+2014-01-06 Call stateUpdate on spf nav.
+2014-01-04 Pass unsafeWindow to tampermonkey
+2014-01-03 Mute button test
+```
