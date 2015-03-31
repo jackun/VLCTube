@@ -107,6 +107,8 @@ var gLangs = {
 		'vlc-config-custom-wide' : ['Use custom wide width', ''],
 		'CONFIG' : 'Configuration',
 		'vlc-config-cust-speed-preset' : ['Show custom speed preset button', ''],
+		'vlc-config-subs-align' : ['Subtitle alignment', ''],
+		'vlc-config-subs-color' : ['Subtitle color', 'In hexadecimal form (RRGGBB).'],
 		},
 	"et": {
 		'LANG'  : 'Eesti',
@@ -1219,29 +1221,40 @@ VLCObj.prototype = {
 		play.querySelector('span').innerHTML = isPlaying ? _("PAUSE") : _("PLAY");
 		play.title = isPlaying ? _("PAUSE") : _("PLAY");
 	},
-	setupMarquee: function(x,y)
+	setMarqueeColor(color)
 	{
-		//try{
-			//this.vlc.video.marquee.size = 24;
-			this.vlc.video.marquee.size = Math.max(Math.floor(this.vlc.video.width / 38), 12);
-			//this.vlc.video.marquee.position = 8;
-			//this.vlc.video.marquee.opacity = 200;
-			this.vlc.video.marquee.refresh = 100;
-			this.vlc.video.marquee.timeout = 0;
-			if(x && y)
-			{
-				this.vlc.video.marquee.x = Math.floor(x);
-				this.vlc.video.marquee.y = Math.floor(y);
-			}
-			else
-			{
-				this.vlc.video.marquee.x = 65;
-				this.vlc.video.marquee.y = Math.floor(this.vlc.video.height - (this.vlc.video.width/34) - 45);
-			}
-			this.vlc.video.marquee.disable();
-			this.vlc.video.marquee.enable();
-			//vlc.video.marquee.color = 0;
-		//}catch(e){console.log(e);}
+		if(typeof(color) === 'string')
+			color = parseInt(color, 16);
+		else if(color === undefined)
+			color = 0xFFFFFF;
+		this.vlc.video.marquee.color = color;
+	},
+	setupMarquee: function(x,y,align,color)
+	{
+		console.log('setupMarquee', align, color);
+		//this.vlc.video.marquee.size = 24;
+		this.vlc.video.marquee.size = Math.max(Math.floor(this.vlc.video.width / 38), 14);
+		// Possible alignments: CENTER, LEFT, RIGHT, TOP, TOP-LEFT, TOP-RIGHT, BOTTOM, BOTTOM-LEFT, BOTTOM-RIGHT
+		if(align)
+			this.vlc.video.marquee.position = align;
+		//this.vlc.video.marquee.opacity = 200;
+		this.vlc.video.marquee.refresh = 100;
+		this.vlc.video.marquee.timeout = 0;
+		if(color)
+			this.setMarqueeColor(color);
+
+		if(x && y)
+		{
+			this.vlc.video.marquee.x = Math.floor(x);
+			this.vlc.video.marquee.y = Math.floor(y);
+		}
+		/*else
+		{
+			this.vlc.video.marquee.x = 65;
+			this.vlc.video.marquee.y = Math.floor(this.vlc.video.height - (this.vlc.video.width/34) - 45);
+		}*/
+		this.vlc.video.marquee.disable();
+		this.vlc.video.marquee.enable();
 	},
 	toggleMute: function()
 	{
@@ -2546,7 +2559,9 @@ ScriptInstance.prototype.parseCCTrack = function(r) {
 		var cc = new ccTimer();
 		cc.init(xmlDoc.firstChild);
 		this.myvlc.ccObj = cc;
-		this.myvlc.setupMarquee();
+		this.myvlc.setupMarquee(null, null,
+			GM_getValue('vlc-subs-align', 'BOTTOM'),
+			GM_getValue('vlc-subs-color', 'FFFFFF'));
 		this.usingSubs = true;
 	}
 }
@@ -3298,6 +3313,74 @@ ScriptInstance.prototype.generateDOM = function(options)
 			el.appendChild(lbl);
 			el.appendChild(inp);
 
+			midcolumn.appendChild(el);
+		}
+
+		///Subtitle alignment
+		el = this.doc.createElement("div");
+		{
+			el.id = "vlc-config-subs-align";
+			var inp = this.doc.createElement("select");
+			var arr = ["CENTER", "LEFT", "RIGHT", "TOP", "TOP-LEFT", "TOP-RIGHT", "BOTTOM", "BOTTOM-LEFT", "BOTTOM-RIGHT"];
+			arr.forEach(function(e)
+			{
+				var opt = document.createElement("option");
+				opt.value = e;
+				opt.innerHTML = e;
+				inp.appendChild(opt);
+			});
+
+			inp.value = GM_getValue('vlc-subs-align', 'BOTTOM');
+			inp.title = _("vlc-config-subs-align")[1];
+			inp.className = "tiny";
+			inp.addEventListener('change', (function(e){
+				GM_setValue('vlc-subs-align', e.target.value);
+				this.myvlc.setupMarquee(null, null, e.target.value);
+			}).bind(this), false);
+			el.appendChild(inp);
+
+			var lbl;
+			lbl = this.doc.createElement("div");
+			lbl.innerHTML = _("vlc-config-subs-align")[0] + ":";
+			midcolumn.appendChild(lbl);
+			midcolumn.appendChild(el);
+		}
+
+		///Subtitle color
+		el = this.doc.createElement("div");
+		{
+			el.id = "vlc-config-subs-color";
+			var inp = this.doc.createElement("input");
+
+			var SetColors = function(el, hex)
+			{
+				el.style.backgroundColor = "#" + hex;
+				var rgb = parseInt(hex, 16);
+				// From jscolor
+				el.style.color =
+					0.213 * ((rgb >> 16) & 0xFF) +
+					0.715 * ((rgb >> 8) & 0xFF) +
+					0.072 * (rgb & 0xFF)
+					< 128 ? '#FFF' : '#000';
+			};
+
+			inp.value = GM_getValue('vlc-subs-color', 'FFFFFF');
+			inp.title = _("vlc-config-subs-color")[1];
+			inp.className = "tiny";
+			SetColors(inp, inp.value);
+
+			inp.addEventListener('change', (function(e){
+				var hex = e.target.value.toUpperCase();
+				GM_setValue('vlc-subs-color', hex);
+				this.myvlc.setMarqueeColor(hex);
+				SetColors(inp, hex);
+			}).bind(this), false);
+			el.appendChild(inp);
+
+			var lbl;
+			lbl = this.doc.createElement("div");
+			lbl.innerHTML = _("vlc-config-subs-color")[0] + ":";
+			midcolumn.appendChild(lbl);
 			midcolumn.appendChild(el);
 		}
 
@@ -4387,7 +4470,7 @@ function loadDefaults()
 		'busePopups', 'buseRepeat', 'buseThumbnail', 'buseWidePosBar',
 		'vlc-formats', 'vlc-lang', 'vlc-pl-autonext', 'vlc-rate-max',
 		'vlc-rate-min', 'vlc-volume-max', 'vlc-wide', 'vlc-wide-width',
-		'vlc-cache', 'vlc_vol', 'ytquality'];
+		'vlc-cache', 'vlc_vol', 'ytquality', 'vlc-subs-align', 'vlc-subs-color'];
 
 	varNames.forEach(function(key)
 	{
