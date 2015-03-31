@@ -1231,7 +1231,6 @@ VLCObj.prototype = {
 	},
 	setupMarquee: function(x,y,align,color)
 	{
-		console.log('setupMarquee', align, color);
 		//this.vlc.video.marquee.size = 24;
 		this.vlc.video.marquee.size = Math.max(Math.floor(this.vlc.video.width / 38), 14);
 		// Possible alignments: CENTER, LEFT, RIGHT, TOP, TOP-LEFT, TOP-RIGHT, BOTTOM, BOTTOM-LEFT, BOTTOM-RIGHT
