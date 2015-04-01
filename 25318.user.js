@@ -1274,7 +1274,6 @@ VLCObj.prototype = {
 			this.prevState = 7;
 	},
 	eventStopped: function(){
-		console.log('event: stopped');
 		this.togglePlayButton(false);
 		this.instance.setThumbnailVisible(true);
 		if(this.vlc && this.vlc.audio /*&& this.vlc.audio.volume > 100*/ && !this.instance.buseRepeat)
@@ -1299,7 +1298,6 @@ VLCObj.prototype = {
 		this.prevState = 6;
 	},
 	eventPlaying: function(){
-		console.log('event: playing');
 		if(this.instance.usingSubs) this.setupMarquee();
 		if(this.prevState != 4 && this.prevState != 2)
 			this.instance.restoreVolume();
@@ -2463,7 +2461,6 @@ ScriptInstance.prototype.onFmtChange = function(ev, opt)
 
 	if(!/signature=/.test(uri))
 	{
-		console.log("   sig:", sig);
 		if(sig)
 			sig = window.GetDecodeParam && GetDecodeParam() &&
 					Decode(sig, GetDecodeParam()) ||
@@ -2472,7 +2469,6 @@ ScriptInstance.prototype.onFmtChange = function(ev, opt)
 			sig = n.getAttribute("sig");
 
 		if(sig) uri += "&signature=" + sig;
-		console.log("de-sig:", sig);
 	}
 
 	if(fb)  uri += "&fallback_host=" + fb;
@@ -3551,15 +3547,12 @@ function getXML(url, callback)
 			if(r.status==200){
 				callback(r.responseText);
 			}
-			//else
-			//	console.log("getXML status:", r.status);
 		}
 	});
 }
 
 ScriptInstance.prototype.parseLive = function(pl)
 {
-	//console.log(pl);
 	var m, t = pl.split('\n');
 	for(var i=0;i<t.length-1;i++)
 	{
@@ -3629,13 +3622,11 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 			that.insertYTmessage("VLCTube: " + ( 'conn' in kv && kv['conn'].indexOf('rtmpe') > -1 ? "Sorry, encrypted rtmp stream." : "Weird stream map"));
 			return;
 		}
-		//console.log(kv['itag'], kv['type'], kv);
 	});
 
 	//try again
 	if(!this.urlMap.length && this.bdiscardFLVs)
 	{
-		console.log("now with FLVs");
 		this.bdiscardFLVs = false;
 		return this.parseUrlMap(urls);
 	}
@@ -3912,7 +3903,6 @@ ScriptInstance.prototype.doViewTracking = function()
 var xhr_state = ["UNSENT", "OPENED", "HEADERS_RECEIVED", "LOADING", "DONE"];
 ScriptInstance.prototype.loadEmbedVideo = function()
 {
-	console.log("In loadEmbedVideo");
 	var that = this;
 	var url = this.win.location.protocol + "//"
 			+ this.win.location.hostname + "/get_video_info?video_id="
@@ -4401,15 +4391,12 @@ function GetDecodeParam(str)
 
 	//Code crimes /watch?v=8Gv0H-vPoD
 	m = str.match(/(\w+):function\(\w+,\w+\){var\s+c=.*?length/);
-	//console.log(m);
 	var fReplace = m[1];
 
 	m = str.match(/(\w+):function\(\w+\){.*?reverse/);
-	//console.log(m);
 	var fReverse = m[1];
 
 	m = str.match(/(\w+):function\(\w+,\w+\){\w\.splice/);
-	//console.log(m);
 	var fSlice = m[1];
 
 	if((m = str.match(/"signature",\s*([$\w]+)\(/)))
@@ -4516,7 +4503,6 @@ function loadDefaults()
 				if(r.status == 200)
 				{
 					var sigDecodeParam = GetDecodeParam(r.responseText);
-					//console.log("sigDecodeParam:",sigDecodeParam);
 					injectScript("function GetDecodeParam(){return " + (sigDecodeParam ? "[" + sigDecodeParam.toString() + "]" : 'null') +";}");
 					//injectScript("(" + VLCTube.toSource() + ")();");
 				} else
@@ -4527,7 +4513,6 @@ function loadDefaults()
 	//else
 	//	injectScript("(" + VLCTube.toSource() + ")();");
 
-	//console.log('hlsvp', str2obj(window.wrappedJSObject, "ytplayer.config.args.hlsvp"));
 	if((hlsvp = str2obj(win, "ytplayer.config.args.hlsvp")))
 	{
 		GM_xmlhttpRequest({
