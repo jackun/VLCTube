@@ -640,17 +640,17 @@ function ScrollBar (instance) {
 ScrollBar.__exposedProps__ = { };
 ScrollBar.prototype = {
 	constructor: ScrollBar,
-	$: function(id){ return this.instance.doc.getElementById(id); },
+	$: function(id){ return document.getElementById(id); },
 	initSB: function(barId, knobId, type, minval, maxval, insta, formatter){
 		if(typeof(type) == 'undefined') type = 0;
 		if(typeof(minval) == 'undefined') minval = 0;
 		if(typeof(maxval) == 'undefined') maxval = 100;
 		if(typeof(insta) == 'undefined') insta = false;
-		this.bar = this.instance.doc.querySelector(barId);
+		this.bar = document.querySelector(barId);
 		//this.bar.ScrollBar = this;
-		this.knob = this.instance.doc.querySelector(knobId);
+		this.knob = document.querySelector(knobId);
 		//this.knob.ScrollBar = this;
-		this.knob = this.instance.doc.querySelector(knobId);
+		this.knob = document.querySelector(knobId);
 		this.instant = insta;
 		this.formatter = formatter;
 
@@ -754,13 +754,13 @@ ScrollBar.prototype = {
 				dy:         ev.pageY - this.knob.offsetTop,
 				startValue: this.value,
 			};
-		this.instance.doc.addEventListener('mouseup',this.event.up,true);
-		this.instance.doc.addEventListener('mousemove',this.event.move,true);
+		document.addEventListener('mouseup',this.event.up,true);
+		document.addEventListener('mousemove',this.event.move,true);
 	},
 	mouseUp: function(ev){
 		this.userSeeking = false;
-		this.instance.doc.removeEventListener('mouseup',this.event.up,true);
-		this.instance.doc.removeEventListener('mousemove',this.event.move,true);
+		document.removeEventListener('mouseup',this.event.up,true);
+		document.removeEventListener('mousemove',this.event.move,true);
 		this._ScrollBarDragData = null;
 		this.emitValue(false);
 	},
@@ -1080,7 +1080,7 @@ function VLCObj (instance){
 VLCObj.__exposedProps__ = { };
 VLCObj.prototype = {
 	$: function(id){
-		return this.instance.doc.getElementById(id);
+		return document.getElementById(id);
 	},
 	_getBtn: function(id)
 	{
@@ -1530,7 +1530,7 @@ VLCObj.prototype = {
 	goto: function(link)
 	{
 		win = this.instance.win;
-		shuf = this.instance.doc.querySelector('div.playlist-nav-controls button.shuffle-playlist');
+		shuf = document.querySelector('div.playlist-nav-controls button.shuffle-playlist');
 		link += shuf && shuf.classList.contains('yt-uix-button-toggled') && !link.match(/shuffle/i) ?
 					"&shuffle="+this.instance.yt.getConfig('SHUFFLE_VALUE', 0) : "";
 		if(win.spf && win.spf.navigate)
@@ -1547,7 +1547,7 @@ VLCObj.prototype = {
 				if(!(this.instance.buseHoverControls && this.instance.getStyle('vlc_controls_div').display=='none'))
 					this.scrollbarPos.setValue(this.vlc.input.position*this.scrollbarPos.maxValue);
 				//this.controls.children.namedItem('vlcstate').innerHTML = VLC_status[this.vlc.input.state];
-				rp = this.instance.doc.querySelector('#progress-radial');
+				rp = document.querySelector('#progress-radial');
 				rp.innerHTML = VLC_status[this.vlc.input.state][0];
 				rp.title = VLC_status[this.vlc.input.state];
 				//TODO Reloading on error or not if #vlc-error is in url already
@@ -1580,7 +1580,7 @@ VLCObj.prototype = {
 		{
 			//Uncomment if you want some delay before next starts to play
 			//setTimeout(function(){
-				var current = this.instance.doc.querySelector('ol.playlist-videos-list li.currently-playing');
+				var current = document.querySelector('ol.playlist-videos-list li.currently-playing');
 				var next = current ? current.nextElementSibling : null;
 				next = next ? next.querySelector('a') : null;
 				if(next)
@@ -1588,7 +1588,7 @@ VLCObj.prototype = {
 					console.log("going to play next one.", next.href);
 					this.goto(next.href);
 				}
-				else if((next = this.instance.doc.querySelector('ol.playlist-videos-list li a'))) //first
+				else if((next = document.querySelector('ol.playlist-videos-list li a'))) //first
 				{
 					console.log("from the top.");
 					this.goto(next.href);
@@ -1641,7 +1641,6 @@ function ScriptInstance(win)
 	this.minWidthWide = 854; //min width with percentages
 	this.height = 480;
 	this.win = win;
-	this.doc = win.document;
 	this.myvlc = null;
 	this.yt = null;
 	this.ytplayer = null;
@@ -1679,11 +1678,11 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 
 	//Hijack 'getElementById' so YT js can do its job and also not overwrite vlc with flash again.
 	//FIXME but srsly something less intrusive maybe
-	this.fakeApiNode = this.doc.createElement('div');
-	//this.doc._getElementById = this.doc.getElementById;
-	var _getElementById = this.doc.getElementById.bind(this.doc);
+	this.fakeApiNode = document.createElement('div');
+	//document._getElementById = document.getElementById;
+	var _getElementById = document.getElementById.bind(document);
 	this._getElementById = _getElementById;
-	this.doc.getElementById = (function(id){
+	document.getElementById = (function(id){
 		//console.log("Hijacked getElementById:", id);
 		if(id == 'player-api') {
 			//console.log("Returning fake 'player-api' node");
@@ -1814,7 +1813,7 @@ ScriptInstance.prototype.$ = function(id)
 
 ScriptInstance.prototype.$$ = function(id)
 {
-	return this.doc.getElementsByClassName(id);
+	return document.getElementsByClassName(id);
 }
 
 ScriptInstance.prototype.getStyle = function(el, pseudo)
@@ -1924,9 +1923,9 @@ ScriptInstance.prototype.insertYTmessage = function(message){
 
 	if(!msg){
 		baseDiv = this.$('alerts');
-		container = this.doc.createElement('div');
-		msg = this.doc.createElement('pre');
-		link = this.doc.createElement('a');
+		container = document.createElement('div');
+		msg = document.createElement('pre');
+		link = document.createElement('a');
 		link.href= "#";
 		link.onclick = function(){removeChildren(baseDiv, true); return false;};
 		link.innerHTML = "Close";
@@ -1944,7 +1943,7 @@ ScriptInstance.prototype.insertYTmessage = function(message){
 		message = "\r\n" + message;
 	}
 
-	msg.appendChild(this.doc.createTextNode(message));
+	msg.appendChild(document.createTextNode(message));
 }
 
 ScriptInstance.prototype.replaceYTmessage = function(message){
@@ -1953,9 +1952,9 @@ ScriptInstance.prototype.replaceYTmessage = function(message){
 
 ScriptInstance.prototype.addScriptSrc = function(src) {
 	var head, script;
-	head = this.doc.getElementsByTagName('head')[0];
+	head = document.getElementsByTagName('head')[0];
 	if (!head) { return; }
-	script = this.doc.createElement('script');
+	script = document.createElement('script');
 	script.type = 'text/javascript';
 	script.setAttribute('src', src);
 	head.appendChild(script);
@@ -1963,13 +1962,13 @@ ScriptInstance.prototype.addScriptSrc = function(src) {
 
 ScriptInstance.prototype.addScript = function(src) {
 	var head, script;
-	head = this.doc.getElementsByTagName('head')[0];
+	head = document.getElementsByTagName('head')[0];
 	if (!head) { return; }
-	script = this.doc.createElement('script');
+	script = document.createElement('script');
 	script.type = 'text/javascript';
 	if(typeof src == "function")
 		src = "(" + src.toString() + ")();";
-	script.appendChild(this.doc.createTextNode(src));
+	script.appendChild(document.createTextNode(src));
 	head.appendChild(script);
 }
 
@@ -1980,16 +1979,16 @@ ScriptInstance.prototype.addCSS = function(css, before, islink){
 	} else if (typeof addStyle != "undefined") {
 		addStyle(css);
 	} else */{
-		var heads = this.doc.getElementsByTagName("head");
+		var heads = document.getElementsByTagName("head");
 		if (heads.length > 0) {
 			if(islink) {
-				var node = this.doc.createElement("link");
+				var node = document.createElement("link");
 				node.setAttribute('rel', 'stylesheet');
 				node.setAttribute('href', css);
 			} else {
-				var node = this.doc.createElement("style");
+				var node = document.createElement("style");
 				node.type = "text/css";
-				node.appendChild(this.doc.createTextNode(css));
+				node.appendChild(document.createTextNode(css));
 			}
 			if(before && heads[0].hasChildNodes())
 			{
@@ -2175,7 +2174,7 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 	var addToWatchLater = (function(sess_token)
 	{
 		xheaders = headers;
-		//xheaders['Cookie'] = this.doc.cookie;
+		//xheaders['Cookie'] = document.cookie;
 		xheaders['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
 		GM_xmlhttpRequest({
 			method: 'POST',
@@ -2191,7 +2190,7 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 					xmlDoc=parser.parseFromString(r.responseText, "text/xml");
 					retCode = xmlDoc.firstChild.querySelector('return_code').firstChild.data;
 					//console.log(r.status, retCode);
-					el = this.doc.querySelector('#vlc-watchlater-btn');
+					el = document.querySelector('#vlc-watchlater-btn');
 					if(retCode == 0 || //ok
 						retCode == 6) //duplicate
 					{
@@ -2231,7 +2230,7 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 
 ScriptInstance.prototype.canAutoplay = function(){
 
-	var el = this.doc.querySelector("div#player");
+	var el = document.querySelector("div#player");
 	if(el && el.classList.contains("off-screen"))
 		return false;
 
@@ -2381,7 +2380,7 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 			//TODO call setPlayerSize only when isPopup is finally set (or not)
 			this.elements.holder.style.height = this.isPopup ? '' : h + 'px';
 			this.player.style.height = (h + this.$('vlc_controls_div').clientHeight) + "px";
-			var clsHeights = this.doc.querySelectorAll('.player-height');
+			var clsHeights = document.querySelectorAll('.player-height');
 			for(var i=0; i < clsHeights.length; i++)
 				clsHeights[i].style.height = h + 'px';
 		}
@@ -2391,7 +2390,7 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 			this.player.style.width = '';
 			this.player.style.height = '';
 			this.elements.holder.style.height = '';
-			var clsHeights = this.doc.querySelectorAll('.player-height');
+			var clsHeights = document.querySelectorAll('.player-height');
 			for(var i=0; i < clsHeights.length; i++)
 				clsHeights[i].style.height = '';
 		}
@@ -2400,8 +2399,8 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 	var playlist = this.getPL();
 	if(playlist)
 	{
-		var el = this.doc.querySelector('#watch-appbar-playlist ol');
-		var hdr = this.doc.querySelector('div.playlist-header');
+		var el = document.querySelector('#watch-appbar-playlist ol');
+		var hdr = document.querySelector('div.playlist-header');
 		if(!wide) {
 			playlist.style.height = (vlc.clientHeight ) + 'px';
 			el.style.maxHeight = (vlc.clientHeight - hdr.clientHeight) + 'px';
@@ -2415,8 +2414,8 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 	if(branded)
 	{
 		branded.style.width = (wide?854:640) + "px";
-		var bannerL = this.doc.getElementsByClassName('banner-large');
-		var bannerS = this.doc.getElementsByClassName('banner-small');
+		var bannerL = document.getElementsByClassName('banner-large');
+		var bannerS = document.getElementsByClassName('banner-small');
 		if(bannerL.length && bannerS.length)
 		{
 			bannerL[0].style.opacity = wide?1:0;
@@ -2442,7 +2441,7 @@ ScriptInstance.prototype.setBuffer = function(i)
 
 ScriptInstance.prototype.setUriHost = function(uri, host)
 {
-	if(this._tmp_uri == undefined) this._tmp_uri = this.doc.createElement('a');
+	if(this._tmp_uri == undefined) this._tmp_uri = document.createElement('a');
 	this._tmp_uri.href = uri;
 	this._tmp_uri.host = host;
 	return this._tmp_uri.href;
@@ -2576,14 +2575,14 @@ ScriptInstance.prototype.parseCCList = function(r) {
 			var tl = xmlDoc.firstChild;
 			var ccselect = this.$(vlc_id+"_ccselect");
 			removeChildren(ccselect, true);
-			var nullopt = this.doc.createElement("option");
+			var nullopt = document.createElement("option");
 			nullopt.setAttribute("name", "lang");
 			nullopt.setAttribute("value", "null");
 			ccselect.appendChild(nullopt);
 			nullopt.innerHTML = _("NONE");
 			for(var i = 0;  i < tl.childNodes.length; i++)
 			{
-				var option = this.doc.createElement('option');
+				var option = document.createElement('option');
 				var name = tl.childNodes[i].getAttribute("name");
 				option.setAttribute("name", tl.childNodes[i].getAttribute("name"));
 				option.setAttribute("value", tl.childNodes[i].getAttribute("lang_code"));
@@ -2718,8 +2717,8 @@ function cleanFormats(frmts_dirty)
 
 ScriptInstance.prototype._makeButton = function(id, text, icon)
 {
-	var btn = this.doc.createElement("button");
-	var span = this.doc.createElement("span");
+	var btn = document.createElement("button");
+	var span = document.createElement("span");
 	btn.id = id;
 	btn.className = "yt-uix-button yt-uix-button-default";
 	if(this.bbtnIcons && icon)
@@ -2733,16 +2732,16 @@ ScriptInstance.prototype._makeButton = function(id, text, icon)
 
 ScriptInstance.prototype._makeCheckbox = function(id, setting, text, title)
 {
-	var el = this.doc.createElement("div");
+	var el = document.createElement("div");
 	el.id = id + "-div";
 	el.className = "vlc-config-checkbox-div";
 	if(title || (_(id) != id && _(id).length > 1)) el.title = title || _(id)[1];
-	var ck = this.doc.createElement("input");
+	var ck = document.createElement("input");
 	ck.type = "checkbox";
 	ck.id = id;
-	var lbl = this.doc.createElement("label");
+	var lbl = document.createElement("label");
 	lbl.appendChild(ck);
-	var span = this.doc.createElement("span");
+	var span = document.createElement("span");
 	span.appendChild(document.createTextNode(text || (_(id) != id ? _(id)[0] : _(id)) ));
 	lbl.appendChild(span);
 	el.appendChild(lbl);
@@ -2779,8 +2778,8 @@ ScriptInstance.prototype.openPopup = function(w,h)
 	win["ytplayer"] = this.ytplayer;
 
 	//Copy CSS styles
-	var styles = this.doc.getElementsByTagName("style");
-	var links = this.doc.getElementsByTagName("link");
+	var styles = document.getElementsByTagName("style");
+	var links = document.getElementsByTagName("link");
 	var heads = win.document.getElementsByTagName("head");
 	for (var i=0; i<styles.length; i++) {
 		var node = styles[i].cloneNode(true);
@@ -2809,11 +2808,11 @@ ScriptInstance.prototype.openPopup = function(w,h)
 ScriptInstance.prototype.openAsPopup = function(w,h)
 {
 	//this.win.document.title = this.ytplayer.config.args.title;
-	var player = this.doc.querySelector('#player');
+	var player = document.querySelector('#player');
 	player.parentNode.removeChild(player);
 
-	//removeChildren(this.doc.body.querySelector('#body-container'));
-	var divs = this.doc.body.querySelectorAll('body > div');
+	//removeChildren(document.body.querySelector('#body-container'));
+	var divs = document.body.querySelectorAll('body > div');
 	for(var i=0;i<divs.length;i++)
 		removeChildren(divs[i]);
 	//TODO
@@ -2827,8 +2826,8 @@ ScriptInstance.prototype.openAsPopup = function(w,h)
 	this.addCSS("#mymovie-holder > div{display:table-cell}");
 	this.addCSS(".vlc_hid{display:none !important;}");
 
-	this.doc.body.appendChild(player);
-	this.doc.body.className = "";
+	document.body.appendChild(player);
+	document.body.className = "";
 	this.isPopup = true;
 	this.setPlayerSize();
 }
@@ -2842,13 +2841,13 @@ ScriptInstance.prototype.generateDOM = function(options)
 	var wide = gd(options, 'wide', true), fs = gd(options, 'fs', true), pause = gd(options, 'pause', true),
 		auto = gd(options, 'auto', true), dl = gd(options, 'dl', true), popup = gd(options, 'popup', this.busePopups);
 
-	var vlc = this.doc.createElement('div');
+	var vlc = document.createElement('div');
 	vlc.id = gMoviePlayerID;
 	vlc.className = "movie_player_vlc";
 
 	this.moviePlayer = vlc;
 
-	var holder = this.doc.createElement("div");
+	var holder = document.createElement("div");
 	holder.id = vlc_id + "-holder";
 	holder.className = "player-height";
 	/*if(options.userPage)
@@ -2860,7 +2859,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 	else*/
 		//set controls="yes" to show plugin's own controls by default
 	holder.innerHTML = '<div id="vlc-thumbnail"></div>';
-	var embedNode = this.doc.createElement("embed");
+	var embedNode = document.createElement("embed");
 	embedNode.setAttribute('type', "application/x-vlc-plugin");
 	embedNode.setAttribute('pluginspage', "http://www.videolan.org");
 	embedNode.setAttribute('version', "VideoLAN.VLCPlugin.2");
@@ -2876,7 +2875,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 
 	vlc.appendChild(holder);
 	//may not be there on first load
-	this.thumb = this.doc.querySelector("span[itemprop='thumbnail'] link[itemprop='url']");
+	this.thumb = document.querySelector("span[itemprop='thumbnail'] link[itemprop='url']");
 	var thumb = this.swf_args.iurlhq ? this.swf_args.iurlhq :
 			this.swf_args.iurlsd ? this.swf_args.iurlsd :
 			this.swf_args.iurlmq ? this.swf_args.iurlmq :
@@ -2904,23 +2903,23 @@ ScriptInstance.prototype.generateDOM = function(options)
 	//Abort now, needs too much changes to be usable
 	//if(options.upsell) return {dom: vlc, node: embedNode};
 
-	var controls = this.doc.createElement("div");
+	var controls = document.createElement("div");
 	this.elements.controls = controls;
 	{
 		controls.id = "vlc_controls_div";
 
 		var volbar;
 		//TODO finalize table layout; for dynamic seekbar width, bit weird padding
-		var cellClone, cell = this.doc.createElement("div");
+		var cellClone, cell = document.createElement("div");
 		cell.setAttribute('style', "display: table-cell;padding-left: 5px");
 
-		var sliders = this.doc.createElement("div");
+		var sliders = document.createElement("div");
 		{
 			sliders.id = vlc_id + "_controls";
 			sliders.className = "vlccontrols";
 
 			var el;
-			el = this.doc.createElement("div");
+			el = document.createElement("div");
 			el.className = "progress-radial";
 			el.id = "progress-radial";
 			el.title = _("BUFFERINDICATOR");
@@ -2928,7 +2927,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			cellClone.appendChild(el);
 			sliders.appendChild(cellClone);
 
-			el = this.doc.createElement("div");
+			el = document.createElement("div");
 			el.id = 'sbSeek';
 			el.className = 'vlc-scrollbar';
 			el.title = _("POSITION");
@@ -2941,7 +2940,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			cellClone.appendChild(el);
 			sliders.appendChild(cellClone);
 
-			volbar = this.doc.createElement("div");
+			volbar = document.createElement("div");
 			volbar.className = 'vlc-volume-holder';
 			volbar.title = _("VOLUME");
 			volbar.innerHTML = '<span class="yt-uix-button-content"><div id="sbVol" class="vlc-scrollbar"><div class="knob"/></div><span id="vlcvol" class="bar-text">0</span></span>';
@@ -2955,7 +2954,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 
 			if(this.bshowRate)
 			{
-				el = this.doc.createElement("div"); el.id = 'ratebar';
+				el = document.createElement("div"); el.id = 'ratebar';
 				el.className = 'vlc-scrollbar';
 				el.title = _("PLAYBACKRATE");
 				el.innerHTML = '<div class="knob"></div><span id="vlcrate" class="bar-text">1.0</span>';
@@ -2968,7 +2967,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		controls.appendChild(sliders);
 
 		/// Buttons
-		var buttons = this.doc.createElement("div");
+		var buttons = document.createElement("div");
 		{
 			buttons.id = "vlc_buttons_div";
 			buttons.appendChild(this._makeButton('_play', _("PLAY"), 'fa-play'));
@@ -3035,13 +3034,13 @@ ScriptInstance.prototype.generateDOM = function(options)
 		}
 
 		/// Format select
-		var _fmtsel = this.selectNode || this.doc.createElement("select");
+		var _fmtsel = this.selectNode || document.createElement("select");
 		_fmtsel.id = vlc_id + '_select';
 		_fmtsel.className = "yt-uix-button yt-uix-button-default";
 		buttons.appendChild(_fmtsel);
 
 		/// CC select
-		var ccsel = this.doc.createElement("select");
+		var ccsel = document.createElement("select");
 		{
 			ccsel.id = vlc_id + '_ccselect';
 			ccsel.className = "ccselect yt-uix-button yt-uix-button-default vlc_hidden";
@@ -3073,7 +3072,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		}
 
 		/// Download link
-		var link = this.doc.createElement("A");
+		var link = document.createElement("A");
 		{
 			link.id = "vlclink";
 			link.className = "yt-uix-button yt-uix-button-default"; //might confuse some
@@ -3093,7 +3092,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		///Watch on YT link
 		if(this.isEmbed)
 		{
-			var link = this.doc.createElement("A");
+			var link = document.createElement("A");
 			link.className = "yt-uix-button yt-uix-button-default";
 			link.setAttribute("href", "//" + this.win.location.hostname + "/watch?v=" + this.swf_args.video_id);
 			link.setAttribute("target", "_new");
@@ -3112,28 +3111,28 @@ ScriptInstance.prototype.generateDOM = function(options)
 
 	if(false && !this.isEmbed)
 	{
-		this.txt = this.doc.createElement("TEXTAREA");
+		this.txt = document.createElement("TEXTAREA");
 		this.txt.id = "vlc-dash-mpd";
 		controls.appendChild(this.txt);
 	}
 
 	//Configurator comes here
 	// appearance is kinda ugly :P
-	var config = this.doc.createElement("div");
+	var config = document.createElement("div");
 	{
 		config.id = "vlc-config";
-		var fmt = this.doc.createElement("div");
+		var fmt = document.createElement("div");
 		fmt.id = "vlc-config-formats";
 		fmt.title = _("DND");
 
 		var frmts_dirty = GM_getValue("vlc-formats", itagPrio.join(',')).split(',');
 		var frmts = cleanFormats(frmts_dirty);
 
-		var dragwrap = this.doc.createElement("div");
+		var dragwrap = document.createElement("div");
 		dragwrap.id = "vlc-config-drag";
 		for(var i in frmts)
 		{
-			var el = this.doc.createElement("div");
+			var el = document.createElement("div");
 			el.setAttribute("data", frmts[i]);
 			el.className = "row";
 			el.draggable = true;
@@ -3144,23 +3143,23 @@ ScriptInstance.prototype.generateDOM = function(options)
 		config.appendChild(fmt);
 
 		//Merge random configs into one div
-		var midcolumn = this.doc.createElement("div");
+		var midcolumn = document.createElement("div");
 		midcolumn.id = "vlc-config-midcol";
 		config.appendChild(midcolumn);
 
-		var langs = this.doc.createElement("div");
+		var langs = document.createElement("div");
 		{
 			langs.id = "vlc-config-lang";
 
-			var s = this.doc.createElement("span");
+			var s = document.createElement("span");
 			s.id = "vlc-config-lang-icon";
 			langs.appendChild(s);
-			var sel = this.doc.createElement("select");
+			var sel = document.createElement("select");
 			sel.id = vlc_id + '_lang_select';
 			sel.className = "yt-uix-button yt-uix-button-default";
 			for(var i in gLangs)
 			{
-				var opt = this.doc.createElement("option");
+				var opt = document.createElement("option");
 				opt.setAttribute("value", i);
 				opt.textContent = gLangs[i]['LANG'];
 				if(gLang == i) opt.selected = true;
@@ -3176,10 +3175,10 @@ ScriptInstance.prototype.generateDOM = function(options)
 		}
 
 		///Playback rate
-		el = this.doc.createElement("div");
+		el = document.createElement("div");
 		{
 			el.id = "vlc-config-rate-values";
-			var inp = this.doc.createElement("input");
+			var inp = document.createElement("input");
 			inp.value = tryParseFloat(GM_getValue('vlc-rate-min', '0.25'), 0.25);
 			inp.title = _("MINRATE");
 			inp.className = "tiny";
@@ -3190,7 +3189,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			}).bind(this), false);
 			el.appendChild(inp);
 
-			inp = this.doc.createElement("input");
+			inp = document.createElement("input");
 			inp.value = tryParseFloat(GM_getValue('vlc-rate-max', '2'), 2);
 			inp.title = _("MAXRATE");
 			inp.className = "tiny";
@@ -3202,16 +3201,16 @@ ScriptInstance.prototype.generateDOM = function(options)
 			el.appendChild(inp);
 
 			var lbl;
-			lbl = this.doc.createElement("div");
+			lbl = document.createElement("div");
 			lbl.innerHTML = _("PLAYBACKRATE") + "(min / max):";
 			midcolumn.appendChild(lbl);
 			midcolumn.appendChild(el);
 		}
 
-		el = this.doc.createElement("div");
+		el = document.createElement("div");
 		{
 			el.id = "vlc-config-rate-preset";
-			inp = this.doc.createElement("input");
+			inp = document.createElement("input");
 			inp.value = tryParseFloat(GM_getValue('vlc-rate-preset', '2'), 2);
 			inp.title = _("CUSTRATEPRESET");
 			inp.className = "tiny";
@@ -3223,24 +3222,24 @@ ScriptInstance.prototype.generateDOM = function(options)
 			el.appendChild(inp);
 
 			var lbl;
-			lbl = this.doc.createElement("div");
+			lbl = document.createElement("div");
 			lbl.innerHTML = _("PLAYBACKRATEPRESET") + ":";
 			midcolumn.appendChild(lbl);
 			midcolumn.appendChild(el);
 		}
 
 		///Repeat wait timeout
-		el = this.doc.createElement("div");
+		el = document.createElement("div");
 		{
 			el.id = "vlc-config-repeat";
-			var inp = this.doc.createElement("input");
+			var inp = document.createElement("input");
 			inp.value = tryParseFloat(GM_getValue('vlc-repeat-wait', "0"));
 			inp.title = _("vlc-config-repeat-wait")[1];
 			inp.className = "tiny";
 			inp.addEventListener('change', function(e){ GM_setValue('vlc-repeat-wait', e.target.value);}, false);
 
 			var lbl;
-			lbl = this.doc.createElement("div");
+			lbl = document.createElement("div");
 			lbl.innerHTML = _("vlc-config-repeat-wait")[0];
 			el.appendChild(lbl);
 			el.appendChild(inp);
@@ -3249,10 +3248,10 @@ ScriptInstance.prototype.generateDOM = function(options)
 		}
 
 		///Max volume
-		el = this.doc.createElement("div");
+		el = document.createElement("div");
 		{
 			el.id = "vlc-config-volume-max";
-			var inp = this.doc.createElement("input");
+			var inp = document.createElement("input");
 			inp.value = tryParseFloat(GM_getValue('vlc-volume-max', "100"), 100.0).toFixed(0);
 			inp.title = _("vlc-config-volume-max")[1];
 			inp.className = "tiny";
@@ -3264,7 +3263,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 				}).bind(this), false);
 
 			var lbl;
-			lbl = this.doc.createElement("div");
+			lbl = document.createElement("div");
 			lbl.innerHTML = _("vlc-config-volume-max")[0];
 			el.appendChild(lbl);
 			el.appendChild(inp);
@@ -3273,10 +3272,10 @@ ScriptInstance.prototype.generateDOM = function(options)
 		}
 
 		///Buffer length
-		el = this.doc.createElement("div");
+		el = document.createElement("div");
 		{
 			el.id = "vlc-config-cache";
-			var inp = this.doc.createElement("input");
+			var inp = document.createElement("input");
 			inp.value = tryParseFloat(GM_getValue('vlc-cache', "5"));
 			inp.title = _("vlc-config-cache")[1];
 			inp.className = "tiny";
@@ -3288,7 +3287,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 				}, false);
 
 			var lbl;
-			lbl = this.doc.createElement("div");
+			lbl = document.createElement("div");
 			lbl.innerHTML = _("vlc-config-cache")[0];
 			el.appendChild(lbl);
 			el.appendChild(inp);
@@ -3297,17 +3296,17 @@ ScriptInstance.prototype.generateDOM = function(options)
 		}
 
 		///Wide size
-		el = this.doc.createElement("div");
+		el = document.createElement("div");
 		{
 			el.id = "vlc-config-wide-width";
-			var inp = this.doc.createElement("input");
+			var inp = document.createElement("input");
 			inp.value = GM_getValue('vlc-wide-width', this.widthWide);
 			inp.title = _("vlc-config-wide-width")[1];
 			inp.className = "tiny";
 			inp.addEventListener('change', (function(e){ this.widthWide = e.target.value; GM_setValue('vlc-wide-width', e.target.value);}).bind(this), false);
 
 			var lbl;
-			lbl = this.doc.createElement("div");
+			lbl = document.createElement("div");
 			lbl.innerHTML = _("vlc-config-wide-width")[0];
 			el.appendChild(lbl);
 			el.appendChild(inp);
@@ -3316,10 +3315,10 @@ ScriptInstance.prototype.generateDOM = function(options)
 		}
 
 		///Subtitle alignment
-		el = this.doc.createElement("div");
+		el = document.createElement("div");
 		{
 			el.id = "vlc-config-subs-align";
-			var inp = this.doc.createElement("select");
+			var inp = document.createElement("select");
 			var arr = ["CENTER", "LEFT", "RIGHT", "TOP", "TOP-LEFT", "TOP-RIGHT", "BOTTOM", "BOTTOM-LEFT", "BOTTOM-RIGHT"];
 			arr.forEach(function(e)
 			{
@@ -3339,17 +3338,17 @@ ScriptInstance.prototype.generateDOM = function(options)
 			el.appendChild(inp);
 
 			var lbl;
-			lbl = this.doc.createElement("div");
+			lbl = document.createElement("div");
 			lbl.innerHTML = _("vlc-config-subs-align")[0] + ":";
 			midcolumn.appendChild(lbl);
 			midcolumn.appendChild(el);
 		}
 
 		///Subtitle color
-		el = this.doc.createElement("div");
+		el = document.createElement("div");
 		{
 			el.id = "vlc-config-subs-color";
-			var inp = this.doc.createElement("input");
+			var inp = document.createElement("input");
 
 			var SetColors = function(el, hex)
 			{
@@ -3377,14 +3376,14 @@ ScriptInstance.prototype.generateDOM = function(options)
 			el.appendChild(inp);
 
 			var lbl;
-			lbl = this.doc.createElement("div");
+			lbl = document.createElement("div");
 			lbl.innerHTML = _("vlc-config-subs-color")[0] + ":";
 			midcolumn.appendChild(lbl);
 			midcolumn.appendChild(el);
 		}
 
 		// Floating checkboxes look nasty and don't play nicely with language selector
-		var chkboxes = this.doc.createElement("div");
+		var chkboxes = document.createElement("div");
 		chkboxes.id = "vlc-config-checkboxes";
 		/// Autoplay button
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-autoplay", 'bautoplay'));
@@ -3428,7 +3427,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 	//TODO Caveat is that controls don't get updated when hidden so prepare for inconsistencies
 	if(this.buseHoverControls && this.isEmbed)
 	{
-		spacer = this.doc.createElement("div");
+		spacer = document.createElement("div");
 		spacer.id = "vlc-spacer";
 		spacer.style.height = "15px";
 		//spacer.style.background = "rgb(175,43,38)";//YT red
@@ -3452,10 +3451,10 @@ ScriptInstance.prototype.generateDOM = function(options)
 	}
 
 	// window.matchMedia()
-	var mediaEvents = this.doc.createElement('div');
+	var mediaEvents = document.createElement('div');
 	mediaEvents.className = "vlc-media-event-detector";
 	mediaEvents.addEventListener('animationstart', dispatchMEvent.bind(this), false);
-	this.doc.body.appendChild(mediaEvents);
+	document.body.appendChild(mediaEvents);
 
 	return {dom: vlc, node: embedNode};
 }
@@ -3465,7 +3464,7 @@ ScriptInstance.prototype.makeDraggable = function() {
 
 	var that = this;
 	var id_ = 'vlc-config-formats';
-	var cols_ = this.doc.querySelectorAll('#' + id_ + ' .row');
+	var cols_ = document.querySelectorAll('#' + id_ + ' .row');
 	var dragSrcEl_ = null;
 	this.handleDragStart = function (e) {
 		e.dataTransfer.effectAllowed = 'move';
@@ -3665,11 +3664,11 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 
 ScriptInstance.prototype.genUrlSelect = function()
 {
-	this.selectNode = this.selectNode || this.$(vlc_id+"_select") || this.doc.createElement('select');
+	this.selectNode = this.selectNode || this.$(vlc_id+"_select") || document.createElement('select');
 	removeChildren(this.selectNode, true);
 
 	var map = function(item){
-		var option = this.doc.createElement("option");
+		var option = document.createElement("option");
 		option.setAttribute("name",  item.name);
 		option.setAttribute("value", item.url);
 		option.textContent = item.text;
@@ -3732,7 +3731,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 	var that = this;
 	var userPage = /^\/user\/|^\/channel\//.test(this.win.location.pathname);
 	var watchPage = /^\/watch/.test(this.win.location.pathname);
-	if(!spfNav /*|| (!upsell && this.doc.querySelector("#movie_player"))*/)
+	if(!spfNav /*|| (!upsell && document.querySelector("#movie_player"))*/)
 	{
 		if(!this.getStreams(watchPage))
 			return;
@@ -3778,7 +3777,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 	if(this.bscrollToPlayer) this.player.scrollIntoView(true);
 	//if(!this.isEmbed) this.generateMPD();
 
-	var plbtn = this.doc.querySelector('div.playlist-nav-controls button.toggle-autoplay');
+	var plbtn = document.querySelector('div.playlist-nav-controls button.toggle-autoplay');
 
 	if(plbtn)
 	{
@@ -3806,7 +3805,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 	this.setSideBar(this.isWide);
 	this.qualityLevels = [];
 	//TODO remove this
-	var wlspan = this.doc.querySelector('#vlc-watchlater-btn span');
+	var wlspan = document.querySelector('#vlc-watchlater-btn span');
 	if(wlspan){
 		wlspan.classList.remove('vlc-wl-state');
 		wlspan.classList.remove('vlc-ok-bg');
@@ -3849,8 +3848,8 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 						this.swf_args.iurlsd ? this.swf_args.iurlsd :
 						this.swf_args.iurlmq ? this.swf_args.iurlmq :
 						this.swf_args.iurl;
-			var tn = this.elements.thumbnail || this.doc.querySelector("#vlc-thumbnail");
-			var tn2 = this.elements.holder || this.doc.querySelector("#" + vlc_id + "-holder");
+			var tn = this.elements.thumbnail || document.querySelector("#vlc-thumbnail");
+			var tn2 = this.elements.holder || document.querySelector("#" + vlc_id + "-holder");
 			if(thumb && this.buseThumbnail)
 			{
 				tn.classList.remove("vlc_hidden");//new video probably
@@ -3941,9 +3940,9 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 				var title = that.$$('html5-title');
 				if(title.length)
 				{
-					el = that.doc.createElement("SPAN");
+					el = document.createElement("SPAN");
 					el.innerHTML = unescape(param_map["reason"]).replace(/\+/g,' ');
-					title[0].appendChild(that.doc.createTextNode(" - "));
+					title[0].appendChild(document.createTextNode(" - "));
 					title[0].appendChild(el);
 				}
 				return;
@@ -3956,7 +3955,7 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 
 			//set global width/height before generation
 			that.width = "100%";
-			that.height = that.doc.body.clientHeight;
+			that.height = document.body.clientHeight;
 			removeChildren(that.player, true);
 			function insertPlayer() {
 				var vlcNode = that.generateDOM({wide:false, dl:false});
@@ -4032,11 +4031,11 @@ ScriptInstance.prototype.onEmbedPage = function()
 			this.swf_args.iurlmq ? this.swf_args.iurlmq :
 			this.swf_args.iurl;
 
-	if(this.doc.body.clientWidth > 800)
+	if(document.body.clientWidth > 800)
 		thumb = this.swf_args.iurlhq ? this.swf_args.iurlhq : thumb;
 
 	// iurlmaxres with 4k video though... maybe too much
-	if(this.doc.body.clientWidth > 1200)
+	if(document.body.clientWidth > 1200)
 		thumb = this.swf_args.iurlmaxres ? this.swf_args.iurlmaxres : thumb;
 
 	this.$('player').innerHTML = '<div id="cued-embed" title="Click to play." style="cursor:pointer">\
@@ -4064,7 +4063,7 @@ ScriptInstance.prototype.setupStoryboard = function()
 	if(this.storyboard)
 		this.sbPos.unregister(this.storyboard);
 	this.storyboard = null;
-	el = this.doc.querySelector('#vlc-sb-tooltip');
+	el = document.querySelector('#vlc-sb-tooltip');
 	//hide/reset
 	el.style.backgroundImage = '';
 	el.classList.add('hid');
