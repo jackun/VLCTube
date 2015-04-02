@@ -1221,7 +1221,7 @@ VLCObj.prototype = {
 		play.querySelector('span').innerHTML = isPlaying ? _("PAUSE") : _("PLAY");
 		play.title = isPlaying ? _("PAUSE") : _("PLAY");
 	},
-	setMarqueeColor(color)
+	setMarqueeColor: function(color)
 	{
 		if(typeof(color) === 'string')
 			color = parseInt(color, 16);
