@@ -4154,6 +4154,7 @@ ScriptInstance.prototype.SetupAPI = function()
 	this.fakeApiNode.setVolume = function(e){that.myvlc.setVolume(e);}
 	this.fakeApiNode.isMuted = function(){return false;}
 	this.fakeApiNode.isReady = function(){return false;}
+	this.fakeApiNode.getCurrentVideoConfig = function(){return null;}
 	this.fakeApiNode.getPlayerState = function(){
 		if(!that.myvlc.input) return 0;
 		switch(that.myvlc.input.state){
