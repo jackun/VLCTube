@@ -109,6 +109,8 @@ var gLangs = {
 		'vlc-config-cust-speed-preset' : ['Show custom speed preset button', ''],
 		'vlc-config-subs-align' : ['Subtitle alignment', ''],
 		'vlc-config-subs-color' : ['Subtitle color', 'In hexadecimal form (RRGGBB).'],
+		'vlc-config-music-mode' : ['Music player mode', 'Add some player buttons to masthead and keep VLC playing while browsing. NB!: Refresh page if enabled.'],
+		'CURRVIDEO': 'Current video',
 		},
 	"et": {
 		'LANG'  : 'Eesti',
@@ -876,9 +878,9 @@ ccTimer.prototype =
 	setCC : function(offset, time, vlc)
 	{
 
-		vlc.video.marquee.disable();//brute forcing, sometimes it fails to show
-		vlc.video.marquee.enable();
-		//Hmm no likey unicode ???
+		//vlc.video.marquee.disable();//brute forcing, sometimes it fails to show
+		//vlc.video.marquee.enable();
+
 		vlc.video.marquee.text = this._unescape(this.ccObj.childNodes[offset].innerHTML);
 		vlc.video.marquee.timeout = 1000 * this.getDur(offset);
 
@@ -1088,9 +1090,10 @@ VLCObj.prototype = {
 	},
 	_setupEvent: function(id, fn)
 	{
-		var btn = this._getBtn(id);
-		if(btn)
+		var btns = document.querySelectorAll("#"+id);
+		[].forEach.call(btns, function(btn) {
 			btn.addEventListener('click', fn, true);
+		});
 	},
 	initVLC: function (node, sbPos, sbVol, sbRate){
 		this.vlc = node ? node : this.$(vlc_id);
@@ -1205,16 +1208,17 @@ VLCObj.prototype = {
 		this.stateUpdate(); //initial update
 	},
 	togglePlayButton: function(isPlaying) {
-		var play = this._getBtn("_play");
-		if(!play) return;
-		var inline = play.querySelector('i');
-		if(inline) {
-			inline.classList.remove('fa-play');
-			inline.classList.remove('fa-pause');
-			inline.classList.add(isPlaying ? 'fa-pause' : 'fa-play');
-		}
-		play.querySelector('span').innerHTML = isPlaying ? _("PAUSE") : _("PLAY");
-		play.title = isPlaying ? _("PAUSE") : _("PLAY");
+		var btns = document.querySelectorAll("#_play");
+		[].forEach.call(btns, function(btn) {
+			var inline = btn.querySelector('i');
+			if(inline) {
+				inline.classList.remove('fa-play');
+				inline.classList.remove('fa-pause');
+				inline.classList.add(isPlaying ? 'fa-pause' : 'fa-play');
+			}
+			btn.querySelector('span').innerHTML = isPlaying ? _("PAUSE") : _("PLAY");
+			btn.title = isPlaying ? _("PAUSE") : _("PLAY");
+		});
 	},
 	setMarqueeColor: function(color)
 	{
@@ -1664,10 +1668,10 @@ function ScriptInstance(win)
 ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 {
 	this.widthWide = GM_getValue('vlc-wide-width', '86%'); //854; //Supports plain numbers as pixels or string as percentages
+	this.initVars();
 	this.isPopup = popup;
 	//Is on embedded iframe page?
 	this.isEmbed = this.win.location.pathname.match(/\/embed\//i);
-	this.initVars();
 
 	//Hijack 'getElementById' so YT js can do its job and also not overwrite vlc with flash again.
 	//FIXME but srsly something less intrusive maybe
@@ -1716,7 +1720,8 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 	yt.pubsub.instance_.subscribe('navigate', (function() {
 		//console.log("navigate");
 		this.navigating = true;
-		this.myvlc.stopVideo();
+		if(!this.bmusicMode)
+			this.myvlc.stopVideo();
 	}).bind(this));
 
 	yt.pubsub.instance_.subscribe('init', (function() {
@@ -1788,6 +1793,7 @@ ScriptInstance.prototype.initVars = function(){
 	this.setDefault("bautoSubEnable", false);
 	this.setDefault("bbtnIcons", true);
 	this.setDefault("bcustomWide", false);
+	this.setDefault("bmusicMode", false);
 }
 
 /// Helpers
@@ -2061,9 +2067,9 @@ ScriptInstance.prototype.putCSS = function(){
 	#sbSeek:active #vlc-sb-tooltip.hid, .knob:active #vlc-sb-tooltip.hid { display:none; }\
 	/*#sbSeek:active {border: 2px dashed red;}*//*wtf, .knob make active, #vlctime doesn't */\
 	#vlc-sb-tooltip:before {border: 7px solid transparent;border-bottom: 7px solid #000;content: '';display: inline-block;left: 45%; position: absolute; top: -14px;}\
-	#vlc_buttons_div {text-align:left; padding: 0 5px; color:#333333; clear:both;}\
-	#vlc_buttons_div button, #vlc_buttons_div select { margin-right: 2px;}\
-	#vlc_buttons_div input[type='checkbox']{vertical-align: middle;}\
+	.vlc_buttons_div {text-align:left; padding: 0 5px; color:#333333; clear:both;}\
+	.vlc_buttons_div button, .vlc_buttons_div select { margin-right: 2px;}\
+	.vlc_buttons_div input[type='checkbox']{vertical-align: middle;}\
 	#watch7-playlist-tray { border-bottom: 1px solid #1B1B1B !important;}\
 	#vlcstate {text-align:left; display: inline-block; width: 50px;}\
 	#vlc-config .row { padding: 5px 0; border-bottom: 1px dotted #CCC; text-align: center; cursor: move; }\
@@ -2127,9 +2133,9 @@ ScriptInstance.prototype.putCSS = function(){
 	//blurry shadow was assome
 	this.addCSS(".yt-uix-button:focus, .yt-uix-button:focus:hover, .yt-uix-button-focused, .yt-uix-button-focused:hover {box-shadow: 0 0 2px 1px rgba(27, 127, 204, 0.4); border: 1px solid rgba(27, 127, 204, 0.7);}");
 	//Optional button style: Make it round
-	this.addCSS("#vlc_buttons_div .yt-uix-button {border-radius: 0; margin: 0;} \
-				#vlc_buttons_div .yt-uix-button:first-child {border-radius: 5px 0 0 5px;} \
-				#vlc_buttons_div .yt-uix-button:last-child {border-radius: 0 5px 5px 0;}");
+	this.addCSS(".vlc_buttons_div .yt-uix-button {border-radius: 0; margin: 0;} \
+				.vlc_buttons_div .yt-uix-button:first-child {border-radius: 5px 0 0 5px;} \
+				.vlc_buttons_div .yt-uix-button:last-child {border-radius: 0 5px 5px 0;}");
 
 	/* configuration div to be more like a drop-down menu */
 	if(this.bconfigDropdown)
@@ -2848,12 +2854,12 @@ ScriptInstance.prototype.generateDOM = function(options)
 			holder.style.width = holder.style.height = '100%';
 	}
 	else*/
-		//set controls="yes" to show plugin's own controls by default
 	holder.innerHTML = '<div id="vlc-thumbnail"></div>';
 	var embedNode = document.createElement("embed");
 	embedNode.setAttribute('type', "application/x-vlc-plugin");
 	embedNode.setAttribute('pluginspage', "http://www.videolan.org");
 	embedNode.setAttribute('version', "VideoLAN.VLCPlugin.2");
+	//set controls="yes" to show plugin's own controls by default
 	embedNode.setAttribute('controls', "no");
 	embedNode.setAttribute('autoplay', "no");
 	embedNode.setAttribute('width', "100%");
@@ -2960,7 +2966,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		/// Buttons
 		var buttons = document.createElement("div");
 		{
-			buttons.id = "vlc_buttons_div";
+			buttons.className = "vlc_buttons_div";
 			buttons.appendChild(this._makeButton('_play', _("PLAY"), 'fa-play'));
 			//if(pause) buttons.appendChild(this._makeButton('_pause', "Pause"));
 			buttons.appendChild(this._makeButton('_stop', _("STOP"), 'fa-stop'));
@@ -2971,6 +2977,21 @@ ScriptInstance.prototype.generateDOM = function(options)
 				var pop_pop = this._makeButton('_popup', _("POPUP"), 'fa-external-link');
 				pop_pop.addEventListener('click', this.openPopup.bind(this), false);
 				buttons.appendChild(pop_pop);
+			}
+
+			var masthead;
+			if(this.bmusicMode && 
+				(masthead = document.querySelector('#yt-masthead-user') ||
+					document.querySelector('#yt-masthead-signin')))
+			{
+				var clone = buttons.cloneNode(true);
+				clone.style.display = "inline-block";
+				var el = this._makeButton('_cv', _("CURRVIDEO"), 'fa-youtube');
+				el.addEventListener('click', (function(){
+					spf.navigate(this._current_video_page);
+				}).bind(this), false);
+				clone.appendChild(el);
+				masthead.insertBefore(clone, masthead.firstChild);
 			}
 
 			if(this.bcompactVolume)
@@ -3410,6 +3431,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-subs-on", 'bautoSubEnable'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-btn-icons", 'bbtnIcons'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-custom-wide", 'bcustomWide'));
+		chkboxes.appendChild(this._makeCheckbox("vlc-config-music-mode", 'bmusicMode'));
 		config.appendChild(chkboxes);
 
 	}
@@ -3717,10 +3739,26 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 	var that = this;
 	var userPage = /^\/user\/|^\/channel\//.test(this.win.location.pathname);
 	var watchPage = /^\/watch/.test(this.win.location.pathname);
+
+	if(!this.getStreams(watchPage))
+		return;
+
+	if(spfNav && this.bmusicMode &&
+		this.swf_args && this.swf_args.video_id &&
+			(this.swf_args.video_id == this._current_video_id))
+	{
+		this.setPlayerSize(this.isWide);
+		this.setSideBar(this.isWide);
+		return;
+	}
+
+	//FIXME ytspf appears too late
+	//this.bmusicMode = this.bmusicMode && ytspf.enabled;
+
 	if(!spfNav /*|| (!upsell && document.querySelector("#movie_player"))*/)
 	{
-		if(!this.getStreams(watchPage))
-			return;
+		//if(!this.getStreams(watchPage))
+		//	return;
 
 		//FIXME Already removed, but html5 player element doesn't get the hint
 		if(oldNode)
@@ -3740,8 +3778,6 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 			return;
 		}
 
-		//this.player.innerHTML="";
-		//this.player.classList.remove('player-width');
 		this.player.classList.remove('player-height');
 		this.player.id = upsell ? 'upsell-video-vlc' : gPlayerApiID /*+"-vlc"*/; //Use youtube CSS and also so that JS would work
 
@@ -3780,7 +3816,6 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 		plbtn.addEventListener('click', togglePLNext, false);
 	}
 
-	//this.restoreVolume();//eventPlaying should, but sometimes doesn't???
 	this.$(vlc_id+'_ccselect').classList.add('vlc_hidden');
 	this.myvlc.ccObj = null;
 	//too much flipping between vlc, old thumbnail, new thumbnail
@@ -3825,8 +3860,8 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 		if(!this.isPopup && !watchPage) return;
 		if(spfNav)
 		{
-			if(!this.getStreams(watchPage))
-				return;
+			//if(!this.getStreams(watchPage))
+			//	return;
 
 			this.genUrlSelect();
 
@@ -3853,6 +3888,8 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 
 		this.$('player-api').style.overflow = "";
 		//this.setThumbnailVisible(true);
+		this._current_video_id = this.swf_args.video_id;
+		this._current_video_page = window.location.href;
 		this.myvlc.stopVideo();
 		this.initialAddToPlaylist();
 		this.doViewTracking();
@@ -4115,8 +4152,10 @@ ScriptInstance.prototype.setupVLC = function(vlcNode)
 	if(!this.isEmbed)
 	{
 		this.win.addEventListener('hashchange', this.onHashChange.bind(this), false);
-		if(this.$('_wide'))
-			this.$('_wide').addEventListener('click', this.onWideClick.bind(this), false);
+		var fun = this.onWideClick.bind(this);
+		[].forEach.call(document.querySelectorAll('#_wide'), function(btn) {
+			btn.addEventListener('click', fun, false);
+		});
 	}
 
 	this.playerEvents = new CustomEvent();
@@ -4139,7 +4178,7 @@ ScriptInstance.prototype.SetupAPI = function()
 	this.fakeApiNode.seekTo = function(e){that.myvlc._seekTo(e);}
 	this.fakeApiNode.pauseVideo = function(){that.myvlc.pauseVideo();}
 	this.fakeApiNode.playVideo = function(){that.myvlc.playVideo();}
-	this.fakeApiNode.stopVideo = function(){that.myvlc.stopVideo();}
+	this.fakeApiNode.stopVideo = function(){if(!that.bmusicMode) that.myvlc.stopVideo();}
 	this.fakeApiNode.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
 	this.fakeApiNode.getDuration = function(){return that.myvlc.getDuration();}
 	this.fakeApiNode.getAvailableQualityLevels = function(){return that.myvlc.getAvailableQualityLevels();}
@@ -4447,8 +4486,9 @@ function loadDefaults()
 		'bdiscardFLVs', 'bembedControls', 'bforceLoadEmbed', 'bforceWS',
 		'bforceWide', 'bforceWidePL', 'bjumpTS', 'bpopupAutoplay',
 		'bpopupSeparate', 'bresumePlay', 'bscrollToPlayer', 'bshowMute',
-		'bshowRate', 'bshowRatePreset', 'bshowWLOnMain', 'buseFallbackHost', 'buseHoverControls',
-		'busePopups', 'buseRepeat', 'buseThumbnail', 'buseWidePosBar',
+		'bshowRate', 'bshowRatePreset', 'bshowWLOnMain', 'buseFallbackHost',
+		'buseHoverControls', 'busePopups', 'buseRepeat', 'buseThumbnail',
+		'buseWidePosBar', 'bmusicMode',
 		'vlc-formats', 'vlc-lang', 'vlc-pl-autonext', 'vlc-rate-max',
 		'vlc-rate-min', 'vlc-volume-max', 'vlc-wide', 'vlc-wide-width',
 		'vlc-cache', 'vlc_vol', 'ytquality', 'vlc-subs-align', 'vlc-subs-color'];
