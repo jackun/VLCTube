@@ -734,15 +734,17 @@ ScrollBar.prototype = {
 		this.userSeeking = true;
 		this.off = 0;
 		var node = this.bar;
+		var horizontal = (this.type % 2 == 0);
 		while(node.offsetParent)	// bar's position is relative so loop through parent nodes
 		{							// maybe there's some better tricks
-			this.off += node.offsetLeft;
+			this.off += horizontal ? node.offsetLeft : node.offsetTop;
 			node = node.offsetParent;
 		}
 		if(this.type == 0)
 			this.knob.style.left = ev.pageX - this.off - this.knob.clientWidth / 2 + "px";
 		else if(this.type == 1)
 			this.knob.style.top = ev.pageY - this.off - this.knob.clientHeight / 2 + "px";
+
 		//Simulate events
 		this.mouseDown(ev);
 		this.mouseMove(ev);
@@ -2016,6 +2018,7 @@ ScriptInstance.prototype.putCSS = function(){
 	var css = ".player-api {overflow: visible;} /*for storyboard tooltip*/\
 	#"+ vlc_id + "-holder {overflow: hidden;}\
 	#movie_player * {transition: 100ms;} \
+	#movie_player .vlc-volume-holder * {transition: 0ms; } \
 	#cued-embed #video-title {position: absolute; left: 5px; top: 5px; background: rgba(0,0,0,0.75); z-index: 1;} \
 	.movie_player_vlc { background: white; height:100%; position:relative;}\
 	.movie_player_vlc select {padding: 5px 0;}\
@@ -2024,12 +2027,13 @@ ScriptInstance.prototype.putCSS = function(){
 	.vlc_hid { display:none; }\
 	.vlccontrols {padding:2px 5px; color: #333333;display: table}\
 	/*.vlccontrols div {margin-right:5px; }*/\
-	.vlc-scrollbar {cursor: default;position: relative;width: 90%;height: 15px;border: 1px solid rgba(126, 182, 226, 0.25);display: inline-block;text-align: center;\
-		/*margin-right: 5px;*/border-radius: 3px;background: #FFF; color: #444;\
+	.vlc-scrollbar {cursor: default;position: relative;width: 90%;height: 18px;border: 1px solid rgba(126, 182, 226, 0.25);display: inline-block;text-align: center;\
+		margin-right: 5px; border-radius: 3px;background: #FFF; color: #444;\
 		/*background: radial-gradient(ellipse at 50% 50% , rgba(27,127,204,0.25), rgba(255, 255, 255, 0.1) 90%);*/\
-		text-shadow: 1px 1px 1px #FFF;}\
+		text-shadow: 1px 1px 1px #FFF; line-height: 18px;}\
+	.vlc-scrollbar:last-child { margin-right: 0;} \
 	#sbVol { width: 80px; } #ratebar { width: 150px; } \
-	.vlc-scrollbar .knob {left:-1px;top:-1px;position:absolute;width:7px;height:15px;\
+	.vlc-scrollbar .knob {left:-1px;top:-1px;position:absolute;width:0px;height:18px;\
 		/*background:rgba(27,127,204,0.5);*/\
 		background:linear-gradient(to right, rgba(27,127,204,0), rgba(27,127,204,0.5)); \
 		border:1px solid rgba(27,127,204,0.7); box-shadow:0px 0px 3px rgba(27,127,204,0.7);}\
@@ -2100,6 +2104,10 @@ ScriptInstance.prototype.putCSS = function(){
 	input.tiny { width: 45px; } \
 	#vlc-config-midcol div { padding-bottom: 5px;}\
 	#vlc_controls_div { /*border: 1px solid rgba(0, 0, 0, 0.098); border-top: 0;*/ width:100%;}\
+	/* flexy elements */ \
+	.vlc-flex-container { display:flex; flex-direction: row; flex-wrap: nowrap; justify-content: flex-start; align-content: flex-start; align-items: flex-start; }\
+	.vlc-flex-grow { flex-grow: 1; flex-shrink: 0; } \
+	.vlc-flex-basis-100 { flex-basis: 100px; } \
 	#vlc-spacer #vlc_controls_div { display:none; }\
 	#vlc-spacer:hover #vlc_controls_div { display:block; }\
 	#vlc-spacer { background-image: linear-gradient(bottom, rgb(175,42,38) 50%, rgb(0,0,0) 100%);\
@@ -2110,9 +2118,9 @@ ScriptInstance.prototype.putCSS = function(){
 
 	if(this.bcompactVolume)
 	{
-		this.addCSS("#sbVol { position: relative; top: -65px; width: 100%; height: 80px; display: none; }\
+		this.addCSS("#sbVol { position: relative; top: -65px; width: calc(100% - 2px); height: 80px; display: none; }\
 			#sbVol .knob {width: 100%; left: 0px;} \
-			.vlc-volume-holder { margin-right: 2px; height: 26.25px; /* hm otherwise 2px higher than buttons */}\
+			.vlc-volume-holder { display: inline-block; margin-right: 2px; height: 26.25px; /* hm otherwise 2px higher than buttons */}\
 			.vlc-volume-holder > span { \
 			/* Faenza 16px audio-volume-medium.png */ \
 			background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAIWSURBVDiNpZM/aFNRFIe/k/ceRWqymfqyhIYMWsqrVGPAJQpditKhYDJKt24d6ya2kxQ7lgx2S0DCGwNODkKlCCIS6tTSxTYxpFZMyZ9H+jwu70ms7VC8cIZzz7nf/d17zhFV5X9W5DLJInJNRKaG98wLcg3AH/Kv7+7uJoGrwBURqatqCwBVPWsJVZ0K/aOjoxtjY2MV27Zf5/P5CeAR8ACIqOo/T7DHx8dfBMoiW1tbuWq1+rDVaqUbjUbacZw7hmH8BEYBO1QQUVVHVTOpVGoT+Kiqd4vFYt40zfcLCwvrs7Oz68DbZDL5anp6ejJQcTNUMGma5qaIlPf39yeAJkCpVMqcnp52K5VKslAoHAL94+Nj5ufnQ9WxsAqW7/vfgB2gAXiAv7Ky8gU46fV6Zi6X8wCv2+1G5+bmrGFAWIWTs2XY29vzgP7IyIjX6XR8oG9ZVm8wGPyVFwEGtm3/CG4OzSoWi7cAL5vNfi+VSjHAS6fTTdd1Q0I7BOzU6/XPqlpbXV39GgDMxcXFw2g02l5aWuq4rhsHPMdx2uVy2R8GnO2Be2tra89V9baq2gcHB09d130mImXTNF/WarUnhmHkgiokVBU5ZxayQCf41NHt7e37y8vLmZmZmUGz2XyzsbGRCOLvVPXXeQAAAcKA5Xne43a73Y/H4x3AAj6ErXwR4DygiEgKiKnqpz+By46ziIgOHfoN2CIPv8Rm1e4AAAAASUVORK5CYII=') no-repeat scroll 50% 50%; \
@@ -2906,47 +2914,41 @@ ScriptInstance.prototype.generateDOM = function(options)
 		controls.id = "vlc_controls_div";
 
 		var volbar;
-		//TODO finalize table layout; for dynamic seekbar width, bit weird padding
-		var cellClone, cell = document.createElement("div");
-		cell.setAttribute('style', "display: table-cell;padding-left: 5px");
 
 		var sliders = document.createElement("div");
 		{
 			sliders.id = vlc_id + "_controls";
-			sliders.className = "vlccontrols";
+			sliders.className = "vlccontrols vlc-flex-container";
 
 			var el;
 			el = document.createElement("div");
 			el.className = "progress-radial";
 			el.id = "progress-radial";
 			el.title = _("BUFFERINDICATOR");
-			cellClone = cell.cloneNode();
-			cellClone.appendChild(el);
-			sliders.appendChild(cellClone);
+			sliders.appendChild(el);
 
 			el = document.createElement("div");
 			el.id = 'sbSeek';
-			el.className = 'vlc-scrollbar';
+			el.className = 'vlc-scrollbar vlc-flex-grow vlc-flex-basis-100';
 			el.title = _("POSITION");
-			el.setAttribute('style', "width:100%;");
 			if(this.bembedControls && this.isEmbed)
 				el.classList.add('sb-narrow');
 			el.innerHTML = '<div class="knob"><div id="vlc-sb-tooltip"></div></div><div id="vlctime" class="bar-text">00:00/00:00</div>';
-			cellClone = cell.cloneNode();
-			cellClone.setAttribute('style', "display: table-cell; width:100%;min-width:100px;padding: 0 2px");
-			cellClone.appendChild(el);
-			sliders.appendChild(cellClone);
+			sliders.appendChild(el);
 
 			volbar = document.createElement("div");
-			volbar.className = 'vlc-volume-holder';
 			volbar.title = _("VOLUME");
-			volbar.innerHTML = '<span class="yt-uix-button-content"><div id="sbVol" class="vlc-scrollbar"><div class="knob"/></div><span id="vlcvol" class="bar-text">0</span></span>';
-
 			if(!this.bcompactVolume && (!this.buseWidePosBar || this.isEmbed))
 			{
-				cellClone = cell.cloneNode();
-				cellClone.appendChild(volbar);
-				sliders.appendChild(cellClone);
+				volbar.id = 'sbVol';
+				volbar.className = 'vlc-scrollbar';
+				volbar.innerHTML = '<div class="knob"/></div><div id="vlcvol" class="bar-text">0</div>';
+				sliders.appendChild(volbar);
+			}
+			else
+			{
+				volbar.className = 'vlc-volume-holder';
+				volbar.innerHTML = '<span class="yt-uix-button-content"><div id="sbVol" class="vlc-scrollbar"><div class="knob"/></div><span id="vlcvol" class="bar-text">0</span></span>';
 			}
 
 			if(this.bshowRate)
@@ -2955,9 +2957,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 				el.className = 'vlc-scrollbar';
 				el.title = _("PLAYBACKRATE");
 				el.innerHTML = '<div class="knob"></div><span id="vlcrate" class="bar-text">1.0</span>';
-				cellClone = cell.cloneNode();
-				cellClone.appendChild(el);
-				sliders.appendChild(cellClone);
+				sliders.appendChild(el);
 			}
 		}
 
