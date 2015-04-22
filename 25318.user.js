@@ -32,7 +32,6 @@ var VLCTube = function (){
 var gPlayerApiID = 'player-api';//-legacy';
 var gPlayerID = 'player';//-legacy';
 var gMoviePlayerID = 'movie_player'; ///< Change to something else if flash/html5 player keeps overwriting VLC player
-var vsTxt = false;
 var stateUpdateFreq = 250;// 250ms
 var vlc_id = 'mymovie';
 var VLC_status = ["Idle", "Opening", "Buffering", "Playing", "Paused", "Stopped", "ended", "Error"];
@@ -1279,7 +1278,6 @@ VLCObj.prototype = {
 		this.instance.setThumbnailVisible(true);
 		if(this.vlc && this.vlc.audio /*&& this.vlc.audio.volume > 100*/ && !this.instance.buseRepeat)
 			this.instance.restoreVolume(true);
-		vsTxt = false;
 		this.clearUpdate();
 		this.instance.playerEvents.fire('onStateChange', this.instance.moviePlayer, 0);
 		this.toggleMute();
@@ -1354,7 +1352,6 @@ VLCObj.prototype = {
 		//}
 
 		var id = this.vlc.playlist.add(src, 'muuvi', options);
-		vsTxt = false;
 
 		if(this.instance.fmtChanged || // user changed format
 			this.instance.canAutoplay()) //on embedded, ignore autoplay
