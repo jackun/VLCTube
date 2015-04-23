@@ -2029,13 +2029,13 @@ ScriptInstance.prototype.putCSS = function(){
 		/*background: radial-gradient(ellipse at 50% 50% , rgba(27,127,204,0.25), rgba(255, 255, 255, 0.1) 90%);*/\
 		text-shadow: 1px 1px 1px #FFF; line-height: 18px;}\
 	.vlc-scrollbar:last-child { margin-right: 0;} \
-	#sbVol { width: 80px; } #ratebar { width: 150px; } \
+	#sbVol { width: 80px; } #sbRate { width: 150px; } \
 	.vlc-scrollbar .knob {left:-1px;top:-1px;position:absolute;width:0px;height:18px;\
 		/*background:rgba(27,127,204,0.5);*/\
 		background:linear-gradient(to right, rgba(27,127,204,0), rgba(27,127,204,0.5)); \
 		border:1px solid rgba(27,127,204,0.7); box-shadow:0px 0px 3px rgba(27,127,204,0.7);}\
 	/*#sbVol .knob {background: rgba(0,51,153,0.8);}\
-	#ratebar .knob {background: rgba(0,153,51,0.8);}*/\
+	#sbRate .knob {background: rgba(0,153,51,0.8);}*/\
 	.sb-narrow { width: 125px; }\
 	.vlc-volume-holder { display:inline-block; } \
 	#vlcvol:after {content: '%';}\
@@ -2950,7 +2950,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 
 			if(this.bshowRate)
 			{
-				el = document.createElement("div"); el.id = 'ratebar';
+				el = document.createElement("div"); el.id = 'sbRate';
 				el.className = 'vlc-scrollbar';
 				el.title = _("PLAYBACKRATE");
 				el.innerHTML = '<div class="knob"></div><span id="vlcrate" class="bar-text">1.0</span>';
@@ -4132,11 +4132,11 @@ ScriptInstance.prototype.setupVLC = function(vlcNode)
 	if(this.bshowRate)
 	{
 		this.sbRate = new ScrollBar(this);
-		//sbRate.init('#ratebar', '#ratebar div.knob', 0, -1, 3, true);
+		//sbRate.init('#sbRate', '#sbRate div.knob', 0, -1, 3, true);
 		//Limiting default range to 0.25 to 2 so that 150px bar still has some precision
 		var ratemin = tryParseFloat(GM_getValue('vlc-rate-min', "0.25"), 0.25);
 		var ratemax = tryParseFloat(GM_getValue('vlc-rate-max', "2"), 2);
-		this.sbRate.initSB('#ratebar', '#ratebar div.knob', 2, ratemin, ratemax, true,
+		this.sbRate.initSB('#sbRate', '#sbRate div.knob', 2, ratemin, ratemax, true,
 			function(pos){this.bar.children.namedItem('vlcrate').innerHTML = pos.toFixed(3);});
 		this.sbRate.setValue(1.0);
 	}
