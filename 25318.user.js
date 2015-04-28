@@ -638,8 +638,6 @@ function ScrollBar (instance) {
 	this.events = [];
 }
 
-//https://developer.mozilla.org/en-US/docs/XPConnect_wrappers
-ScrollBar.__exposedProps__ = { };
 ScrollBar.prototype = {
 	constructor: ScrollBar,
 	$: function(id){ return document.getElementById(id); },
@@ -1080,8 +1078,6 @@ function VLCObj (instance){
 	this.shiftDown = false;
 }
 
-//https://developer.mozilla.org/en-US/docs/XPConnect_wrappers???
-VLCObj.__exposedProps__ = { };
 VLCObj.prototype = {
 	$: function(id){
 		return document.getElementById(id);
