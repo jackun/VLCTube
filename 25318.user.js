@@ -980,10 +980,13 @@ Storyboard.prototype = {
 		//	pages++;
 
 		page = Math.floor(pos * pages);
-		if(page < 0 || page > pages)
+		if(page < 0)
 			page = 0;
+		else if(page >= pages)
+			page = pages - 1;
 		//thumbnail's index
-		image = Math.floor(pos * this.thumbs[i].count);
+		image = Math.floor(pos * this.thumbs[i].count - 1);
+		image = Math.max(0, image);
 		//thumbnail's index on current image page
 		image -= page * this.thumbs[i].gridX * this.thumbs[i].gridY;
 
@@ -2020,8 +2023,6 @@ ScriptInstance.prototype.putCSS = function(){
 
 	var css = ".player-api {overflow: visible;} /*for storyboard tooltip*/\
 	#"+ vlc_id + "-holder {overflow: hidden;}\
-	#movie_player * {transition: 100ms;} \
-	#movie_player .vlc-volume-holder * {transition: 0ms; } \
 	#cued-embed #video-title {position: absolute; left: 5px; top: 5px; background: rgba(0,0,0,0.75); z-index: 1;} \
 	.movie_player_vlc { background: white; height:100%; position:relative;}\
 	.movie_player_vlc select {padding: 5px 0;}\
@@ -2063,6 +2064,8 @@ ScriptInstance.prototype.putCSS = function(){
 		-webkit-transform: scaleY(0);\
 		transition: opacity 200ms 0ms ease, transform 0ms 200ms linear; /*wait before transforming*/ \
 	}\
+	#sbSeek div.knob {transition: 100ms;} \
+	#sbSeek:active div.knob {transition: 0ms;} \
 	#sbSeek:active #vlc-sb-tooltip, \
 	.knob:active #vlc-sb-tooltip {\
 		/* flip in and out version */\
