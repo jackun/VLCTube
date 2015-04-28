@@ -110,6 +110,7 @@ var gLangs = {
 		'vlc-config-subs-color' : ['Subtitle color', 'In hexadecimal form (RRGGBB).'],
 		'vlc-config-music-mode' : ['Music player mode', 'Add some player buttons to masthead and keep VLC playing while browsing. NB!: Refresh page if enabled.'],
 		'CURRVIDEO': 'Current video',
+		'vlc-config-autoplay-yt' : ['Autoplay (Youtube)', 'Autoplay when Youtube\'s Autoplay checkbox is checked. Overrides Autoplay.'],
 		},
 	"et": {
 		'LANG'  : 'Eesti',
@@ -1289,12 +1290,20 @@ VLCObj.prototype = {
 		this.eventStopped();
 		if(this.eosCheck(this.lastState, this.lastPos, this.lastDur))
 			return;
+		this.prevState = 6;
 		if(this.instance.buseRepeat)
 		{
 			var wait = tryParseFloat(GM_getValue('vlc-repeat-wait', "0"));
 			this.repeatTimer = this.instance.win.setTimeout((function(e){this.repeatTimer = null; this.playVideo();}).bind(this), wait*1000);
 		}
-		this.prevState = 6;
+		else
+		{
+			var el = document.querySelector('.autoplay-bar .content-link');
+			if(el && document.querySelector('#autoplay-checkbox').checked)
+			{
+				ytspf.enabled ? spf.navigate(el.href) : window.location = el.href;
+			}
+		}
 	},
 	eventPlaying: function(){
 		if(this.instance.usingSubs) this.setupMarquee();
@@ -1753,6 +1762,7 @@ ScriptInstance.prototype.initVars = function(){
 	///User configurable booleans
 	this.setDefault("bautoplay", true);
 	this.setDefault("bautoplayPL", true);
+	this.setDefault("bautoplayYT", false);
 	//Some formats don't seek so well :(
 	this.setDefault("bresumePlay", false);
 	//Maybe obsolete, // TODO should make controls take up just one "line"
@@ -2241,7 +2251,9 @@ ScriptInstance.prototype.canAutoplay = function(){
 	if(this.getPL() && GM_getValue('bautoplayPL', true))
 		return true;
 
-	return ((GM_getValue('bautoplay', true) || (this.isPopup && this.bpopupAutoplay))
+	var el = document.querySelector('#autoplay-checkbox');
+	return (GM_getValue('bautoplayYT', false) && el && el.checked) 
+		|| ((GM_getValue('bautoplay', true) || (this.isPopup && this.bpopupAutoplay))
 				&& !this.isEmbed);
 }
 
@@ -3397,6 +3409,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		/// Autoplay button
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-autoplay", 'bautoplay'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-autoplay-pl", 'bautoplayPL'));
+		chkboxes.appendChild(this._makeCheckbox("vlc-config-autoplay-yt", 'bautoplayYT'));
 		/// menu settings
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-repeat",   'buseRepeat'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-priomap",  'balwaysBestFormat'));
@@ -4478,7 +4491,7 @@ function loadDefaults()
 
 	var varNames = [
 		'badaptiveFmts', 'badd3DFormats', 'balwaysBestFormat',
-		'bautoSubEnable', 'bautoplay', 'bautoplayPL', 'bbtnIcons',
+		'bautoSubEnable', 'bautoplay', 'bautoplayPL', 'bautoplayYT', 'bbtnIcons',
 		'bcompactVolume', 'bconfigDropdown', 'bcustomWide', 'bdarkTheme',
 		'bdiscardFLVs', 'bembedControls', 'bforceLoadEmbed', 'bforceWS',
 		'bforceWide', 'bforceWidePL', 'bjumpTS', 'bpopupAutoplay',
