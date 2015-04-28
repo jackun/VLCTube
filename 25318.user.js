@@ -2765,11 +2765,11 @@ ScriptInstance.prototype._makeCheckbox = function(id, setting, text, title)
 		ck.checked = GM_getValue(setting, false);
 		ck.addEventListener('click', (function(ev)
 			{
-				if(setting in this)
-					this[setting] = ev.target.checked;
-				if(setting in window.VLC.GMValues)
-					window.VLC.GMValues[setting] = ev.target.checked;
-				//GM_setValue(setting, ev.target.checked);
+				//if(setting in this)
+				//	this[setting] = ev.target.checked;
+				//if(setting in window.VLC.GMValues)
+				//	window.VLC.GMValues[setting] = ev.target.checked;
+				GM_setValue(setting, ev.target.checked);
 			}).bind(this), false);
 	}
 	return el;
@@ -4323,6 +4323,7 @@ function GM_setValue(key, val)
 {
 	//window.VLC.GM_setValue(key, val);
 	window.VLC.GMValues[key] = val;
+	window.postMessage (JSON.stringify ({key: key, value: val}), window.location.origin);
 }
 
 function GM_xmlhttpRequest(params)
@@ -4587,8 +4588,19 @@ function loadDefaults()
 		});
 	}
 	// Don't save if embedded video or it overwrites changes made on 'watch' page.
-	if(!/\/embed\//.test(window.location.href))
-		window.addEventListener('beforeunload', SaveGMValues, false);
+	//if(!/\/embed\//.test(window.location.href))
+	//	window.addEventListener('beforeunload', SaveGMValues, false);
+
+	function getMessage (event)
+	{
+		if(!/youtube\./.test(event.origin))
+			return;
+
+		var msg = JSON.parse (event.data);
+		if(varNames.find(function(a){ return msg.key === a; }))
+			GM_setValue(msg.key, msg.value);
+	}
+	window.addEventListener ("message", getMessage, false);
 }
 
 var domObserver;
