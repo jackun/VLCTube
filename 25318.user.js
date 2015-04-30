@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        61.4
+// @version        61.5
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -2334,6 +2334,7 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 	var vlc = this.$(gMoviePlayerID);
 	if(this.isPopup) this.widthWide = "100%";
 	var content = this.$('watch7-content');
+	var placeholder = document.querySelector("#placeholder-player");
 	var placeholderDiv = document.querySelector("#placeholder-player div");
 	var w = this.player.clientWidth;//content.clientWidth;
 	var h = this.player.clientHeight;//content.clientWidth;
@@ -2341,10 +2342,12 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 	if (!placeholderDiv)
 	{
 		if(!this._sizer_timeout)
-			this._sizer_timeout = window.setTimeout(this.setPlayerSize.bind(this, wide), 100);
+			this._sizer_timeout = window.setTimeout(
+				(function(){
+					this._sizer_timeout = null;
+					this.setPlayerSize(wide);
+				}).bind(this), 100);
 	}
-	else
-		this._sizer_timeout = null;
 
 	//var w = /\/user\//i.test(this.win.location.href) ? "100%" : this.width, h = this.height;
 	if(this.bcustomWide && typeof(w) != 'string' && (wide || this.isPopup))
