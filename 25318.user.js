@@ -2294,7 +2294,6 @@ ScriptInstance.prototype.setSideBar = function(wide)
 		el.classList.add('watch-wide');
 	}
 
-	var branded = this.$('player-branded-banner');
 	var sidebar = this.$('watch7-sidebar');
 
 	var h = this.$('vlc_controls_div').clientHeight;
@@ -2437,19 +2436,6 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 		} else {
 			playlist.style.height = '';
 			//TODO el.style.maxHeight to something
-		}
-	}
-
-	var branded = this.$('player-branded-banner');
-	if(branded)
-	{
-		branded.style.width = (wide?854:640) + "px";
-		var bannerL = document.getElementsByClassName('banner-large');
-		var bannerS = document.getElementsByClassName('banner-small');
-		if(bannerL.length && bannerS.length)
-		{
-			bannerL[0].style.opacity = wide?1:0;
-			bannerS[0].style.opacity = wide?0:1;
 		}
 	}
 }
