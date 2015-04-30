@@ -2296,19 +2296,12 @@ ScriptInstance.prototype.setSideBar = function(wide)
 
 	var branded = this.$('player-branded-banner');
 	var sidebar = this.$('watch7-sidebar');
-	if(sidebar && !sidebar.classList.contains('watch7-sidebar-vlc'))
-	{
-		//FIXME try again, if player is wide when loading the page then marginTop == 0px duh
-		var f = -390; //getComputedPx(sidebar, 'margin-top');
-		//TODO clientHeight is 5px higher than final computed still ...
-		f += 5;
-		var h = this.$('vlc_controls_div').clientHeight;
-		//TODO Branded channels are a thing still?
-		this.addCSS("#watch7-sidebar.watch7-sidebar-vlc {margin-top: " + (f - h) + "px;}\
-			.watch-wide #watch7-sidebar.watch7-sidebar-vlc { margin-top: 10px;}");
-		sidebar.classList.add('watch7-sidebar-vlc');
-		//console.log('setSideBar', this.player.clientHeight, h, f, sidebar.style.marginTop);
-	}
+
+	var h = this.$('vlc_controls_div').clientHeight;
+	if(wide)
+		sidebar.style.marginTop = '';
+	else
+		sidebar.style.marginTop = (-400 - h) + "px"; // -400 = -(.player-height: 390 + 10)
 }
 
 ScriptInstance.prototype.setPlayerSize = function(wide)
@@ -2342,6 +2335,8 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 	var vlc = this.$(gMoviePlayerID);
 	if(this.isPopup) this.widthWide = "100%";
 	var content = this.$('watch7-content');
+	var placeholder = document.querySelector("#placeholder-player");
+	var placeholderDiv = document.querySelector("#placeholder-player div");
 	var w = this.player.clientWidth;//content.clientWidth;
 	var h = this.player.clientHeight;//content.clientWidth;
 
@@ -2353,8 +2348,8 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 		if( (""+this.widthWide).indexOf("%")>-1 )
 		{
 			// set to percentage
-			//this.player.style.width = this.widthWide;
-			this.$('player').style.width = this.widthWide;
+			this.player.style.width = this.widthWide;
+			//this.$('player').style.width = this.widthWide;
 			// and now get corresponding width in pixels
 			if(this.isPopup)
 				w = this.player.clientWidth;
@@ -2364,7 +2359,8 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 		else
 		{
 			w = parseInt(this.widthWide);
-			this.$('player').style.width = w + 'px';
+			//this.$('player').style.width = w + 'px';
+			this.player.style.width = w + 'px';
 		}
 		h = Math.floor(w / ratio);
 	}
@@ -2396,6 +2392,8 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 			//TODO call setPlayerSize only when isPopup is finally set (or not)
 			this.elements.holder.style.height = this.isPopup ? '' : h + 'px';
 			this.player.style.height = (h + this.$('vlc_controls_div').clientHeight) + "px";
+			this.player.style.left = (-w/2) + "px";
+			placeholderDiv.style.width = w + "px";
 			var clsHeights = document.querySelectorAll('.player-height');
 			for(var i=0; i < clsHeights.length; i++)
 				clsHeights[i].style.height = h + 'px';
@@ -2405,12 +2403,28 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 			this.$('player').style.width = '';
 			this.player.style.width = '';
 			this.player.style.height = '';
+			this.player.style.left = '';
+			placeholderDiv.style.width = '';
 			this.elements.holder.style.height = '';
 			var clsHeights = document.querySelectorAll('.player-height');
 			for(var i=0; i < clsHeights.length; i++)
 				clsHeights[i].style.height = '';
 		}
 	}
+
+	// FIXME Quirky. Find some other way, ugh.
+	if(wide)
+	{
+		var left = (-(placeholderDiv.clientWidth - placeholder.clientWidth) / 2);
+		placeholderDiv.style.left = (left < 0 ? left : 0 ) + "px";
+		placeholderDiv.style.position = "relative";
+	}
+	else
+	{
+		placeholderDiv.style.left = '';
+		placeholderDiv.style.position = '';
+	}
+	placeholderDiv.style.height = (this.player.clientHeight) + 'px';
 
 	var playlist = this.getPL();
 	if(playlist)
@@ -2765,8 +2779,8 @@ ScriptInstance.prototype._makeCheckbox = function(id, setting, text, title)
 		ck.checked = GM_getValue(setting, false);
 		ck.addEventListener('click', (function(ev)
 			{
-				//if(setting in this)
-				//	this[setting] = ev.target.checked;
+				if(setting in this)
+					this[setting] = ev.target.checked;
 				//if(setting in window.VLC.GMValues)
 				//	window.VLC.GMValues[setting] = ev.target.checked;
 				GM_setValue(setting, ev.target.checked);
@@ -4322,8 +4336,12 @@ function GM_getValue(key, val)
 function GM_setValue(key, val)
 {
 	//window.VLC.GM_setValue(key, val);
-	window.VLC.GMValues[key] = val;
-	window.postMessage (JSON.stringify ({key: key, value: val}), window.location.origin);
+	//window.VLC.GMValues[key] = val;
+	if(key in window.VLC.GMValues)
+	{
+		window.VLC.GMValues[key] = val;
+		window.postMessage (JSON.stringify ({key: key, value: val}), window.location.origin);
+	}
 }
 
 function GM_xmlhttpRequest(params)
