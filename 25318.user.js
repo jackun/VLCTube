@@ -2334,10 +2334,17 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 	var vlc = this.$(gMoviePlayerID);
 	if(this.isPopup) this.widthWide = "100%";
 	var content = this.$('watch7-content');
-	var placeholder = document.querySelector("#placeholder-player");
 	var placeholderDiv = document.querySelector("#placeholder-player div");
 	var w = this.player.clientWidth;//content.clientWidth;
 	var h = this.player.clientHeight;//content.clientWidth;
+
+	if (!placeholderDiv)
+	{
+		if(!this._sizer_timeout)
+			this._sizer_timeout = window.setTimeout(this.setPlayerSize.bind(this, wide), 100);
+	}
+	else
+		this._sizer_timeout = null;
 
 	//var w = /\/user\//i.test(this.win.location.href) ? "100%" : this.width, h = this.height;
 	if(this.bcustomWide && typeof(w) != 'string' && (wide || this.isPopup))
@@ -2392,7 +2399,8 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 			this.elements.holder.style.height = this.isPopup ? '' : h + 'px';
 			this.player.style.height = (h + this.$('vlc_controls_div').clientHeight) + "px";
 			this.player.style.left = (-w/2) + "px";
-			placeholderDiv.style.width = w + "px";
+			if(placeholderDiv)
+				placeholderDiv.style.width = w + "px";
 			var clsHeights = document.querySelectorAll('.player-height');
 			for(var i=0; i < clsHeights.length; i++)
 				clsHeights[i].style.height = h + 'px';
@@ -2403,7 +2411,8 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 			this.player.style.width = '';
 			this.player.style.height = '';
 			this.player.style.left = '';
-			placeholderDiv.style.width = '';
+			if(placeholderDiv)
+				placeholderDiv.style.width = '';
 			this.elements.holder.style.height = '';
 			var clsHeights = document.querySelectorAll('.player-height');
 			for(var i=0; i < clsHeights.length; i++)
@@ -2412,18 +2421,21 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 	}
 
 	// FIXME Quirky. Find some other way, ugh.
-	if(wide)
+	if(placeholderDiv)
 	{
-		var left = (-(placeholderDiv.clientWidth - placeholder.clientWidth) / 2);
-		placeholderDiv.style.left = (left < 0 ? left : 0 ) + "px";
-		placeholderDiv.style.position = "relative";
+		if(wide)
+		{
+			var left = (-(placeholderDiv.clientWidth - placeholder.clientWidth) / 2);
+			placeholderDiv.style.left = (left < 0 ? left : 0 ) + "px";
+			placeholderDiv.style.position = "relative";
+		}
+		else
+		{
+			placeholderDiv.style.left = '';
+			placeholderDiv.style.position = '';
+		}
+		placeholderDiv.style.height = (this.player.clientHeight) + 'px';
 	}
-	else
-	{
-		placeholderDiv.style.left = '';
-		placeholderDiv.style.position = '';
-	}
-	placeholderDiv.style.height = (this.player.clientHeight) + 'px';
 
 	var playlist = this.getPL();
 	if(playlist)
