@@ -2340,7 +2340,6 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 	}
 
 	var vlc = this.$(gMoviePlayerID);
-	var ctrls = this.$("vlc_controls_div");
 	if(this.isPopup) this.widthWide = "100%";
 	var content = this.$('watch7-content');
 	var w = this.player.clientWidth;//content.clientWidth;
@@ -2390,23 +2389,13 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 	this.$(vlc_id).style.width = this.isPopup ? "100%" : w + 'px';
 	this.$(vlc_id).style.height = this.isPopup ? "100%" : h + 'px';
 
-	if(wide)
-	{
-		this.$('player').style.marginBottom = (ctrls.clientHeight) + 'px';
-	}
-	else
-	{
-		this.$('player').style.marginBottom = (ctrls.clientHeight + 5) + 'px';
-	}
-
 	if(this.bcustomWide)
 	{
 		if(wide)
 		{
 			//TODO call setPlayerSize only when isPopup is finally set (or not)
 			this.elements.holder.style.height = this.isPopup ? '' : h + 'px';
-			this.player.style.height = (h + ctrls.clientHeight) + "px";
-			this.player.style.left = (-w/2) + "px";
+			this.player.style.height = (h + this.$('vlc_controls_div').clientHeight) + "px";
 			var clsHeights = document.querySelectorAll('.player-height');
 			for(var i=0; i < clsHeights.length; i++)
 				clsHeights[i].style.height = h + 'px';
@@ -2416,7 +2405,6 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 			this.$('player').style.width = '';
 			this.player.style.width = '';
 			this.player.style.height = '';
-			this.player.style.left = '';
 			this.elements.holder.style.height = '';
 			var clsHeights = document.querySelectorAll('.player-height');
 			for(var i=0; i < clsHeights.length; i++)
