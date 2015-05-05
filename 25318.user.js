@@ -2428,8 +2428,8 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 	{
 		if(wide)
 		{
-			var left = (-(placeholderDiv.clientWidth - placeholder.clientWidth) / 2);
-			placeholderDiv.style.left = (left < 0 ? left : 0 ) + "px";
+			var left = -placeholderDiv.clientWidth / 2;
+			placeholderDiv.style.left = left + "px";
 			placeholderDiv.style.position = "relative";
 		}
 		else
