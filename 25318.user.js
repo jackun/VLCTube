@@ -1742,6 +1742,7 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 				/\/channel\//.test(this.win.location.href))
 				loadPlayer(this.win, null, true);
 			}).bind(this), 10);
+			window.postMessage (JSON.stringify ({key: 'spf_method', value: 'navigate'}), window.location.origin);
 		}
 		this.navigating = false;
 	}).bind(this));
@@ -3595,6 +3596,7 @@ function getXML(url, callback)
 
 ScriptInstance.prototype.parseLive = function(pl)
 {
+	this.urlMap = [];
 	var m, t = pl.split('\n');
 	for(var i=0;i<t.length-1;i++)
 	{
@@ -4579,18 +4581,22 @@ function loadDefaults()
 	//else
 	//	injectScript("(" + VLCTube.toSource() + ")();");
 
-	if((hlsvp = str2obj(win, "ytplayer.config.args.hlsvp")))
+	var parseLive = function()
 	{
-		GM_xmlhttpRequest({
-			method: 'GET',
-			url: hlsvp,
-			onload: function(r)
-			{
-				if(r.status == 200)
-					win.VLCinstance.parseLive(r.responseText);
-			}
-		});
+		if((hlsvp = str2obj(win, "ytplayer.config.args.hlsvp")))
+		{
+			GM_xmlhttpRequest({
+				method: 'GET',
+				url: hlsvp,
+				onload: function(r)
+				{
+					if(r.status == 200)
+						win.VLCinstance.parseLive(r.responseText);
+				}
+			});
+		}
 	}
+	parseLive();
 
 	function SaveGMValues()
 	{
@@ -4616,7 +4622,11 @@ function loadDefaults()
 			return;
 
 		var msg = JSON.parse (event.data);
-		if(varNames.find(function(a){ return msg.key === a; }))
+		if (msg.key === 'spf_method' && msg.value === 'navigate')
+		{
+			parseLive();
+		}
+		else if(varNames.find(function(a){ return msg.key === a; }))
 			GM_setValue(msg.key, msg.value);
 	}
 	window.addEventListener ("message", getMessage, false);
