@@ -1139,7 +1139,7 @@ VLCObj.prototype = {
 		var keyDown = (function(ev){
 			//console.log(this.ctrlDown, ev);
 			//TODO #player-api tabIndex attribute affects what is set as target (body vs div)
-			if(!(ev.target.tagName == "BODY" || ev.target.tagName == "DIV"))
+			if(!(ev.target.tagName == "BODY" || (ev.target.tagName == "DIV" && ev.target.id == "player-api")))
 				return;
 
 			switch(ev.keyCode)
