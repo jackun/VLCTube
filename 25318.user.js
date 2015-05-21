@@ -286,8 +286,14 @@ var itagPrio = [
 
 var itagToText = {
 	0:   'dash',
+	315: '2160p60/webm',
+	313: '2160p/webm',
+	308: '1440p60/webm',
+	303: '1080p60/webm',
+	302: '720p60/webm',
 	299: '1080p60/m4v',
 	298: '720p60/m4v',
+	278: '144p15/webm',
 	272: 'hires/webm',
 	271: '1440p/webm',
 	264: '1440p/m4v', //hires
@@ -298,8 +304,8 @@ var itagToText = {
 	244: '480p/webm',
 	243: '360p/webm',
 	242: '240p/webm',
-	172: '160kbps/webm',
-	171: '96kbps/webm',
+	172: '192kbps/webm',
+	171: '128kbps/webm',
 	160: '144p/m4v',
 	141: '256kbps/m4a',
 	140: '128kbps/m4a',
