@@ -416,7 +416,10 @@ function removeChildren(node, keepThis)
 
 	//silence html5 element
 	if(typeof(node.pauseVideo) === 'function')
+	{
 		node.pauseVideo();
+		node.src = null;
+	}
 	else if(typeof(node.pause) === 'function')
 		node.pause();
 
