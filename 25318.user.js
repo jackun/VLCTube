@@ -4638,6 +4638,47 @@ function loadDefaults()
 	window.addEventListener ("message", getMessage, false);
 }
 
+//Recursively remove node and node's children
+function removeChildren(node, keepThis)
+{
+	if(node === undefined || node === null)
+	{
+		return;
+	}
+
+	while (node.hasChildNodes())
+	{
+		removeChildren(node.firstChild, false);
+	}
+
+	//silence html5 element
+	if(typeof(node.pauseVideo) === 'function')
+		node.pauseVideo();
+	else if(typeof(node.pause) === 'function')
+		node.pause();
+
+	if(!keepThis) node.parentNode.removeChild(node);
+}
+
+// Nuclear option
+var fakeVideo = cloneInto({}, unsafeWindow);
+unsafeWindow.fakeVideo = fakeVideo;
+
+var _createElement = unsafeWindow.document.createElement.bind(document);
+var localCreateElement = function(tag){
+	if(tag === 'video' && !/\/html5/.test(window.location.href))
+	{
+		console.log("Hijacked createElement:", tag);
+		return fakeVideo;
+	}
+	return _createElement(tag);
+};
+
+exportFunction(localCreateElement, unsafeWindow, 
+	{defineAs: "localCreateElement", allowCallbacks: true});
+
+unsafeWindow.document.createElement = unsafeWindow.localCreateElement;
+
 var domObserver;
 function DOMevent(mutations)
 {
@@ -4661,6 +4702,7 @@ function DOMevent(mutations)
 					//if(e.id == 'movie_player' && !unsafeWindow.yt.pubsub)
 					//	continue;
 					domObserver.disconnect();
+					removeChildren(e);
 					loadDefaults();
 					injectScript("var VLCinstance = " +VLCTube.toString() + "();");
 					return;
