@@ -2302,12 +2302,15 @@ ScriptInstance.prototype.setSideBar = function(wide)
 	}
 
 	var sidebar = this.$('watch7-sidebar');
+	var pl = this.getPL();
 
 	var h = this.$('vlc_controls_div').clientHeight;
 	if(wide)
-		sidebar.style.marginTop = '';
+		sidebar.style.marginTop = (pl ? h + 'px' : '');
 	else
-		sidebar.style.marginTop = (-400 - h) + "px"; // -400 = -(.player-height: 390 + 10)
+	{
+		sidebar.style.marginTop = (-400 - (pl ? 0 : h)) + "px"; // -400 = -(.player-height: 390 + 10)
+	}
 }
 
 ScriptInstance.prototype.setPlayerSize = function(wide)
@@ -2318,7 +2321,7 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 		this.setWideCookie(wide);
 	}
 
-	var pageDiv = this.$('page');
+	var pageDiv = document.querySelector('#page-container #page');
 	if(pageDiv)
 	{
 		if(!wide) {
@@ -2328,6 +2331,7 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 			this.$('player').classList.remove('watch-medium');
 			// FIXME A bit hackish
 			this.$('player').classList.remove('watch-large');
+			pageDiv.classList.remove('watch-wide');
 		} else {
 			pageDiv.classList.add('watch-stage-mode');
 			pageDiv.classList.remove('watch-non-stage-mode');
@@ -2335,6 +2339,7 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 			//this.$('player').classList.add('watch-large');
 			this.$('player').classList.add('watch-medium');
 			this.$('player').classList.remove('watch-small');
+			pageDiv.classList.add('watch-wide');
 		}
 	}
 
@@ -2452,11 +2457,21 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 	{
 		var el = document.querySelector('#watch-appbar-playlist ol');
 		var hdr = document.querySelector('div.playlist-header');
+		
 		if(!wide) {
 			playlist.style.height = (vlc.clientHeight ) + 'px';
+			playlist.style.marginTop = '';
 			el.style.maxHeight = (vlc.clientHeight - hdr.clientHeight) + 'px';
+			this.getPL().style.transform = '';
 		} else {
 			playlist.style.height = '';
+			if(!this.bcustomWide)
+				playlist.style.marginTop = this.$('vlc_controls_div').clientHeight + 'px';
+			else
+			{
+				var transY = this.player.clientHeight - getComputedPx(this.getPL(), 'top') + 10;
+				this.getPL().style.transform = "translateY(" + transY + "px)";
+			}
 			//TODO el.style.maxHeight to something
 		}
 	}
