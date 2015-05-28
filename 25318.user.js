@@ -1731,14 +1731,14 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 	this.win.addEventListener('beforeunload', this.saveSettings.bind(this), true);
 	//this.win.addEventListener('unload', this.saveSettings.bind(this), true);
 
-	yt.pubsub.instance_.subscribe('navigate', (function() {
+	var spfnavigate = (function() {
 		//console.log("navigate");
 		this.navigating = true;
 		if(!this.bmusicMode)
 			this.myvlc.stopVideo();
-	}).bind(this));
+	}).bind(this);
 
-	yt.pubsub.instance_.subscribe('init', (function() {
+	var spfinit = (function() {
 		//console.log("init");
 		if(this.navigating)
 		{
@@ -1751,7 +1751,10 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 			window.postMessage (JSON.stringify ({key: 'spf_method', value: 'navigate'}), window.location.origin);
 		}
 		this.navigating = false;
-	}).bind(this));
+	}).bind(this);
+
+	document.addEventListener('spfrequest', spfnavigate, false);
+	document.addEventListener('spfdone', spfinit, false);
 
 	//TODO SPF compatibility
 	//HTML5 player. Just bulldozer this thing. See also ytplayer.load()
