@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        61.11
+// @version        61.12
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -4355,7 +4355,7 @@ function loadPlayerOnLoad(oldNode, upsell)
 function GM_getValue(key, val)
 {
 	if(window.VLC.GMValues.hasOwnProperty(key) &&
-			window.VLC.GMValues[key] !== undefined)
+			window.VLC.GMValues[key])
 		return window.VLC.GMValues[key];
 	return val;
 }
