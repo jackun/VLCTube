@@ -4545,7 +4545,7 @@ function loadDefaults()
 		'bshowRate', 'bshowRatePreset', 'bshowWLOnMain', 'buseFallbackHost',
 		'buseHoverControls', 'busePopups', 'buseRepeat', 'buseThumbnail',
 		'buseWidePosBar', 'bmusicMode',
-		'vlc-formats', 'vlc-lang', 'vlc-pl-autonext', 'vlc-rate-max',
+		'vlc-formats', 'vlc-lang', 'vlc-pl-autonext', 'vlc-rate-preset', 'vlc-rate-max',
 		'vlc-rate-min', 'vlc-volume-max', 'vlc-wide', 'vlc-wide-width',
 		'vlc-cache', 'vlc_vol', 'ytquality', 'vlc-subs-align', 'vlc-subs-color'];
 
