@@ -1375,10 +1375,12 @@ VLCObj.prototype = {
 			if(this.instance.usingSubs) this.setupMarquee();
 			this.stateUpdate();
 		}
+		if(this.instance.fmtChanged && this.instance.bresumePlay)
+			this._seekTo(this._current_time);
 	},
 	add: function(src, fmt){
 		//Format changed, resume play
-		var time = this.getCurrentTime();
+		this._current_time = this.getCurrentTime();
 		this.doAdd(src, 0);
 		if(this.$('vlclink'))
 		{
@@ -1395,7 +1397,6 @@ VLCObj.prototype = {
 
 			this.$('vlclink').href = src;
 		}
-		if(this.instance.bresumePlay) this._seekTo(time);//craps out probably if doAdd loops
 	},
 	emitValue:function(sb, pos, instant){
 		if(this.scrollbarPos == sb)
