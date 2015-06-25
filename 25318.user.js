@@ -4681,23 +4681,24 @@ function removeChildren(node, keepThis)
 }
 
 // Nuclear option
-var fakeVideo = cloneInto({}, unsafeWindow);
-unsafeWindow.fakeVideo = fakeVideo;
+var noVideoElement = function()
+{
+	// Nuclear option
+	var fakeVideo = {};
 
-var _createElement = unsafeWindow.document.createElement.bind(document);
-var localCreateElement = function(tag){
-	if(tag === 'video' && !/\/html5/.test(window.location.href))
-	{
-		console.log("Hijacked createElement:", tag);
-		return fakeVideo;
-	}
-	return _createElement(tag);
-};
+	var _createElement = document.createElement.bind(document);
+	var localCreateElement = function(tag){
+		if(tag === 'video' && !/\/html5/.test(window.location.href))
+		{
+			console.log("Hijacked createElement:", tag);
+			return fakeVideo;
+		}
+		return _createElement(tag);
+	};
 
-exportFunction(localCreateElement, unsafeWindow, 
-	{defineAs: "localCreateElement", allowCallbacks: true});
-
-unsafeWindow.document.createElement = unsafeWindow.localCreateElement;
+	document.createElement = localCreateElement;
+}
+injectScript("("+noVideoElement.toString() + ")();");
 
 var domObserver;
 function DOMevent(mutations)
