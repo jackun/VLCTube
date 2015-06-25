@@ -2521,9 +2521,12 @@ ScriptInstance.prototype.onFmtChange = function(ev, opt)
 	if(!/signature=/.test(uri))
 	{
 		if(sig)
+		{
+			if(!window.GetDecodeParam) console.log('Video needs a signature decipherer which is still being parsed.');
 			sig = window.GetDecodeParam && GetDecodeParam() &&
 					Decode(sig, GetDecodeParam()) ||
 					DecryptSignature(sig, this.ytplayer.config.sts);
+		}
 		else
 			sig = n.getAttribute("sig");
 
@@ -4150,9 +4153,9 @@ ScriptInstance.prototype.setupStoryboard = function()
 	}
 }
 
-ScriptInstance.prototype.initialAddToPlaylist = function(dohash)
+ScriptInstance.prototype.initialAddToPlaylist = function(bypass, dohash)
 {
-	if(this.restoreSettings())
+	if(bypass || this.restoreSettings())
 	{
 		var sel = this.$(vlc_id+'_select');
 		var opt = sel.options.item(sel.selectedIndex);
@@ -4597,15 +4600,14 @@ function loadDefaults()
 				if(r.status == 200)
 				{
 					var sigDecodeParam = GetDecodeParam(r.responseText);
-					injectScript("function GetDecodeParam(){return " + (sigDecodeParam ? "[" + sigDecodeParam.toString() + "]" : 'null') +";}");
-					//injectScript("(" + VLCTube.toSource() + ")();");
+					injectScript("\
+					function GetDecodeParam(){return " + (sigDecodeParam ? "[" + sigDecodeParam.toString() + "]" : 'null') +";}\
+					if (VLCinstance){VLCinstance.initialAddToPlaylist(true);}");
 				} else
 					console.log("VLCTube: failed to retrieve decipherer.");
 			}
 		});
 	}
-	//else
-	//	injectScript("(" + VLCTube.toSource() + ")();");
 
 	var parseLive = function()
 	{
