@@ -16,7 +16,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        61.15
+// @version        61.16
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -1759,9 +1759,9 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 
 	//TODO SPF compatibility
 	//HTML5 player. Just bulldozer this thing. See also ytplayer.load()
-	if(this.yt && this.yt.player &&
-		this.yt.player.Application && this.yt.player.Application.create)
-		this.yt.player.Application.create = function(a,b)
+	if(yt && yt.player &&
+		yt.player.Application && yt.player.Application.create)
+		yt.player.Application.create = function(a,b)
 		{
 			console.log("Suck it Trebek!");
 		}
