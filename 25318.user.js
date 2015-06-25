@@ -4602,7 +4602,7 @@ function loadDefaults()
 					var sigDecodeParam = GetDecodeParam(r.responseText);
 					injectScript("\
 					function GetDecodeParam(){return " + (sigDecodeParam ? "[" + sigDecodeParam.toString() + "]" : 'null') +";}\
-					if (VLCinstance){VLCinstance.initialAddToPlaylist(true);}");
+					if (VLCinstance){VLCinstance.initialAddToPlaylist();}");
 				} else
 					console.log("VLCTube: failed to retrieve decipherer.");
 			}
