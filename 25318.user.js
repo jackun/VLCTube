@@ -4356,7 +4356,8 @@ function loadPlayerOnLoad(oldNode, upsell)
 function GM_getValue(key, val)
 {
 	if(window.VLC.GMValues.hasOwnProperty(key) &&
-			window.VLC.GMValues[key])
+		(window.VLC.GMValues[key] !== undefined ||
+			window.VLC.GMValues[key] === null))
 		return window.VLC.GMValues[key];
 	return val;
 }
