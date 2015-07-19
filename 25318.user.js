@@ -1710,6 +1710,7 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 		console.log("video seems to be unavailable");
 		return;
 	}
+	unavail.id = "player-unavailable-off";
 
 	this.putCSS();
 
@@ -1757,14 +1758,17 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 	document.addEventListener('spfrequest', spfnavigate, false);
 	document.addEventListener('spfdone', spfinit, false);
 
-	//TODO SPF compatibility
 	//HTML5 player. Just bulldozer this thing. See also ytplayer.load()
-	if(yt && yt.player &&
-		yt.player.Application && yt.player.Application.create)
+	if(yt && yt.player)
+	{
+		if(yt.player.Application && yt.player.Application.create)
 		yt.player.Application.create = function(a,b)
 		{
 			console.log("Suck it Trebek!");
+			return {};
 		}
+		yt.player.utils.videoElement_ = this.fakeApiNode;
+	}
 	this.inited = true;
 }
 
@@ -4254,6 +4258,10 @@ ScriptInstance.prototype.SetupAPI = function()
 			case 4: return 2;//paused
 			case 5: case 6: return 0;//stopped, ended
 		}
+	}
+	this.fakeApiNode.canPlayType = function(){
+		console.log("canPlayType", arguments);
+		return true;
 	}
 }
 
