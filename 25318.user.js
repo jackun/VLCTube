@@ -953,10 +953,9 @@ Storyboard.prototype = {
 	Cmp: function(a,b)
 	{
 		if(!a || !b) return false;
-		return
-			a.page == b.page &&
+		return (a.page == b.page &&
 			//a.src == b.src &&
-			a.x == b.x && a.y == b.y;
+			a.x == b.x && a.y == b.y);
 	},
 
 	getStoryBoardSrc: function(page, i)
@@ -2833,6 +2832,7 @@ ScriptInstance.prototype.openPopup = function(w,h)
 	var win = window.open(this.win.location.href + "#popup" /*+ "&w=" + w + "&h=" + h*/, popupID, 'width=' +w+ ',height=' +h+ ',resizeable,scrollbars');
 
 	return;
+	/*
 	win.document.body.innerHTML = '<div id="watch7-container"><div id="'+gPlayerID+'"><div id="'+gPlayerApiID+'"><div></div></div>';
 
 	//Set few global variables
@@ -2864,6 +2864,7 @@ ScriptInstance.prototype.openPopup = function(w,h)
 	var s = new ScriptInstance(win, true);
 	if(this.bdarkTheme) s.addCSS("body {background: black;}"); //TODO color
 	s.win["vlc-instance"] = s; //Keep reference alive. Might be overkill. Seems to work without it too.
+	*/
 }
 
 //Is full blown youtube page, but cull all the stuff
