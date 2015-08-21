@@ -1704,7 +1704,7 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 	}).bind(this);
 
 	var unavail = this.$('player-unavailable');
-	if(unavail && !unavail.classList.contains("hid")) //works?
+	if(unavail && !unavail.classList.contains("hid") && !unavail.classList.contains("ytp-error")) //works?
 	{
 		console.log("video seems to be unavailable");
 		return;
