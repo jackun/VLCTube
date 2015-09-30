@@ -4655,9 +4655,8 @@ function loadDefaults()
 
 	function getMessage (event)
 	{
-		if(!/youtube\./.test(event.origin))
+		if(!/youtube\./.test(event.origin) || event.data === "")
 			return;
-
 		var msg = JSON.parse (event.data);
 		if (msg.key === 'spf_method' && msg.value === 'navigate')
 		{
@@ -4695,14 +4694,25 @@ function removeChildren(node, keepThis)
 var noVideoElement = function()
 {
 	// Nuclear option
-	var fakeVideo = {};
+	// YT's HTML5 player code uses MutationObserver and observe() on <video/>
+	// so use <div/> instead plain [object]
+	var fakeVideo = document.createElement('DIV');
+	var fakeVideoParent = document.createElement('DIV');
+	fakeVideoParent.appendChild(fakeVideo); //just in case as html5 player logic checks for parent node
+	fakeVideo.load = function(){}
+	fakeVideo.play = function(){}
 
 	var _createElement = document.createElement.bind(document);
 	var localCreateElement = function(tag){
 		if(tag === 'video' && !/\/html5/.test(window.location.href))
 		{
 			console.log("Hijacked createElement:", tag);
-			return fakeVideo;
+			// Return a 'fake' element or see if overriding play() is enough.
+			//return fakeVideo;
+
+			var el = _createElement(tag);
+			el.play = function(){ console.log("Attempted to call play() on hijacked <video/>"); }
+			return el;
 		}
 		return _createElement(tag);
 	};
