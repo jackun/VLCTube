@@ -286,17 +286,21 @@ var itagPrio = [
 
 var itagToText = {
 	0:   'dash',
-	315: '2160p60/webm',
-	313: '2160p/webm',
-	308: '1440p60/webm',
-	303: '1080p60/webm',
-	302: '720p60/webm',
+	315: '2160p60/webm', //vp9
+	313: '2160p/webm', //vp9
+	308: '1440p60/webm', //vp9
+	303: '1080p60/webm', //vp9
+	302: '720p60/webm', //vp9
 	299: '1080p60/m4v',
 	298: '720p60/m4v',
-	278: '144p15/webm',
-	272: 'hires/webm',
+	278: '144p15/webm', //vp9
+	272: '2160p/webm',
 	271: '1440p/webm',
+	266: '2160p/m4v', //hires
 	264: '1440p/m4v', //hires
+	251: '160kbps/opus',
+	250: '70kbps/opus',
+	249: '50kbps/opus',
 	248: '1080p/webm',
 	247: '720p/webm',
 	246: '480p/webm',
@@ -304,8 +308,14 @@ var itagToText = {
 	244: '480p/webm',
 	243: '360p/webm',
 	242: '240p/webm',
+	219: '480p/webm',
+	218: '480p/webm',
 	172: '192kbps/webm',
 	171: '128kbps/webm',
+	170: '1080p/webm/vp8',
+	169: '720p/webm/vp8',
+	168: '480p/webm/vp8',
+	167: '360p/webm/vp8',
 	160: '144p/m4v',
 	141: '256kbps/m4a',
 	140: '128kbps/m4a',
@@ -338,7 +348,8 @@ var itagToText = {
 	34 : '360p/flv',
 	5  : '240p/flv',
 	36 : '180p/3gpp',
-	17 : '144p/3gpp',
+	17 : '144p10/3gpp', // lower fps, better audio
+	13 : '144p15/3gpp', // higher fps, shitty audio
 	// last, just in case "4k" video crashes graphics card's driver
 	38 : 'highres/mp4', //1440p variable?
 	//4? : "highres/webm"
