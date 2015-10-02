@@ -1755,6 +1755,7 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 		if(this.navigating)
 		{
 			setTimeout((function(){
+			clearWLButtonState();
 			this.onMainPage(null, true);
 			if(/\/user\//.test(this.win.location.href) ||
 				/\/channel\//.test(this.win.location.href))
@@ -2198,73 +2199,125 @@ ScriptInstance.prototype.putCSS = function(){
 	");
 }
 
-//Commented out are 'watch' page versions
-ScriptInstance.prototype.ajaxWatchLater = function()
+ScriptInstance.prototype.getSessionToken = function(callback)
 {
-	if(this.swf_args && /feed\/watch_later/.test(this.swf_args.sdetail))
-		action = "action_delete_from_watch_later_list";
-	else
-		action = "action_add_to_watch_later_list";
-
 	var pageid = "";
 	if(typeof(this.swf_args.pageid) != 'undefined')
 		pageid = "&pageid=" + this.swf_args.pageid;
 
-	var addToWatchLater = (function(sess_token)
-	{
-		xheaders = headers;
-		//xheaders['Cookie'] = document.cookie;
-		xheaders['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
-		GM_xmlhttpRequest({
-			method: 'POST',
-			url: this.win.location.protocol + "//" + this.win.location.host +
-				"/addto_ajax?" + action + "=1&feature=player_embedded",
-				//"/addto_ajax?action_add_to_playlist=1&add_to_top=False",
-			headers: xheaders,
-			data: 'video_ids=' + this.swf_args.video_id + '&authuser=' + this.swf_args.authuser +'&session_token=' + sess_token + pageid,
-			//'&full_list_id=' + plid + '&plid=' + this.swf_args.plid + '&session_token=' + this.yt.tokens_.addto_ajax,
-			onload: (function(r){
-				if(r.status==200){
-					parser=new DOMParser();
-					xmlDoc=parser.parseFromString(r.responseText, "text/xml");
-					retCode = xmlDoc.firstChild.querySelector('return_code').firstChild.data;
-					//console.log(r.status, retCode);
-					el = document.querySelector('#vlc-watchlater-btn');
-					if(retCode == 0 || //ok
-						retCode == 6) //duplicate
-					{
-						el.classList.add("vlc-wl-state");
-						el.classList.add("vlc-ok-bg");
-					} else {
-						el.classList.add("vlc-wl-state");
-						el.classList.add("vlc-boo-bg");
-					}
+	GM_xmlhttpRequest({
+		method: 'POST',
+		url: this.win.location.protocol + "//" + this.win.location.host +
+				"/token_ajax?action_get_wl_token=1",
+		headers: headers,
+		data: 'authuser=' + this.swf_args.authuser + pageid,
+		onload: (function(r){
+			if(r.status==200){
+				//if(r.responseText.match(/status=(\d+)/)[1] == '200')
+				{
+					this.session_token = unescape(r.responseText.match(/addto_ajax_token=([\w-_=%]+)/)[1]);
+					callback(this.session_token);
 				}
-			}).bind(this)
-		});
+			}
+		}).bind(this)
+	});
+}
+
+function clearWLButtonState()
+{
+	var el = document.querySelector('#vlc-watchlater-btn');
+	if(!el) return;
+	el.classList.remove("vlc-wl-state");
+	el.classList.remove("vlc-ok-bg");
+	el.classList.remove("vlc-boo-bg");
+}
+
+function setWLButtonState(b)
+{
+	var el = document.querySelector('#vlc-watchlater-btn');
+	if(!el) return;
+	if(b)
+	{
+		el.classList.add("vlc-wl-state");
+		el.classList.add("vlc-ok-bg");
+	} else {
+		el.classList.add("vlc-wl-state");
+		el.classList.add("vlc-boo-bg");
+	}
+}
+
+ScriptInstance.prototype.getAddToXML = function(action, callback)
+{
+	var pageid = "";
+	if(typeof(this.swf_args.pageid) != 'undefined')
+		pageid = "&pageid=" + this.swf_args.pageid;
+
+	xheaders = headers;
+	//xheaders['Cookie'] = document.cookie;
+	xheaders['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
+	GM_xmlhttpRequest({
+		method: 'POST',
+		url: window.location.protocol + "//" + window.location.host + "/addto_ajax?" + action,
+		headers: xheaders,
+		data: 'video_ids=' + this.swf_args.video_id + '&authuser=' + this.swf_args.authuser +'&session_token=' + this.session_token + pageid,
+		onload: function(r){
+			if(r.status==200){
+				var parser=new DOMParser();
+				var xmlDoc=parser.parseFromString(r.responseText, "text/xml");
+				callback(xmlDoc);
+			}
+		}
+	});
+}
+
+//TODO Probably some config param somewhere...
+ScriptInstance.prototype.isInWatchLater = function()
+{
+	var that = this;
+	this.is_in_watchlater = false;
+	this.getAddToXML("action_get_dropdown=1&hide_watch_later=false", function(xmlDoc) {
+		var retCode = xmlDoc.querySelector('return_code').textContent;
+		if(retCode === '0')
+		{
+			var parser = new DOMParser();
+			var html = parser.parseFromString(xmlDoc.querySelector('html_content').textContent, "text/html");
+			that.is_in_watchlater = !!html.querySelector('li[data-url="/playlist?list=WL"] button[aria-checked="checked"]');
+			that.is_in_watchlater && setWLButtonState(true);
+		}
+	});
+}
+
+ScriptInstance.prototype.ajaxWatchLater = function()
+{
+	var actions = ["action_delete_from_watch_later_list", "action_add_to_watch_later_list"];
+	var action;
+	if(this.is_in_watchlater)
+		action = 0;
+	else
+		action = 1;
+
+	var addToWatchLater = (function()
+	{
+		this.getAddToXML(actions[action] + "=1&feature=player_embedded", (function(xmlDoc) {
+				var retCode = xmlDoc.querySelector('return_code').textContent;
+				//console.log(retCode);
+				var b = (retCode === '0' || //ok
+					retCode === '6'); //duplicate
+				setWLButtonState(b);
+				if(b && action === 0)
+				{
+					clearWLButtonState();
+					this.is_in_watchlater = false;
+				}
+				else if(b && action === 1)
+					this.is_in_watchlater = true;
+			}).bind(this));
 	}).bind(this);
 
 	if(this.session_token)
-		addToWatchLater(this.session_token);
+		addToWatchLater();
 	else
-		GM_xmlhttpRequest({
-			method: 'POST',
-			url: this.win.location.protocol + "//" + this.win.location.host +
-					"/token_ajax?action_get_wl_token=1",
-					//"/playlist_ajax?action_get_addto_panel=1&video_id=" + this.swf_args.video_id,
-			headers: headers,
-			data: 'authuser=' + this.swf_args.authuser + pageid,
-			onload: (function(r){
-				if(r.status==200){
-					//console.log(r.responseText);
-					//if(r.responseText.match(/status=(\d+)/)[1] == '200')
-					{
-						this.session_token = unescape(r.responseText.match(/addto_ajax_token=([\w-_=%]+)/)[1]);
-						addToWatchLater(this.session_token);
-					}
-				}
-			}).bind(this)
-		});
+		this.getSessionToken(addToWatchLater);
 }
 
 ScriptInstance.prototype.canAutoplay = function(){
@@ -3814,6 +3867,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 	if(!this.getStreams(watchPage))
 		return;
 
+	this.isInWatchLater();
 	if(spfNav && this.bmusicMode &&
 		this.swf_args && this.swf_args.video_id &&
 			(this.swf_args.video_id == this._current_video_id))
