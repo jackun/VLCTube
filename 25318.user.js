@@ -4186,7 +4186,7 @@ ScriptInstance.prototype.onEmbedPage = function()
 		thumb = this.swf_args.iurlmaxres ? this.swf_args.iurlmaxres : thumb;
 
 	this.$('player').innerHTML = '<div id="cued-embed" title="Click to play." style="cursor:pointer">\
-			<h2 style="color:white"><div id="video-title" class="html5-title">\
+			<h2 style="color:white;font-size:small"><div id="video-title" class="html5-title">\
 			<a style="color:white" target="_new" href="//www.youtube.com/watch?v='+
 			this.swf_args.video_id + '">' + this.swf_args.title + '</a>\
 		</div></h2><img id="video-thumbnail" class="video-thumbnail" style="height: 100vh; width:100%;" src="'+
@@ -4784,7 +4784,6 @@ var noVideoElement = function()
 
 	document.createElement = localCreateElement;
 }
-injectScript("("+noVideoElement.toString() + ")();");
 
 var domObserver;
 function DOMevent(mutations)
@@ -4836,6 +4835,7 @@ if((!/\/embed\//.test(window.location.pathname) && window.top !== window.self) |
 //	loadPlayerOnLoad(window, null, true);
 
 //document-start
+injectScript("("+noVideoElement.toString() + ")();");
 var domObserver = new MutationObserver(DOMevent);
 domObserver.observe(document, {subtree:true, childList:true});
 
