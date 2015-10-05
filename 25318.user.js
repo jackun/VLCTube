@@ -4503,28 +4503,8 @@ function GM_xmlhttpRequest(params)
 	return VLCinstance;
 } /// var VLCTube = ...
 
-function fake_GM_setValue(key, val)
-{
-	GM_setValue(key, val);
-}
-
-function fake_GM_getValue(key, val)
-{
-	return GM_getValue(key, val);
-}
-
-function fake_GM_xmlhttpRequest(params)
-{
-	console.log('fake_GM_xmlhttpRequest', this);
-	GM_xmlhttpRequest(params);
-}
-
 function injectScript(src)
 {
-	//var loader = createObjectIn(unsafeWindow, {defineAs: "vlc"});
-	//exportFunction(fake_GM_setValue, loader, {defineAs: "GM_setValue"});
-	//exportFunction(fake_GM_getValue, loader, {defineAs: "GM_getValue"});
-
 	var head = document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0];
 	if (!head) 
 	{
