@@ -4,9 +4,8 @@
 // @run-at         document-start
 // @include        *://youtube.tld/*
 // @include        *://*.youtube.tld/*
-// @include        *://*.youtube.tld/embed/*
-// @include        *://*.youtube.tld/user/*
 // @include        *://*.youtube-nocookie.tld/embed/*
+// @include        /^https?:\/\/(?:www\.)?youtube(?:-nocookie)?\.com/i
 // @exclude        *://*.google.tld/*
 // @exclude        *google.com*
 // @grant          GM_getValue
@@ -4513,9 +4512,13 @@ function injectScript(src)
 	//exportFunction(fake_GM_setValue, loader, {defineAs: "GM_setValue"});
 	//exportFunction(fake_GM_getValue, loader, {defineAs: "GM_getValue"});
 
-	var head = document.getElementsByTagName('head')[0];
-	//if (!head) { return; }
-	script = document.createElement('script');
+	var head = document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0];
+	if (!head) 
+	{
+		setTimeout(injectScript.bind(this, src), 100);
+		return; 
+	}
+	var script = document.createElement('script');
 	script.type = 'text/javascript';
 	script.appendChild(document.createTextNode(src));
 	head.appendChild(script);
