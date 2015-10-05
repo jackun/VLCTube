@@ -401,6 +401,29 @@ function fmttime(time)
 	return (h>0?ft(h)+':':'') + ft(m) +':'+ ft(s);
 }
 
+function Clone(obj)
+{
+	if (Object.prototype.toString.call(obj) === '[object Array]')
+	{
+		var clone = [];
+		for (var i=0; i<obj.length; i++)
+			clone[i] = Clone(obj[i]);
+
+		return clone;
+	} 
+	else if (typeof(obj)=="object")
+	{
+		var clone = {};
+		for (var prop in obj)
+			if (obj.hasOwnProperty(prop))
+				clone[prop] = Clone(obj[prop]);
+
+		return clone;
+	}
+	else
+		return obj;
+}
+
 function getMatches(string, regex, index) {
 	index || (index = 1); // default to the first capturing group
 	var matches = [];
@@ -2251,7 +2274,7 @@ ScriptInstance.prototype.getAddToXML = function(action, callback)
 	if(typeof(this.swf_args.pageid) != 'undefined')
 		pageid = "&pageid=" + this.swf_args.pageid;
 
-	xheaders = headers;
+	var xheaders = Clone(headers);
 	//xheaders['Cookie'] = document.cookie;
 	xheaders['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
 	GM_xmlhttpRequest({
@@ -4033,26 +4056,16 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 
 ScriptInstance.prototype.doViewTracking = function()
 {
-	var user_watch = '//' + window.location.hostname + '/user_watch?'
-		+ 't=1&asv=3'
-		+ '&video_id=' + this.swf_args.video_id
-		+ '&ei=' + this.swf_args.eventid
-		//+ '&fmt=' + xxx
-		//+ '&plid=' + this.swf_args.plid
-		//+ '&ptk=' + this.swf_args.ptk
-	;
-
-	var ptracking = '//' + window.location.hostname + '/ptracking?'
-		+ 'video_id=' + this.swf_args.video_id
+	//TODO Correct hostname is s.youtube.com though but CORS is acting up (?)
+	var ptracking = '//www.youtube.com/api/stats/playback?ns=yt&el=detailpage&ver=2&euri'
+		+ '&docid=' + this.swf_args.video_id
 		+ '&ei=' + this.swf_args.eventid
 		+ '&plid=' + this.swf_args.plid
-		+ '&pltype=' + this.swf_args.pltype
-		+ '&ptk=' + this.swf_args.ptk
-	;
-
-	// Seems to be enough to add to view history
-	getXML(user_watch, function(r){});
-	// ?
+		+ '&cpn=nuffin';
+		//+ '&cplayer=UNIPLAYER&c=WEB&cver=html5'
+		//+ '&vm=' + this.swf_args.vm
+		//+ '&of=' + this.swf_args.of
+		//+ '&fexp=' + this.swf_args.fexp;
 	getXML(ptracking, function(r){});
 }
 
@@ -4454,7 +4467,7 @@ function GM_xmlhttpRequest(params)
 	var xhr = new XMLHttpRequest();
 	xhr.open(params.method, params.url, true);
 	if(params.data)
-		xhr.setRequestHeader('Content-type','application/x-www-form-urlencoded');
+		xhr.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
 	for(var h in params.headers)
 		xhr.setRequestHeader(h, params.headers[h]);
 	xhr.onreadystatechange = function () {
