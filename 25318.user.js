@@ -1797,7 +1797,7 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 		if(yt.player.Application && yt.player.Application.create)
 		yt.player.Application.create = function(a,b)
 		{
-			console.log("Suck it Trebek!");
+			//console.log("Suck it Trebek!");
 			return {};
 		}
 		yt.player.utils.videoElement_ = this.fakeApiNode;
@@ -4338,7 +4338,7 @@ ScriptInstance.prototype.SetupAPI = function()
 		}
 	}
 	this.fakeApiNode.canPlayType = function(){
-		console.log("canPlayType", arguments);
+		//console.log("canPlayType", arguments);
 		return true;
 	}
 }
@@ -4747,7 +4747,7 @@ var noVideoElement = function()
 	var localCreateElement = function(tag){
 		if(tag === 'video' && !/\/html5/.test(window.location.href))
 		{
-			console.log("Hijacked createElement:", tag);
+			//console.log("Hijacked createElement:", tag);
 			// Return a 'fake' element or see if overriding play() is enough.
 			//return fakeVideo;
 
