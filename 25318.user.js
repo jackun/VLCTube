@@ -4635,24 +4635,9 @@ function loadDefaults()
 		}
 	});
 
-	if(typeof(createObjectIn) === 'function') // GM nightly / 2.0 beta
-	{
-		var unsafeObj = createObjectIn(unsafeWindow, {defineAs: "VLC"});
-		try
-		{
-			//Fx 34
-			unsafeObj.GMValues = obj;
-		}
-		catch(e)
-		{
-			//Fx 30+
-			win.VLC.GMValues = obj;
-		}
-	}
-	else
-	{
-		win.VLC = {GMValues: obj};
-	}
+	//var unsafeObj = createObjectIn(unsafeWindow, {defineAs: "VLC"});
+	//unsafeObj.GMValues = obj;
+	injectScript('VLC = {}; VLC.GMValues =' + JSON.stringify(obj));
 
 	///Get signature decipherer from html5 player
 	var js = str2obj(win, "ytplayer.config.assets.js") ||
@@ -4698,12 +4683,7 @@ function loadDefaults()
 
 	function SaveGMValues()
 	{
-		var values;
-		try {
-			values = win.VLC.GMValues;
-		} catch(e) {
-			values = unsafeObj.GMValues;
-		}
+		var values = win.VLC.GMValues;
 		varNames.forEach(function(key)
 		{
 			if(values[key] !== undefined)
