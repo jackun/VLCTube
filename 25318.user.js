@@ -4567,7 +4567,7 @@ function GetDecodeParam(str)
 
 	if((m = str.match(/"signature",\s*([$\w]+)\(/)))
 	{
-		var rFuncCode = new RegExp('function ' + (m[1][0] == '$' ? '\\' : '') + m[1]+'\\((\\w+)\\){(.*?)}');
+		var rFuncCode = new RegExp('(?:function\s)?' + (m[1][0] == '$' ? '\\' : '') + m[1]+'(?:=function)\\((\\w+)\\){(.*?)}');
 		m = rFuncCode.exec(str);
 		if(!m) return null;
 
@@ -4644,7 +4644,6 @@ function loadDefaults()
 			str2obj(unsafeWindow, "ytplayer.config.assets.js") ||
 			str2obj(win, "yt.config_.PLAYER_CONFIG.assets.js") ||
 			str2obj(unsafeWindow, "yt.config_.PLAYER_CONFIG.assets.js");
-
 	if(js)
 	{
 		var url = window.location.protocol + js;
