@@ -1191,7 +1191,7 @@ VLCObj.prototype = {
 					if(this.ctrlDown)
 					{
 						ev.preventDefault();
-						var v = this.getVolume();
+						var v = Math.ceil(this.getVolume());
 						if(v > -1)
 						{
 							v = Math.min(v + 1, this.instance.maxVolume);
@@ -1204,7 +1204,7 @@ VLCObj.prototype = {
 					if(this.ctrlDown)
 					{
 						ev.preventDefault();
-						var v = this.getVolume();
+						var v = Math.ceil(this.getVolume());
 						if(v > -1)
 						{
 							v = Math.max(v - 1, 0);
@@ -1538,11 +1538,11 @@ VLCObj.prototype = {
 	getVolume: function()
 	{
 		try{ return this.vlc.audio.volume; }
-		catch(e){ return 0; }
+		catch(e){ return -1; }
 	},
-	setVolume: function(e)
+	setVolume: function(v)
 	{
-		try{ this.vlc.audio.volume = e; this.scrollbarVol.setValue(this.vlc.audio.volume);}
+		try{ this.vlc.audio.volume = v; this.scrollbarVol.setValue(v);}
 		catch(e){}
 	},
 	//End of Youtube stuff
