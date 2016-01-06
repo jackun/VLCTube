@@ -4567,7 +4567,7 @@ function GetDecodeParam(str)
 
 	if((m = str.match(/"signature",\s*([$\w]+)\(/)))
 	{
-		var rFuncCode = new RegExp('(?:function\s)?' + (m[1][0] == '$' ? '\\' : '') + m[1]+'(?:=function)?\\((\\w+)\\){(.*?)}');
+		var rFuncCode = new RegExp('(?:function\s)?' + (m[1][0] == '$' ? '\\' : '') + m[1]+'(?:=function)?\\((\\w+)\\){([^]+?split[^]+?)}');
 		m = rFuncCode.exec(str);
 		if(!m) return null;
 
