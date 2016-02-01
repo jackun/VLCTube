@@ -4629,7 +4629,7 @@ function loadDefaults()
 		try {
 			//TODO error if [Object] got saved with GM_setValue
 			var v = GM_getValue(key, undefined);
-			obj[key] = (v !== undefined ? v : undefined);
+			obj[key] = (v !== undefined ? v : null);
 		} catch(e){
 			console.log(e);
 		}
