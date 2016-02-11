@@ -110,6 +110,7 @@ var gLangs = {
 		'vlc-config-music-mode' : ['Music player mode', 'Add some player buttons to masthead and keep VLC playing while browsing. NB!: Refresh page if enabled.'],
 		'CURRVIDEO': 'Current video',
 		'vlc-config-autoplay-yt' : ['Autoplay (Youtube)', 'Autoplay when Youtube\'s Autoplay checkbox is checked. Overrides Autoplay.'],
+		'vlc-config-sidebar-ignore' : ['Don\'t change sidebar margins', 'Possibly better compatibility with other player size/position changing scripts.'],
 		},
 	"et": {
 		'LANG'  : 'Eesti',
@@ -639,22 +640,36 @@ CustomEvent.prototype = {
 	constructor: CustomEvent,
 
 	addListener: function(event, listener){
-		if (typeof this._listeners[event] == "undefined"){
+		if (typeof this._listeners[event] === "undefined"){
 			this._listeners[event] = [];
 		}
 
-		if(typeof listener == "string") listener = window[listener];
+		if(typeof listener === "string") listener = window[listener];
 		listener && this._listeners[event].push(listener);
-		console.log("addListener:", event, listener);
+		//console.log("addListener:", event, listener);
+	},
+
+	removeListener: function(event, listener) {
+		if (!this._listeners.hasOwnProperty(event)) return;
+		for (var i = 0, len = this._listeners[event].length; i < len; i++) {
+			if (this._listeners[event][i] === listener) {
+				return this._listeners[event].splice(i, 1);
+			}
+		}
 	},
 
 	fire: function(event, that){
-
+		//console.log("Fire event:", event, that, arguments);
 		if (this._listeners[event] instanceof Array){
 			var listeners = this._listeners[event];
 			for (var i=0, len=listeners.length; i < len; i++){
+				var listener = listeners[i];
 				//arguments is not an actual Array
-				listeners[i].apply(that, Array.prototype.slice.call(arguments, 2, arguments.length));
+				var args = [].slice.call(arguments, 2, arguments.length);
+				//FIXME setTimeout: Firefox locks up otherwise, somewhere is an infinite loop?
+				window.setTimeout(function(){
+					listener.apply(that, args);
+				}, 0);
 			}
 		}
 	},
@@ -1304,7 +1319,8 @@ VLCObj.prototype = {
 	},
 	eventBuffering: function(e){
 		if(e != undefined) this.instance.setBuffer(e);
-		this.instance.playerEvents.fire('onStateChange', this.instance.moviePlayer, 2);
+		if(this.prevState != 2)
+			this.instance.playerEvents.fire('onStateChange', this.instance.moviePlayer, 3);
 		this.toggleMute();
 		if(this.prevState == 3 || this.prevState == 2 ||
 				this.prevState == 4)
@@ -1851,6 +1867,7 @@ ScriptInstance.prototype.initVars = function(){
 	this.setDefault("bbtnIcons", true);
 	this.setDefault("bcustomWide", false);
 	this.setDefault("bmusicMode", false);
+	this.setDefault("bignoreSidebar", false);
 }
 
 /// Helpers
@@ -2382,7 +2399,7 @@ ScriptInstance.prototype.setThumbnailVisible = function(b)
 
 ScriptInstance.prototype.setSideBar = function(wide)
 {
-	if(this.isPopup) return;
+	if(this.isPopup || this.bignoreSidebar) return;
 	var el = this.$('watch7-container');
 	if(!el) return;
 
@@ -2452,7 +2469,11 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 					this._sizer_timeout = null;
 					this.setPlayerSize(wide);
 				}).bind(this), 100);
+		return;
 	}
+
+	if(this.bignoreSidebar)
+		placeholder.style.marginBottom = (this.$('vlc_controls_div').clientHeight + 10) + "px";
 
 	//var w = /\/user\//i.test(this.win.location.href) ? "100%" : this.width, h = this.height;
 	if(this.bcustomWide && typeof(w) != 'string' && (wide || this.isPopup))
@@ -2968,7 +2989,7 @@ ScriptInstance.prototype.openAsPopup = function(w,h)
 	this.addCSS("#player.watch-small{max-width:100%; min-width:100px;}");
 	this.addCSS("#player.watch-medium{max-width:100%;min-width:100px;}");
 	this.addCSS("#player.watch-large{max-width:100%;min-width:100px;}");
-	this.addCSS("#player{margin:0;padding:0;}");
+	this.addCSS("#player{margin:0;padding:0;margin-top:-10px}");
 	this.addCSS("#player,#player-api,#movie_player, #mymovie-holder, #player-mole-container{height:100%; width:100%;}");
 	this.addCSS("#movie_player{display:table}");
 	this.addCSS("#mymovie-holder,#vlc_controls_div{display:table-row}");
@@ -3577,6 +3598,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-btn-icons", 'bbtnIcons'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-custom-wide", 'bcustomWide'));
 		chkboxes.appendChild(this._makeCheckbox("vlc-config-music-mode", 'bmusicMode'));
+		chkboxes.appendChild(this._makeCheckbox("vlc-config-sidebar-ignore", 'bignoreSidebar'));
 		config.appendChild(chkboxes);
 
 	}
@@ -4297,6 +4319,7 @@ ScriptInstance.prototype.setupVLC = function(vlcNode)
 
 	this.playerEvents = new CustomEvent();
 	this.moviePlayer.addEventListener = function(event, fun, bubble) {that.playerEvents.addListener(event, fun);}
+	this.moviePlayer.removeEventListener = function(event, fun) {that.playerEvents.removeListener(event, fun);}
 
 	this.SetupAPI();
 	//Compatibility functions
@@ -4326,6 +4349,10 @@ ScriptInstance.prototype.SetupAPI = function()
 	this.fakeApiNode.isMuted = function(){return false;}
 	this.fakeApiNode.isReady = function(){return false;}
 	this.fakeApiNode.getCurrentVideoConfig = function(){return null;}
+	this.fakeApiNode.getPlaybackRate = function(){return that.myvlc.vlc.input.rate;}
+	this.fakeApiNode.setPlaybackRate = function(e){that.myvlc.vlc.input.rate = e;}
+	this.fakeApiNode.isMuted = function(){return that.myvlc.vlc.audio.mute;}
+	this.fakeApiNode.loadVideoByPlayerVars = function(vars){console.log("FakeAPI: loadVideoByPlayerVars, ignored.", vars);}
 	this.fakeApiNode.getPlayerState = function(){
 		if(!that.myvlc.input) return 0;
 		switch(that.myvlc.input.state){
@@ -4341,6 +4368,15 @@ ScriptInstance.prototype.SetupAPI = function()
 		//console.log("canPlayType", arguments);
 		return true;
 	}
+
+	this.fakeApiNode.addEventListener = function(event, fun, bubble) {
+		that.playerEvents.addListener(event, fun);
+	}
+	this.fakeApiNode.removeEventListener = function(event, fun) {
+		that.playerEvents.removeListener(event, fun);
+	}
+	if(typeof onYouTubePlayerReady === "function")
+		onYouTubePlayerReady(this.fakeApiNode);
 }
 
 ScriptInstance.prototype.exterminate = function()
@@ -4619,7 +4655,7 @@ function loadDefaults()
 		'bpopupSeparate', 'bresumePlay', 'bscrollToPlayer', 'bshowMute',
 		'bshowRate', 'bshowRatePreset', 'bshowWLOnMain', 'buseFallbackHost',
 		'buseHoverControls', 'busePopups', 'buseRepeat', 'buseThumbnail',
-		'buseWidePosBar', 'bmusicMode',
+		'buseWidePosBar', 'bmusicMode', 'bignoreSidebar',
 		'vlc-formats', 'vlc-lang', 'vlc-pl-autonext', 'vlc-rate-preset', 'vlc-rate-max',
 		'vlc-rate-min', 'vlc-volume-max', 'vlc-wide', 'vlc-wide-width',
 		'vlc-cache', 'vlc_vol', 'ytquality', 'vlc-subs-align', 'vlc-subs-color'];
