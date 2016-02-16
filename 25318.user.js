@@ -27,7 +27,7 @@
 (function(){
 
 var VLCTube = function (){
-"use strict;"
+"use strict";
 var gPlayerApiID = 'player-api';//-legacy';
 var gPlayerID = 'player';//-legacy';
 var gMoviePlayerID = 'movie_player'; ///< Change to something else if flash/html5 player keeps overwriting VLC player
@@ -404,9 +404,10 @@ function fmttime(time)
 
 function Clone(obj)
 {
+	var clone;
 	if (Object.prototype.toString.call(obj) === '[object Array]')
 	{
-		var clone = [];
+		clone = [];
 		for (var i=0; i<obj.length; i++)
 			clone[i] = Clone(obj[i]);
 
@@ -414,7 +415,7 @@ function Clone(obj)
 	} 
 	else if (typeof(obj)=="object")
 	{
-		var clone = {};
+		clone = {};
 		for (var prop in obj)
 			if (obj.hasOwnProperty(prop))
 				clone[prop] = Clone(obj[prop]);
@@ -429,7 +430,7 @@ function getMatches(string, regex, index) {
 	index || (index = 1); // default to the first capturing group
 	var matches = [];
 	var match;
-	while (match = regex.exec(string)) {
+	while ((match = regex.exec(string))) {
 		matches.push(match[index]);
 	}
 	return matches;
@@ -457,37 +458,11 @@ function removeChildren(node, keepThis)
 	if(!keepThis) node.parentNode.removeChild(node);
 }
 
-//ScriptInstance.prototype.str2obj = function (a, b) {
-function yt_str2obj(obj, a, b) {
-	m = {};
-	m.l = function (a) {
-        return void 0 !== a
-    };
-	var c = a.split('.'), d = obj;//this;
-	//c[0] in d || !d.execScript || d.execScript('var ' + c[0]);
-	for (var e; c.length && (e = c.shift()); ) !c.length && (0, m.l) (b) ? d[e] = b : d[e] ? d = d[e] : d = d[e] = {}
-	console.log(d);
-};
-
 function str2obj(obj, a) {
 	var c = a.split('.'), d = obj;
 	for (var e; c.length && (e = c.shift()); )
 		if(d[e]) d = d[e]; else return null;
 	return d;
-}
-
-function fakeTimeout(callback) {
-	function ftcb(ev)
-	{
-		callback(ev);
-		window.document.body.removeEventListener("timeoutEvent", arguments.callee, false);
-	}
-	// Register event listener
-	window.document.body.addEventListener("timeoutEvent", ftcb, false);
-	// Generate and dispatch synthetic event
-	var ev = window.document.createEvent("HTMLEvents");
-	ev.initEvent("timeoutEvent", true, false);
-	window.document.body.dispatchEvent(ev);
 }
 
 function printStack()
@@ -508,12 +483,12 @@ function printStack()
 ///
 function Decode(sig, arr)
 {
-	sig = sig.split('')
-	for (i in arr)
+	sig = sig.split('');
+	for (var i in arr)
 	{
 		i = arr[i];
 		// + swap, - slice, 0 reverse
-		sig = (i > 0) ? Swap(sig, i) : ((i == 0) ? Reverse(sig) : sig.slice(-i));
+		sig = (i > 0) ? Swap(sig, i) : ((i === 0) ? Reverse(sig) : sig.slice(-i));
 	}
 
 	return sig.join('');
@@ -541,6 +516,7 @@ function DecryptSignature(sig, sts)
 {
 	if(typeof sts == 'undefined') sts = 0;
 	if(!sig) return;
+	var sigA, sigB;
 	switch (sig.length)
 	{
 		/*case 82:
@@ -560,18 +536,18 @@ function DecryptSignature(sig, sts)
 			switch(sts)
 			{
 			case 15995:
-				sig = Decode(sig, [0,9,0,-1,51,27,0,-1,0])
+				sig = Decode(sig, [0,9,0,-1,51,27,0,-1,0]);
 				break;
 			default:
-				sig = Decode(sig, [0,-2,0,63,0])
+				sig = Decode(sig, [0,-2,0,63,0]);
 				break;
 			}
 			break;
 
 		case 84:
 			{
-				var sigA = Reverse(sig.substr(44, 40));
-				var sigB = Reverse(sig.substr(3, 40));
+				sigA = Reverse(sig.substr(44, 40));
+				sigB = Reverse(sig.substr(3, 40));
 
 				sig = sigA + sig.substr(43, 1) + sigB.substr(0, 6) + sig.substr(2, 1) + sigB.substr(7, 9) +
 					sigB.substr(39, 1) + sigB.substr(17, 22) + sigB.substr(16, 1);
@@ -594,8 +570,8 @@ function DecryptSignature(sig, sts)
 
 		case 87:
 			{
-				var sigA = Reverse(sig.substr(44, 40));
-				var sigB = Reverse(sig.substr(3, 40));
+				sigA = Reverse(sig.substr(44, 40));
+				sigB = Reverse(sig.substr(3, 40));
 
 				sig = sigA.substr(21, 1) + sigA.substr(1, 20) + sigA.substr(0, 1) + sigB.substr(22, 9) +
 				sig.substr(0, 1) + sigA.substr(32, 8) + sig.substr(43, 1) + sigB;
@@ -611,14 +587,14 @@ function DecryptSignature(sig, sts)
 			break;
 
 		case 93:
-			sig = Decode(sig, [-3,0,-1,0,-3,0-3,59,-2])
+			sig = Decode(sig, [-3,0,-1,0,-3,0-3,59,-2]);
 			break;
 
 		default:
 			switch(sts) //signature timestamp
 			{
 			case 15981:
-				sig = Decode(sig, [7,37,0,-1])
+				sig = Decode(sig, [7,37,0,-1]);
 				break;
 			}
 			break;
@@ -754,7 +730,7 @@ ScrollBar.prototype = {
 		this.value = val;
 		var v = 0;
 
-		if(this.type == 0 || this.type == 2)
+		if(this.type === 0 || this.type == 2 || !this.type)
 		{
 			v = (this.value - this.minValue)/(this.maxValue - this.minValue);
 			v = Math.max(0.0, Math.min(1.0, v));
@@ -765,7 +741,7 @@ ScrollBar.prototype = {
 			v = Math.max(0.0, Math.min(1.0, v));
 		}
 
-		if(this.type == 0)
+		if(this.type === 0 || !this.type)
 			this.knob.style.left = Math.round(v * (this.bar.clientWidth - this.knob.clientWidth)) + "px";
 		else if(this.type == 1)
 			this.knob.style.top = Math.round(v * (this.bar.clientHeight - this.knob.clientHeight)) + "px";
@@ -786,13 +762,13 @@ ScrollBar.prototype = {
 		this.userSeeking = true;
 		this.off = 0;
 		var node = this.bar;
-		var horizontal = (this.type % 2 == 0);
+		var horizontal = (this.type % 2 === 0);
 		while(node.offsetParent)	// bar's position is relative so loop through parent nodes
 		{							// maybe there's some better tricks
 			this.off += horizontal ? node.offsetLeft : node.offsetTop;
 			node = node.offsetParent;
 		}
-		if(this.type == 0)
+		if(this.type === 0 || !this.type)
 			this.knob.style.left = ev.pageX - this.off - this.knob.clientWidth / 2 + "px";
 		else if(this.type == 1)
 			this.knob.style.top = ev.pageY - this.off - this.knob.clientHeight / 2 + "px";
@@ -821,34 +797,35 @@ ScrollBar.prototype = {
 		this.emitValue(false);
 	},
 	mouseMove: function(ev){
+		var x,y,w,h;
 		switch(this.type){
 			case 0:
-				var x = ev.pageX - this._ScrollBarDragData.dx;
-				var w = this.bar.clientWidth - this.knob.clientWidth;
+				x = ev.pageX - this._ScrollBarDragData.dx;
+				w = this.bar.clientWidth - this.knob.clientWidth;
 				if( x < 0 ) x = 0;
 				if( x > w ) x = w;
 				this.knob.style.left = x + "px";
-				if(w != 0) //eh weird, otherwise NaN sometimes if user drags 'over the edge'
+				if(w !== 0) //eh weird, otherwise NaN sometimes if user drags 'over the edge'
 					this.value = x/w * (this.maxValue - this.minValue) + this.minValue;
 				//this.knob.title = Math.floor(x/w * 100) + '%';
 				break;
 			case 1: //FIXME minValue
-				var y = ev.pageY - this._ScrollBarDragData.dy;
-				var h = this.bar.clientHeight - this.knob.clientHeight;
+				y = ev.pageY - this._ScrollBarDragData.dy;
+				h = this.bar.clientHeight - this.knob.clientHeight;
 				if( y < 0 ) y = 0;
 				if( y > h ) y = h;
 				this.knob.style.top = y + "px";
-				if(h != 0) //eh weird, otherwise NaN sometimes if user drags 'over the edge'
+				if(h !== 0) //eh weird, otherwise NaN sometimes if user drags 'over the edge'
 					this.value = this.maxValue - (y/h * this.maxValue);
 				break;
 			case 2:
 				//Seems that 'border' width of 2px comes into play
-				var x = ev.pageX - this.off - 2;
-				var w = this.bar.clientWidth;
+				x = ev.pageX - this.off - 2;
+				w = this.bar.clientWidth;
 				if( x < 0 ) x = 0;
 				if( x > w ) x = w;
 				this.knob.style.width = x + "px";
-				if(w != 0)
+				if(w !== 0)
 					this.value = x/w * (this.maxValue - this.minValue) + this.minValue;
 				break;
 		}
@@ -858,6 +835,7 @@ ScrollBar.prototype = {
 
 function ccTimer()
 {
+	/*jshint validthis: true */
 	this.ccObj = null;
 	this.ccOffset = 0;
 	this.lastTime = 0;
@@ -911,8 +889,8 @@ ccTimer.prototype =
 		if(this.lastTime < time)
 		{
 			var newOff = this.ccOffset+1;
-			while(newOff < this.nodeCount
-				&& this.getStart(newOff) <= time)
+			while(newOff < this.nodeCount &&
+				this.getStart(newOff) <= time)
 			{
 				newOff++;
 			}
@@ -966,7 +944,7 @@ ccTimer.prototype =
 		this._e.innerHTML = input;
 		return this._e.childNodes.length === 0 ? "" : this._e.childNodes[0].nodeValue;
 	}
-}
+};
 
 function Storyboard(el, sb)
 {
@@ -978,7 +956,7 @@ function Storyboard(el, sb)
 	this.story_spec_url = null;
 	this.wait = 5; //reduce cpu load
 	this.element = el;
-	spec = sb.split('|');
+	var spec = sb.split('|');
 	this.story_spec_url = spec[0];
 	spec = spec.slice(1);
 
@@ -1009,12 +987,12 @@ Storyboard.prototype = {
 	getStoryBoardSrc: function(page, i)
 	{
 		if(i<0) return null;
-		uri = this.story_spec_url.replace('$L', i).
+		var uri = this.story_spec_url.replace('$L', i).
 			replace('$N', this.thumbs[i].n_param)
 			+ "?sigh="
 			+ this.thumbs[i].sigh;
 
-		n_param = this.thumbs[i].n_param.split('$');
+		var n_param = this.thumbs[i].n_param.split('$');
 		if(n_param.length>1)
 			n_param = '$' + n_param[1];
 		else
@@ -1028,7 +1006,7 @@ Storyboard.prototype = {
 	{
 		if(i<0) return null;
 
-		pages = this.thumbs[i].count / (this.thumbs[i].gridX * this.thumbs[i].gridY);
+		var pages = this.thumbs[i].count / (this.thumbs[i].gridX * this.thumbs[i].gridY);
 		//if(this.thumbs[i].count % (this.thumbs[i].gridX * this.thumbs[i].gridY))
 		//	pages++;
 
@@ -1038,14 +1016,14 @@ Storyboard.prototype = {
 		else if(page >= pages)
 			page = pages - 1;
 		//thumbnail's index
-		image = Math.floor(pos * this.thumbs[i].count - 1);
+		var image = Math.floor(pos * this.thumbs[i].count - 1);
 		image = Math.max(0, image);
 		//thumbnail's index on current image page
 		image -= page * this.thumbs[i].gridX * this.thumbs[i].gridY;
 
 		//thumbnail's x,y on current image page
-		image_x = this.thumbs[i].w * (image % this.thumbs[i].gridX);
-		image_y = this.thumbs[i].h * (Math.floor(image / this.thumbs[i].gridX));
+		var image_x = this.thumbs[i].w * (image % this.thumbs[i].gridX);
+		var image_y = this.thumbs[i].h * (Math.floor(image / this.thumbs[i].gridX));
 
 
 		return {
@@ -1061,12 +1039,12 @@ Storyboard.prototype = {
 
 	_setImg: function(pos)
 	{
-		q = Math.min(2, this.thumbs.length-1);
-		img = this.getStoryBoardAtPos(pos, q);
+		var q = Math.min(2, this.thumbs.length-1);
+		var img = this.getStoryBoardAtPos(pos, q);
 		if(!img) return;
 		if(!this.Cmp(img, this.oldThumb))
 		{
-			scale = 1;
+			var scale = 1;
 			//scale w to 160px
 			if(img.w <= 48)
 				scale = 3.333;
@@ -1085,15 +1063,15 @@ Storyboard.prototype = {
 				//this.element.style.top = (-img.h-7)+"px";
 				this.onetimeonly = false;
 				//Preload
-				preloads = [];
+				var preloads = [];
 				preloads.count = 0;
 				preloads.preload = function(src) {
 					var img = new Image();
 					var count = ++preloads.count;
 					preloads[count] = img;
-					img.onload = img.onerror = function() {delete preloads[count];}
+					img.onload = img.onerror = function() {delete preloads[count];};
 					img.src = src;
-				}
+				};
 				for(var i=0;i<img.pages;i++)
 					preloads.preload(this.getStoryBoardSrc(i, q));
 			}
@@ -1114,7 +1092,7 @@ Storyboard.prototype = {
 	emitValue: function(sb, pos, instant){
 		this.setImg(pos);
 	},
-}
+};
 
 function VLCObj (instance){
 	this.instance = instance;
@@ -1195,6 +1173,7 @@ VLCObj.prototype = {
 			if(!(ev.target.tagName == "BODY" || (ev.target.tagName == "DIV" && ev.target.id == "player-api")))
 				return;
 
+			var v;
 			switch(ev.keyCode)
 			{
 				//Start play or pause
@@ -1206,7 +1185,7 @@ VLCObj.prototype = {
 					if(this.ctrlDown)
 					{
 						ev.preventDefault();
-						var v = Math.ceil(this.getVolume());
+						v = Math.ceil(this.getVolume());
 						if(v > -1)
 						{
 							v = Math.min(v + 1, this.instance.maxVolume);
@@ -1219,7 +1198,7 @@ VLCObj.prototype = {
 					if(this.ctrlDown)
 					{
 						ev.preventDefault();
-						var v = Math.ceil(this.getVolume());
+						v = Math.ceil(this.getVolume());
 						if(v > -1)
 						{
 							v = Math.max(v - 1, 0);
@@ -1232,7 +1211,7 @@ VLCObj.prototype = {
 					if(this.ctrlDown)
 					{
 						ev.preventDefault();
-						var v = Math.max(this.getCurrentTime() - 10, 0);
+						v = Math.max(this.getCurrentTime() - 10, 0);
 						this._seekTo(v);
 					}
 				break;
@@ -1240,7 +1219,7 @@ VLCObj.prototype = {
 					if(this.ctrlDown)
 					{
 						ev.preventDefault();
-						var v = Math.min(this.getCurrentTime() + 10, this.getDuration());
+						v = Math.min(this.getCurrentTime() + 10, this.getDuration());
 						this._seekTo(v);
 					}
 				break;
@@ -1318,7 +1297,7 @@ VLCObj.prototype = {
 		//e is normalized 0..1
 	},
 	eventBuffering: function(e){
-		if(e != undefined) this.instance.setBuffer(e);
+		if(e !== undefined) this.instance.setBuffer(e);
 		if(this.prevState != 2)
 			this.instance.playerEvents.fire('onStateChange', this.instance.moviePlayer, 3);
 		this.toggleMute();
@@ -1564,7 +1543,7 @@ VLCObj.prototype = {
 	//End of Youtube stuff
 	setTimes: function(cur, dur)
 	{
-		this.scrollbarPos.bar.children.namedItem('vlctime').innerHTML = fmttime(cur) + ( dur != undefined ? " / " + fmttime(dur) : "");
+		this.scrollbarPos.bar.children.namedItem('vlctime').innerHTML = fmttime(cur) + ( dur !== undefined ? " / " + fmttime(dur) : "");
 	},
 	startUpdate: function()
 	{
@@ -1594,7 +1573,7 @@ VLCObj.prototype = {
 		link += shuf && shuf.classList.contains('yt-uix-button-toggled') && !link.match(/shuffle/i) ?
 					"&shuffle="+this.instance.yt.getConfig('SHUFFLE_VALUE', 0) : "";
 		if(win.spf && win.spf.navigate)
-			win.spf.navigate(link)
+			win.spf.navigate(link);
 		else
 			this.instance.win.location.href = link;
 	},
@@ -1607,7 +1586,7 @@ VLCObj.prototype = {
 				if(!(this.instance.buseHoverControls && this.instance.getStyle('vlc_controls_div').display=='none'))
 					this.scrollbarPos.setValue(this.vlc.input.position*this.scrollbarPos.maxValue);
 				//this.controls.children.namedItem('vlcstate').innerHTML = VLC_status[this.vlc.input.state];
-				rp = document.querySelector('#progress-radial');
+				var rp = document.querySelector('#progress-radial');
 				rp.innerHTML = VLC_status[this.vlc.input.state][0];
 				rp.title = VLC_status[this.vlc.input.state];
 				//TODO Reloading on error or not if #vlc-error is in url already
@@ -1680,8 +1659,8 @@ VLCObj.prototype = {
 					this.playVideo();
 					this.vlc.input.time = p;
 					this._timeout = null;
-				}).bind(this)
-			, 1000);
+				}).bind(this),
+			1000);
 			return true;
 		}
 		return false;
@@ -1815,11 +1794,11 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 		{
 			//console.log("Suck it Trebek!");
 			return {};
-		}
+		};
 		yt.player.utils.videoElement_ = this.fakeApiNode;
 	}
 	this.inited = true;
-}
+};
 
 ScriptInstance.prototype.initVars = function(){
 	this.maxVolume = tryParseFloat(GM_getValue('vlc-volume-max', "100"), 100.0).toFixed(0);
@@ -1868,33 +1847,33 @@ ScriptInstance.prototype.initVars = function(){
 	this.setDefault("bcustomWide", false);
 	this.setDefault("bmusicMode", false);
 	this.setDefault("bignoreSidebar", false);
-}
+};
 
 /// Helpers
 ScriptInstance.prototype.setDefault = function(key, def)
 {
-	if(GM_getValue(key, undefined) == undefined) GM_setValue(key, def);
+	if(GM_getValue(key, undefined) === undefined) GM_setValue(key, def);
 	this[key] = this.win[key] = GM_getValue(key, def);
-}
+};
 
 ScriptInstance.prototype.$ = function(id)
 {
-	var el = this._getElementById && this._getElementById(id)
-		|| document.getElementById(id);
+	var el = this._getElementById && this._getElementById(id) ||
+		document.getElementById(id);
 	return el;
-}
+};
 
 ScriptInstance.prototype.$$ = function(id)
 {
 	return document.getElementsByClassName(id);
-}
+};
 
 ScriptInstance.prototype.getStyle = function(el, pseudo)
 {
 	if(typeof(el) === 'string')
 		el = this.$(el);
 	return this.win.getComputedStyle(el, pseudo);
-}
+};
 
 function getComputedPx(element, property)
 {
@@ -1914,7 +1893,7 @@ ScriptInstance.prototype.saveVolume = function(sbVol)
 			GM_setValue('vlc_vol', vol);
 	}else if(sbVol)
 		GM_setValue('vlc_vol', Math.round(sbVol));
-}
+};
 
 ScriptInstance.prototype.restoreVolume = function(stopped)
 {
@@ -1948,7 +1927,7 @@ ScriptInstance.prototype.restoreVolume = function(stopped)
 			setTimeout(this.restoreVolume.bind(this), 250);
 		}
 	}
-}
+};
 
 ScriptInstance.prototype.restoreSettings = function(ev){
 	this.restoreVolume();
@@ -1977,7 +1956,7 @@ ScriptInstance.prototype.restoreSettings = function(ev){
 		//this.onFmtChange(null, opt);
 	}
 	return true;
-}
+};
 
 ScriptInstance.prototype.saveSettings = function(ev){
 	this.saveVolume();
@@ -1986,7 +1965,7 @@ ScriptInstance.prototype.saveSettings = function(ev){
 	{
 		GM_setValue('ytquality', this.selectNode.options[this.selectNode.selectedIndex].getAttribute('name'));
 	}
-}
+};
 
 ScriptInstance.prototype.insertYTmessage = function(message){
 
@@ -2017,11 +1996,11 @@ ScriptInstance.prototype.insertYTmessage = function(message){
 	}
 
 	msg.appendChild(document.createTextNode(message));
-}
+};
 
 ScriptInstance.prototype.replaceYTmessage = function(message){
 	this.$('iytmsg').innerHTML=message;
-}
+};
 
 ScriptInstance.prototype.addScriptSrc = function(src) {
 	var head, script;
@@ -2031,7 +2010,7 @@ ScriptInstance.prototype.addScriptSrc = function(src) {
 	script.type = 'text/javascript';
 	script.setAttribute('src', src);
 	head.appendChild(script);
-}
+};
 
 ScriptInstance.prototype.addScript = function(src) {
 	var head, script;
@@ -2043,7 +2022,7 @@ ScriptInstance.prototype.addScript = function(src) {
 		src = "(" + src.toString() + ")();";
 	script.appendChild(document.createTextNode(src));
 	head.appendChild(script);
-}
+};
 
 ScriptInstance.prototype.addCSS = function(css, before, islink){
 
@@ -2052,14 +2031,14 @@ ScriptInstance.prototype.addCSS = function(css, before, islink){
 	} else if (typeof addStyle != "undefined") {
 		addStyle(css);
 	} else */{
-		var heads = document.getElementsByTagName("head");
+		var node, heads = document.getElementsByTagName("head");
 		if (heads.length > 0) {
 			if(islink) {
-				var node = document.createElement("link");
+				node = document.createElement("link");
 				node.setAttribute('rel', 'stylesheet');
 				node.setAttribute('href', css);
 			} else {
-				var node = document.createElement("style");
+				node = document.createElement("style");
 				node.type = "text/css";
 				node.appendChild(document.createTextNode(css));
 			}
@@ -2071,7 +2050,7 @@ ScriptInstance.prototype.addCSS = function(css, before, islink){
 				heads[0].appendChild(node);
 		}
 	}
-}
+};
 
 ScriptInstance.prototype.putCSS = function(){
 
@@ -2090,7 +2069,7 @@ ScriptInstance.prototype.putCSS = function(){
 	var css = ".player-api {overflow: visible;} /*for storyboard tooltip*/\
 	#"+ vlc_id + "-holder {overflow: hidden;}\
 	#cued-embed #video-title {position: absolute; left: 5px; top: 5px; background: rgba(0,0,0,0.75); z-index: 1;} \
-	.movie_player_vlc { background: white; height:100%; position:relative;}\
+	.movie_player_vlc { background: white; height:100%; position:relative;} \
 	.movie_player_vlc select {padding: 5px 0;}\
 	a.vlclink { color:#438BC5; margin:5px;}\
 	.vlc_hidden { display:none !important; }\
@@ -2236,7 +2215,7 @@ ScriptInstance.prototype.putCSS = function(){
 	@keyframes media-event-2 { from { clip: rect(1px, auto, auto, auto); } to { clip: rect(0px, auto, auto, auto); } }\
 	@keyframes media-event-3 { from { clip: rect(1px, auto, auto, auto); } to { clip: rect(0px, auto, auto, auto); } }\
 	");
-}
+};
 
 ScriptInstance.prototype.getSessionToken = function(callback)
 {
@@ -2260,7 +2239,7 @@ ScriptInstance.prototype.getSessionToken = function(callback)
 			}
 		}).bind(this)
 	});
-}
+};
 
 function clearWLButtonState()
 {
@@ -2307,7 +2286,7 @@ ScriptInstance.prototype.getAddToXML = function(action, callback)
 			}
 		}
 	});
-}
+};
 
 //TODO Probably some config param somewhere...
 ScriptInstance.prototype.isInWatchLater = function()
@@ -2324,7 +2303,7 @@ ScriptInstance.prototype.isInWatchLater = function()
 			that.is_in_watchlater && setWLButtonState(true);
 		}
 	});
-}
+};
 
 ScriptInstance.prototype.ajaxWatchLater = function()
 {
@@ -2357,7 +2336,7 @@ ScriptInstance.prototype.ajaxWatchLater = function()
 		addToWatchLater();
 	else
 		this.getSessionToken(addToWatchLater);
-}
+};
 
 ScriptInstance.prototype.canAutoplay = function(){
 
@@ -2368,11 +2347,11 @@ ScriptInstance.prototype.canAutoplay = function(){
 	if(this.getPL() && GM_getValue('bautoplayPL', true))
 		return true;
 
-	var el = document.querySelector('#autoplay-checkbox');
+	el = document.querySelector('#autoplay-checkbox');
 	return (GM_getValue('bautoplayYT', false) && el && el.checked) 
 		|| ((GM_getValue('bautoplay', true) || (this.isPopup && this.bpopupAutoplay))
 				&& !this.isEmbed);
-}
+};
 
 ScriptInstance.prototype.removeListener = function(type, listener){
 	if (this.listeners[type] instanceof Array){
@@ -2384,7 +2363,7 @@ ScriptInstance.prototype.removeListener = function(type, listener){
 			}
 		}
 	}
-}
+};
 
 ScriptInstance.prototype.setThumbnailVisible = function(b)
 {
@@ -2395,7 +2374,7 @@ ScriptInstance.prototype.setThumbnailVisible = function(b)
 		thumb.classList.remove("vlc_hid");
 	else
 		thumb.classList.add("vlc_hid");
-}
+};
 
 ScriptInstance.prototype.setSideBar = function(wide)
 {
@@ -2421,11 +2400,11 @@ ScriptInstance.prototype.setSideBar = function(wide)
 	{
 		sidebar.style.marginTop = (-370 - (pl ? 0 : h)) + "px";
 	}
-}
+};
 
 ScriptInstance.prototype.setPlayerSize = function(wide)
 {
-	if(wide != undefined)
+	if(wide !== undefined)
 	{
 		this.isWide = wide;
 		this.setWideCookie(wide);
@@ -2522,6 +2501,7 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 
 	if(this.bcustomWide)
 	{
+		var clsHeights, i;
 		if(wide)
 		{
 			//TODO call setPlayerSize only when isPopup is finally set (or not)
@@ -2530,8 +2510,8 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 			this.player.style.left = (-w/2) + "px";
 			if(placeholderDiv)
 				placeholderDiv.style.width = w + "px";
-			var clsHeights = document.querySelectorAll('.player-height');
-			for(var i=0; i < clsHeights.length; i++)
+			clsHeights = document.querySelectorAll('.player-height');
+			for(i=0; i < clsHeights.length; i++)
 				clsHeights[i].style.height = h + 'px';
 		}
 		else // Reset explicit styles
@@ -2543,8 +2523,8 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 			if(placeholderDiv)
 				placeholderDiv.style.width = '';
 			this.elements.holder.style.height = '';
-			var clsHeights = document.querySelectorAll('.player-height');
-			for(var i=0; i < clsHeights.length; i++)
+			clsHeights = document.querySelectorAll('.player-height');
+			for(i=0; i < clsHeights.length; i++)
 				clsHeights[i].style.height = '';
 		}
 	}
@@ -2589,30 +2569,30 @@ ScriptInstance.prototype.setPlayerSize = function(wide)
 			//TODO el.style.maxHeight to something
 		}
 	}
-}
+};
 
 ScriptInstance.prototype.setBuffer = function(i)
 {
-	var b = "#2f3439",f = "#ff6347",el = document.querySelector('#'+vlc_id+'_controls .progress-radial');
+	var val, b = "#2f3439",f = "#ff6347",el = document.querySelector('#'+vlc_id+'_controls .progress-radial');
 	if(!el) return; //sometimes null for some reason
 	var step = 1, loops = Math.round(100/ step), increment = (360 / loops), half = Math.round(loops / 2);
 	if (i < half)
 	{
-		var val = 90 + ( increment * i ); el.style.backgroundImage = "linear-gradient(90deg, "+b+" 50%, transparent 50%, transparent), linear-gradient("+val+"deg, "+f+" 50%, "+b+" 50%, "+b+")";
+		val = 90 + ( increment * i ); el.style.backgroundImage = "linear-gradient(90deg, "+b+" 50%, transparent 50%, transparent), linear-gradient("+val+"deg, "+f+" 50%, "+b+" 50%, "+b+")";
 	}
 	else
 	{
-		var val = -90 + ( increment * ( i - half ) ); el.style.backgroundImage = "linear-gradient("+val+"deg, "+f+" 50%, transparent 50%, transparent), linear-gradient(270deg, "+f+" 50%, "+b+" 50%, "+b+")";
+		val = -90 + ( increment * ( i - half ) ); el.style.backgroundImage = "linear-gradient("+val+"deg, "+f+" 50%, transparent 50%, transparent), linear-gradient(270deg, "+f+" 50%, "+b+" 50%, "+b+")";
 	}
-}
+};
 
 ScriptInstance.prototype.setUriHost = function(uri, host)
 {
-	if(this._tmp_uri == undefined) this._tmp_uri = document.createElement('a');
+	if(this._tmp_uri === undefined) this._tmp_uri = document.createElement('a');
 	this._tmp_uri.href = uri;
 	this._tmp_uri.host = host;
 	return this._tmp_uri.href;
-}
+};
 
 ScriptInstance.prototype.onFmtChange = function(ev, opt)
 {
@@ -2626,7 +2606,7 @@ ScriptInstance.prototype.onFmtChange = function(ev, opt)
 		uri = this.setUriHost(uri, fb);
 	this.quality = n.getAttribute("name");
 
-	sig = n.getAttribute("s");
+	var sig = n.getAttribute("s");
 
 	if(!/signature=/.test(uri))
 	{
@@ -2647,14 +2627,14 @@ ScriptInstance.prototype.onFmtChange = function(ev, opt)
 	this.saveSettings();
 
 	this.myvlc.add(uri, itagToText[this.quality]);
-}
+};
 
 ScriptInstance.prototype.onWideClick = function(ev)
 {
 	this.isWide = !this.isWide; //TODO rely isWide being correct always?
 	this.setPlayerSize(this.isWide);
 	this.setSideBar(this.isWide);
-}
+};
 
 //Obfuscated/minified cookie script from youtube
 function Ni(a, b, c, d, e, f) {
@@ -2664,11 +2644,11 @@ function Ni(a, b, c, d, e, f) {
 	f = f ? ";domain=" + f : "";
 	e = e ? ";path=" + e : "";
 	d = 0 > d ? "" : 0 == d ? ";expires=" + (new Date(1970, 1, 1)).toUTCString() : ";expires=" + (new Date((Date.now) + 1E3 * d)).toUTCString();
-	a.cookie = b + "=" + c + f + e + d + ""
+	a.cookie = b + "=" + c + f + e + d + "";
 }
 
 function setCookie(a, b, c) {
-	Ni(document, "" + a, b, c, "/", "youtube.com")
+	Ni(document, "" + a, b, c, "/", "youtube.com");
 }
 
 ScriptInstance.prototype.setWideCookie = function(a)
@@ -2678,7 +2658,7 @@ ScriptInstance.prototype.setWideCookie = function(a)
 	try{
 		this.ytplayer.config.args.player_wide = a?1:0;
 	}catch(e){}
-}
+};
 
 ScriptInstance.prototype.onHashChange = function(ev)
 {
@@ -2701,7 +2681,7 @@ ScriptInstance.prototype.onHashChange = function(ev)
 		+ (m[5] ? parseInt(m[5]) : 0);
 
 	this.myvlc._seekTo(off);
-}
+};
 
 ScriptInstance.prototype.onSetCC = function(name, lang)
 {
@@ -2714,7 +2694,7 @@ ScriptInstance.prototype.onSetCC = function(name, lang)
 
 	getXML(this.getTrackUrl(lang, name),
 		this.parseCCTrack.bind(this));
-}
+};
 
 ScriptInstance.prototype.parseCCTrack = function(r) {
 	var parser = new DOMParser();
@@ -2730,7 +2710,7 @@ ScriptInstance.prototype.parseCCTrack = function(r) {
 			GM_getValue('vlc-subs-color', 'FFFFFF'));
 		this.usingSubs = true;
 	}
-}
+};
 
 ScriptInstance.prototype.parseCCList = function(r) {
 	var parser = new DOMParser();
@@ -2771,13 +2751,13 @@ ScriptInstance.prototype.parseCCList = function(r) {
 				this.onSetCC(ccselect.options[1].getAttribute('name'), ccselect.options[1].value);
 			}
 		}
-}
+};
 
 ScriptInstance.prototype.queryCC = function()
 {
 	//console.log("Has CC:" + (swf_args.has_cc||swf_args.cc_asr));
 	getXML(this.getListUrl(), this.parseCCList.bind(this));
-}
+};
 
 //host should be *.youtube.com
 //fffffff, if no subs load, try to just refresh, grumble grumble...
@@ -2785,7 +2765,7 @@ ScriptInstance.prototype.getListUrl = function()
 {
 	return "//"+ this.win.location.hostname +"/api/timedtext?type=list&v=" +
 		this.swf_args.video_id;
-}
+};
 
 ScriptInstance.prototype.getTrackUrl = function(lang, name)
 {
@@ -2794,7 +2774,7 @@ ScriptInstance.prototype.getTrackUrl = function(lang, name)
 						"name=" + name +
 						"&lang=" + lang +
 						"&v=" + this.yt.getConfig('VIDEO_ID', '');
-}
+};
 
 ScriptInstance.prototype.pullYTVars = function()
 {
@@ -2824,11 +2804,11 @@ ScriptInstance.prototype.pullYTVars = function()
 		var str = upsell.getAttribute('data-swf-config');
 
 		var json = JSON.parse(str.replace(/&quot;/g, "\""));
-		this.swf_args = json['args'];
+		this.swf_args = json.args;
 		this.ytplayer = {config: {args: this.swf_args}};
 	}
 	else if(!this.swf_args)
-		this.swf_args = this.yt.getConfig('PLAYER_CONFIG',null) ['args'];
+		this.swf_args = this.yt.getConfig('PLAYER_CONFIG',null).args;
 
 	this.isWide = this.bforceWide || //Set wide no matter what
 		(this.ytplayer && this.ytplayer.config.args.player_wide == 1) ||
@@ -2839,18 +2819,17 @@ ScriptInstance.prototype.pullYTVars = function()
 	}catch(e) {
 		return false;
 	}
-}
+};
 
 // Do sanity check for obsolete format types saved in user prefs
 function cleanFormats(frmts_dirty)
 {
-	var itagfrmts = [];
-	var frmts = [];
+	var i, j, itagfrmts = [], frmts = [];
 
 	//Convert old format list to itag list
 	if(frmts_dirty.length && /[a-z]+/.test(frmts_dirty[0]))
 	{
-		for(var i in frmts_dirty)
+		for(i in frmts_dirty)
 			itagfrmts.push(convToItag[frmts_dirty[i]]);
 		GM_setValue('vlc-formats', itagfrmts.join(','));
 	}
@@ -2858,18 +2837,18 @@ function cleanFormats(frmts_dirty)
 		itagfrmts = frmts_dirty;
 
 	//First add valid formats in saved order
-	for(var j in frmts_dirty)
-		for(var i in itagPrio)
+	for(j in frmts_dirty)
+		for(i in itagPrio)
 		{
 			if(itagPrio[i] == itagfrmts[j])
 				frmts.push(itagPrio[i]);
 		}
 
 	//Append missing formats
-	for(var i in itagPrio)
+	for(i in itagPrio)
 	{
 		var missing = true;
-		for(var j in itagfrmts)
+		for(j in itagfrmts)
 		{
 			if(itagPrio[i] == itagfrmts[j])
 			{
@@ -2896,7 +2875,7 @@ ScriptInstance.prototype._makeButton = function(id, text, icon)
 	btn.title = text;
 	btn.appendChild(span);
 	return btn;
-}
+};
 
 ScriptInstance.prototype._makeCheckbox = function(id, setting, text, title)
 {
@@ -2927,12 +2906,12 @@ ScriptInstance.prototype._makeCheckbox = function(id, setting, text, title)
 			}).bind(this), false);
 	}
 	return el;
-}
+};
 
 ScriptInstance.prototype.openPopup = function(w,h)
 {
 	if(typeof(w) == 'undefined') w = 854;
-	if(typeof(h) == 'undefined') h = 480
+	if(typeof(h) == 'undefined') h = 480;
 	if(this.bpopupSeparate) popupID = '';
 	else popupID = 'vlc-popup-window';
 
@@ -2972,7 +2951,7 @@ ScriptInstance.prototype.openPopup = function(w,h)
 	if(this.bdarkTheme) s.addCSS("body {background: black;}"); //TODO color
 	s.win["vlc-instance"] = s; //Keep reference alive. Might be overkill. Seems to work without it too.
 	*/
-}
+};
 
 //Is full blown youtube page, but cull all the stuff
 ScriptInstance.prototype.openAsPopup = function(w,h)
@@ -3000,7 +2979,7 @@ ScriptInstance.prototype.openAsPopup = function(w,h)
 	document.body.className = "";
 	this.isPopup = true;
 	this.setPlayerSize();
-}
+};
 
 //hasOwnProperty
 function gd(o, v, d){if(v in o) return o[v]; else return d;}
@@ -3073,6 +3052,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 	//Abort now, needs too much changes to be usable
 	//if(options.upsell) return {dom: vlc, node: embedNode};
 
+	var i, el, inp, lbl;
 	var controls = document.createElement("div");
 	this.elements.controls = controls;
 	{
@@ -3085,7 +3065,6 @@ ScriptInstance.prototype.generateDOM = function(options)
 			sliders.id = vlc_id + "_controls";
 			sliders.className = "vlccontrols vlc-flex-container";
 
-			var el;
 			el = document.createElement("div");
 			el.className = "progress-radial";
 			el.id = "progress-radial";
@@ -3151,7 +3130,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			{
 				var clone = buttons.cloneNode(true);
 				clone.style.display = "inline-block";
-				var el = this._makeButton('_cv', _("CURRVIDEO"), 'fa-youtube');
+				el = this._makeButton('_cv', _("CURRVIDEO"), 'fa-youtube');
 				el.addEventListener('click', (function(){
 					spf.navigate(this._current_video_page);
 				}).bind(this), false);
@@ -3232,7 +3211,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 				if(el.style.display == 'block')
 					el.style.display = 'none';
 				else
-					el.style.display = 'block'
+					el.style.display = 'block';
 
 				this.setSideBar(this.isWide);
 			}).bind(this),
@@ -3269,7 +3248,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		///Watch on YT link
 		if(this.isEmbed)
 		{
-			var link = document.createElement("A");
+			link = document.createElement("A");
 			link.className = "yt-uix-button yt-uix-button-default";
 			link.setAttribute("href", "//" + this.win.location.hostname + "/watch?v=" + this.swf_args.video_id);
 			link.setAttribute("target", "_new");
@@ -3307,9 +3286,9 @@ ScriptInstance.prototype.generateDOM = function(options)
 
 		var dragwrap = document.createElement("div");
 		dragwrap.id = "vlc-config-drag";
-		for(var i in frmts)
+		for(i in frmts)
 		{
-			var el = document.createElement("div");
+			el = document.createElement("div");
 			el.setAttribute("data", frmts[i]);
 			el.className = "row";
 			el.draggable = true;
@@ -3334,11 +3313,11 @@ ScriptInstance.prototype.generateDOM = function(options)
 			var sel = document.createElement("select");
 			sel.id = vlc_id + '_lang_select';
 			sel.className = "yt-uix-button yt-uix-button-default";
-			for(var i in gLangs)
+			for(i in gLangs)
 			{
 				var opt = document.createElement("option");
 				opt.setAttribute("value", i);
-				opt.textContent = gLangs[i]['LANG'];
+				opt.textContent = gLangs[i].LANG;
 				if(gLang == i) opt.selected = true;
 				sel.appendChild(opt);
 			}
@@ -3355,7 +3334,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		el = document.createElement("div");
 		{
 			el.id = "vlc-config-rate-values";
-			var inp = document.createElement("input");
+			inp = document.createElement("input");
 			inp.value = tryParseFloat(GM_getValue('vlc-rate-min', '0.25'), 0.25);
 			inp.title = _("MINRATE");
 			inp.className = "tiny";
@@ -3377,7 +3356,6 @@ ScriptInstance.prototype.generateDOM = function(options)
 			}).bind(this), false);
 			el.appendChild(inp);
 
-			var lbl;
 			lbl = document.createElement("div");
 			lbl.innerHTML = _("PLAYBACKRATE") + "(min / max):";
 			midcolumn.appendChild(lbl);
@@ -3398,7 +3376,6 @@ ScriptInstance.prototype.generateDOM = function(options)
 			}).bind(this), false);
 			el.appendChild(inp);
 
-			var lbl;
 			lbl = document.createElement("div");
 			lbl.innerHTML = _("PLAYBACKRATEPRESET") + ":";
 			midcolumn.appendChild(lbl);
@@ -3409,13 +3386,12 @@ ScriptInstance.prototype.generateDOM = function(options)
 		el = document.createElement("div");
 		{
 			el.id = "vlc-config-repeat";
-			var inp = document.createElement("input");
+			inp = document.createElement("input");
 			inp.value = tryParseFloat(GM_getValue('vlc-repeat-wait', "0"));
 			inp.title = _("vlc-config-repeat-wait")[1];
 			inp.className = "tiny";
 			inp.addEventListener('change', function(e){ GM_setValue('vlc-repeat-wait', e.target.value);}, false);
 
-			var lbl;
 			lbl = document.createElement("div");
 			lbl.innerHTML = _("vlc-config-repeat-wait")[0];
 			el.appendChild(lbl);
@@ -3428,7 +3404,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		el = document.createElement("div");
 		{
 			el.id = "vlc-config-volume-max";
-			var inp = document.createElement("input");
+			inp = document.createElement("input");
 			inp.value = tryParseFloat(GM_getValue('vlc-volume-max', "100"), 100.0).toFixed(0);
 			inp.title = _("vlc-config-volume-max")[1];
 			inp.className = "tiny";
@@ -3439,7 +3415,6 @@ ScriptInstance.prototype.generateDOM = function(options)
 				this.sbVol.setMaxValue(f); this.sbVol.setValue(Math.min(this.sbVol.getValue(), f));
 				}).bind(this), false);
 
-			var lbl;
 			lbl = document.createElement("div");
 			lbl.innerHTML = _("vlc-config-volume-max")[0];
 			el.appendChild(lbl);
@@ -3452,7 +3427,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		el = document.createElement("div");
 		{
 			el.id = "vlc-config-cache";
-			var inp = document.createElement("input");
+			inp = document.createElement("input");
 			inp.value = tryParseFloat(GM_getValue('vlc-cache', "5"));
 			inp.title = _("vlc-config-cache")[1];
 			inp.className = "tiny";
@@ -3463,7 +3438,6 @@ ScriptInstance.prototype.generateDOM = function(options)
 				GM_setValue('vlc-cache', cache);
 				}, false);
 
-			var lbl;
 			lbl = document.createElement("div");
 			lbl.innerHTML = _("vlc-config-cache")[0];
 			el.appendChild(lbl);
@@ -3476,13 +3450,12 @@ ScriptInstance.prototype.generateDOM = function(options)
 		el = document.createElement("div");
 		{
 			el.id = "vlc-config-wide-width";
-			var inp = document.createElement("input");
+			inp = document.createElement("input");
 			inp.value = GM_getValue('vlc-wide-width', this.widthWide);
 			inp.title = _("vlc-config-wide-width")[1];
 			inp.className = "tiny";
 			inp.addEventListener('change', (function(e){ this.widthWide = e.target.value; GM_setValue('vlc-wide-width', e.target.value);}).bind(this), false);
 
-			var lbl;
 			lbl = document.createElement("div");
 			lbl.innerHTML = _("vlc-config-wide-width")[0];
 			el.appendChild(lbl);
@@ -3495,7 +3468,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		el = document.createElement("div");
 		{
 			el.id = "vlc-config-subs-align";
-			var inp = document.createElement("select");
+			inp = document.createElement("select");
 			var arr = ["CENTER", "LEFT", "RIGHT", "TOP", "TOP-LEFT", "TOP-RIGHT", "BOTTOM", "BOTTOM-LEFT", "BOTTOM-RIGHT"];
 			arr.forEach(function(e)
 			{
@@ -3514,7 +3487,6 @@ ScriptInstance.prototype.generateDOM = function(options)
 			}).bind(this), false);
 			el.appendChild(inp);
 
-			var lbl;
 			lbl = document.createElement("div");
 			lbl.innerHTML = _("vlc-config-subs-align")[0] + ":";
 			midcolumn.appendChild(lbl);
@@ -3525,7 +3497,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 		el = document.createElement("div");
 		{
 			el.id = "vlc-config-subs-color";
-			var inp = document.createElement("input");
+			inp = document.createElement("input");
 
 			var SetColors = function(el, hex)
 			{
@@ -3535,8 +3507,8 @@ ScriptInstance.prototype.generateDOM = function(options)
 				el.style.color =
 					0.213 * ((rgb >> 16) & 0xFF) +
 					0.715 * ((rgb >> 8) & 0xFF) +
-					0.072 * (rgb & 0xFF)
-					< 128 ? '#FFF' : '#000';
+					0.072 * (rgb & 0xFF) <
+					128 ? '#FFF' : '#000';
 			};
 
 			inp.value = GM_getValue('vlc-subs-color', 'FFFFFF');
@@ -3552,7 +3524,6 @@ ScriptInstance.prototype.generateDOM = function(options)
 			}).bind(this), false);
 			el.appendChild(inp);
 
-			var lbl;
 			lbl = document.createElement("div");
 			lbl.innerHTML = _("vlc-config-subs-color")[0] + ":";
 			midcolumn.appendChild(lbl);
@@ -3626,6 +3597,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 
 	// check the animation name and operate accordingly
 	function dispatchMEvent(event) {
+		/*jshint validthis: true */
 		this.setPlayerSize(this.isWide);
 		this.setSideBar(this.isWide);
 	}
@@ -3637,7 +3609,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 	document.body.appendChild(mediaEvents);
 
 	return {dom: vlc, node: embedNode};
-}
+};
 
 //Shamelessly stolen from http://www.html5rocks.com/en/tutorials/dnd/basics/
 ScriptInstance.prototype.makeDraggable = function() {
@@ -3706,7 +3678,6 @@ ScriptInstance.prototype.makeDraggable = function() {
 			col.classList.remove('moving');
 		});
 	};
-	var that = this; //Less verbose
 	[].forEach.call(cols_, function (col) {
 		col.setAttribute('draggable', 'true');
 		col.addEventListener('dragstart', that.handleDragStart, false);
@@ -3716,7 +3687,7 @@ ScriptInstance.prototype.makeDraggable = function() {
 		col.addEventListener('drop', that.handleDrop, false);
 		col.addEventListener('dragend', that.handleDragEnd, false);
 	});
-}
+};
 
 function getXML(url, callback)
 {
@@ -3757,7 +3728,7 @@ ScriptInstance.prototype.parseLive = function(pl)
 	}
 	//regen with live feeds
 	this.genUrlSelect();
-}
+};
 
 ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 {
@@ -3765,8 +3736,8 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 	var that = this;
 	if(clean) this.urlMap = [];
 	this.sigDecodeParam = null;
-	rCLen = new RegExp("clen=(\\d+)");
-	rDur = new RegExp("dur=(\\d+)");
+	var rCLen = new RegExp("clen=(\\d+)");
+	var rDur = new RegExp("dur=(\\d+)");
 	urls.split(',').forEach(function(map){
 		var kv = {};
 		var obj = {};
@@ -3776,35 +3747,35 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 			kv[t[0]] = unescape(t[1]);
 		});
 
-		if(!that.badd3DFormats && kv['stereo3d'])
+		if(!that.badd3DFormats && kv.stereo3d)
 		{
 			//nothing
 		}
 		else if('url' in kv)
 		{
-			var type = kv['type'].split(';')[0].split('/')[1];
+			var type = kv.type.split(';')[0].split('/')[1];
 			if(that.bdiscardFLVs && type == 'x-flv')
 				return;
-			var url = kv['url'];
-			obj.name = kv['itag'];
+			var url = kv.url;
+			obj.name = kv.itag;
 			obj.url = url;
 
-			obj.text = (kv['itag'] in itagToText ? itagToText[kv['itag']] : "Fmt " + kv['itag']);
+			obj.text = (kv.itag in itagToText ? itagToText[kv.itag] : "Fmt " + kv.itag);
 
 			if(rCLen.test(url))
-				kv['clen'] = rCLen.exec(url)[1];
+				kv.clen = rCLen.exec(url)[1];
 			if(rDur.test(url))
-				kv['dur'] = rDur.exec(url)[1];
+				kv.dur = rDur.exec(url)[1];
 			obj.kv = kv;
 
 			//if(kv['stereo3d']) obj.text += '/stereo3D';
-			that.qualityLevels.push(kv['itag']);
+			that.qualityLevels.push(kv.itag);
 			that.urlMap.push(obj);
 		}
 		else if(!that.weirdstreams)
 		{
 			that.weirdstreams = true;
-			that.insertYTmessage("VLCTube: " + ( 'conn' in kv && kv['conn'].indexOf('rtmpe') > -1 ? "Sorry, encrypted rtmp stream." : "Weird stream map"));
+			that.insertYTmessage("VLCTube: " + ( 'conn' in kv && kv.conn.indexOf('rtmpe') > -1 ? "Sorry, encrypted rtmp stream." : "Weird stream map"));
 			return;
 		}
 	});
@@ -3836,7 +3807,7 @@ ScriptInstance.prototype.parseUrlMap = function(urls, clean)
 	}
 
 	return true;
-}
+};
 
 ScriptInstance.prototype.genUrlSelect = function()
 {
@@ -3869,26 +3840,26 @@ ScriptInstance.prototype.genUrlSelect = function()
 	this.urlMap.forEach(map.bind(this));
 
 	return true;
-}
+};
 
 ScriptInstance.prototype.getPL = function()
 {
 	return this.$('watch-appbar-playlist');//if in playlist mode
-}
+};
 
 
 ScriptInstance.prototype.getStreams = function(watchPage)
 {
 	var gotVars = this.pullYTVars();
-	if(this.swf_args == null) {
+	if(this.swf_args === null) {
 		console.log("no source");
 		if(watchPage) this.insertYTmessage ('VLCTube: Unable to find video source');
 		return false;
 	}
 
 	if(gotVars) {
-		var hasStreams = this.parseUrlMap(this.swf_args['url_encoded_fmt_stream_map'], true);
-		hasStreams = (this.badaptiveFmts && this.parseUrlMap(this.swf_args['adaptive_fmts'])) || hasStreams;
+		var hasStreams = this.parseUrlMap(this.swf_args.url_encoded_fmt_stream_map, true);
+		hasStreams = (this.badaptiveFmts && this.parseUrlMap(this.swf_args.adaptive_fmts)) || hasStreams;
 		hasStreams = (this.swf_args.hlsvp && this.swf_args.hlsvp.length) || hasStreams;
 
 		if(!hasStreams && watchPage)
@@ -3899,7 +3870,7 @@ ScriptInstance.prototype.getStreams = function(watchPage)
 		}
 	}
 	return true;
-}
+};
 
 ///On 'watch' page
 ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
@@ -3970,17 +3941,18 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 
 	var plbtn = document.querySelector('div.playlist-nav-controls button.toggle-autoplay');
 
+	function togglePLNext(ev)
+	{
+		if(GM_getValue('vlc-pl-autonext', false))
+			plbtn.classList.add('yt-uix-button-toggled');
+		else
+			plbtn.classList.remove('yt-uix-button-toggled');
+		if(ev) //from event listener
+			GM_setValue('vlc-pl-autonext', !GM_getValue('vlc-pl-autonext', false));
+	}
+
 	if(plbtn)
 	{
-		function togglePLNext(ev)
-		{
-			if(GM_getValue('vlc-pl-autonext', false))
-				plbtn.classList.add('yt-uix-button-toggled');
-			else
-				plbtn.classList.remove('yt-uix-button-toggled');
-			if(ev) //from event listener
-				GM_setValue('vlc-pl-autonext', !GM_getValue('vlc-pl-autonext', false));
-		}
 		togglePLNext();
 		plbtn.addEventListener('click', togglePLNext, false);
 	}
@@ -4074,7 +4046,7 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 	this.win.setTimeout(setup.bind(this), 1000);
 
 	return true;
-}
+};
 
 ScriptInstance.prototype.doViewTracking = function()
 {
@@ -4089,7 +4061,7 @@ ScriptInstance.prototype.doViewTracking = function()
 		//+ '&of=' + this.swf_args.of
 		//+ '&fexp=' + this.swf_args.fexp;
 	getXML(ptracking, function(r){});
-}
+};
 
 var xhr_state = ["UNSENT", "OPENED", "HEADERS_RECEIVED", "LOADING", "DONE"];
 ScriptInstance.prototype.loadEmbedVideo = function()
@@ -4116,22 +4088,22 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 				param_map[t[0]] = t[1];
 			}
 
-			if(param_map["status"] == "fail")
+			if(param_map.status == "fail")
 			{
 				var title = that.$$('html5-title');
 				if(title.length)
 				{
 					el = document.createElement("SPAN");
-					el.innerHTML = unescape(param_map["reason"]).replace(/\+/g,' ');
+					el.innerHTML = unescape(param_map.reason).replace(/\+/g,' ');
 					title[0].appendChild(document.createTextNode(" - "));
 					title[0].appendChild(el);
 				}
 				return;
 			}
 
-			that.parseUrlMap(decodeURIComponent(param_map['url_encoded_fmt_stream_map']), true);
+			that.parseUrlMap(decodeURIComponent(param_map.url_encoded_fmt_stream_map), true);
 			if(that.badaptiveFmts)
-				that.parseUrlMap(decodeURIComponent(param_map['adaptive_fmts']), false);
+				that.parseUrlMap(decodeURIComponent(param_map.adaptive_fmts), false);
 			that.genUrlSelect();
 
 			//set global width/height before generation
@@ -4164,28 +4136,29 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 			}
 
 			var embed = that.$('cued-embed');
+
+			function playEmbed(ev){
+				//Do once or crash the plugin
+				if(!that.$('movie_player')) {
+					insertPlayer();
+					var player = that.$('player');
+					player.style.width = "100%";
+					player.style.height = "100%";
+					that.initialAddToPlaylist();
+					that.queryCC();
+					that.overrideRef();
+					that.setupStoryboard();
+					that.doViewTracking();
+				}
+				embed.classList.add('hid');
+				that.myvlc.playVideo();
+				that.onHashChange(that.win.location.href);
+			}
+
 			if(embed)
 			{
 				var _vid = embed;//use as fallback
 				var thumb = that.$('video-thumbnail');
-
-				function playEmbed(ev){
-					//Do once or crash the plugin
-					if(!that.$('movie_player')) {
-						insertPlayer();
-						var player = that.$('player');
-						player.style.width = "100%";
-						player.style.height = "100%";
-						that.initialAddToPlaylist();
-						that.queryCC();
-						that.overrideRef();
-						that.setupStoryboard();
-						that.doViewTracking();
-					}
-					embed.classList.add('hid');
-					that.myvlc.playVideo();
-					that.onHashChange(that.win.location.href);
-				}
 
 				//Blah, arguments.callee no worky in strict mode
 				thumb.removeEventListener('click', that._loadEmbedCB, false);
@@ -4194,7 +4167,7 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 			}
 		}
 	);
-}
+};
 
 ScriptInstance.prototype.onEmbedPage = function()
 {
@@ -4235,7 +4208,7 @@ ScriptInstance.prototype.onEmbedPage = function()
 		this._loadEmbedCB = this.loadEmbedVideo.bind(this);
 		this.$('video-thumbnail').addEventListener('click', this._loadEmbedCB, false);
 	}
-}
+};
 
 
 //ytplayer.config.args.storyboard_spec
@@ -4244,7 +4217,7 @@ ScriptInstance.prototype.setupStoryboard = function()
 	if(this.storyboard)
 		this.sbPos.unregister(this.storyboard);
 	this.storyboard = null;
-	el = document.querySelector('#vlc-sb-tooltip');
+	var el = document.querySelector('#vlc-sb-tooltip');
 	//hide/reset
 	el.style.backgroundImage = '';
 	el.classList.add('hid');
@@ -4255,7 +4228,7 @@ ScriptInstance.prototype.setupStoryboard = function()
 		this.storyboard.setImg(0);
 		el.classList.remove('hid');
 	}
-}
+};
 
 ScriptInstance.prototype.initialAddToPlaylist = function(bypass, dohash)
 {
@@ -4271,7 +4244,7 @@ ScriptInstance.prototype.initialAddToPlaylist = function(bypass, dohash)
 		return true;
 	}
 	return false;
-}
+};
 
 ScriptInstance.prototype.setupVLC = function(vlcNode)
 {
@@ -4318,8 +4291,8 @@ ScriptInstance.prototype.setupVLC = function(vlcNode)
 	}
 
 	this.playerEvents = new CustomEvent();
-	this.moviePlayer.addEventListener = function(event, fun, bubble) {that.playerEvents.addListener(event, fun);}
-	this.moviePlayer.removeEventListener = function(event, fun) {that.playerEvents.removeListener(event, fun);}
+	this.moviePlayer.addEventListener = function(event, fun, bubble) {that.playerEvents.addListener(event, fun);};
+	this.moviePlayer.removeEventListener = function(event, fun) {that.playerEvents.removeListener(event, fun);};
 
 	this.SetupAPI();
 	//Compatibility functions
@@ -4328,31 +4301,31 @@ ScriptInstance.prototype.setupVLC = function(vlcNode)
 	//unsafeWindow._yt_www.v('yt.www.watch.player', {});
 	//unsafeWindow._yt_www.v('yt.www.watch.player.init', function(e){console.log("init called", arguments);});
 	//str2obj(window, 'yt.www.watch').player = this.fakeApiNode;
-}
+};
 
 ScriptInstance.prototype.SetupAPI = function()
 {
 	var that = this;
 	//FIXME sometimes needs a reload
-	this.fakeApiNode.getLastError = function(e){return "ok";}
-	this.fakeApiNode.seekTo = function(e){that.myvlc._seekTo(e);}
-	this.fakeApiNode.pauseVideo = function(){that.myvlc.pauseVideo();}
-	this.fakeApiNode.playVideo = function(){that.myvlc.playVideo();}
-	this.fakeApiNode.stopVideo = function(){if(!that.bmusicMode) that.myvlc.stopVideo();}
-	this.fakeApiNode.getCurrentTime = function(){return that.myvlc.getCurrentTime();}
-	this.fakeApiNode.getDuration = function(){return that.myvlc.getDuration();}
-	this.fakeApiNode.getAvailableQualityLevels = function(){return that.myvlc.getAvailableQualityLevels();}
-	this.fakeApiNode.getPlaybackQuality = function(){return that.myvlc.getPlaybackQuality();}
-	this.fakeApiNode.setPlaybackQuality = function(e){that.myvlc.setPlaybackQuality(e);}
-	this.fakeApiNode.getVolume = function(){return that.myvlc.getVolume();}
-	this.fakeApiNode.setVolume = function(e){that.myvlc.setVolume(e);}
-	this.fakeApiNode.isMuted = function(){return false;}
-	this.fakeApiNode.isReady = function(){return false;}
-	this.fakeApiNode.getCurrentVideoConfig = function(){return null;}
-	this.fakeApiNode.getPlaybackRate = function(){return that.myvlc.vlc.input.rate;}
-	this.fakeApiNode.setPlaybackRate = function(e){that.myvlc.vlc.input.rate = e;}
-	this.fakeApiNode.isMuted = function(){return that.myvlc.vlc.audio.mute;}
-	this.fakeApiNode.loadVideoByPlayerVars = function(vars){console.log("FakeAPI: loadVideoByPlayerVars, ignored.", vars);}
+	this.fakeApiNode.getLastError = function(e){return "ok";};
+	this.fakeApiNode.seekTo = function(e){that.myvlc._seekTo(e);};
+	this.fakeApiNode.pauseVideo = function(){that.myvlc.pauseVideo();};
+	this.fakeApiNode.playVideo = function(){that.myvlc.playVideo();};
+	this.fakeApiNode.stopVideo = function(){if(!that.bmusicMode) that.myvlc.stopVideo();};
+	this.fakeApiNode.getCurrentTime = function(){return that.myvlc.getCurrentTime();};
+	this.fakeApiNode.getDuration = function(){return that.myvlc.getDuration();};
+	this.fakeApiNode.getAvailableQualityLevels = function(){return that.myvlc.getAvailableQualityLevels();};
+	this.fakeApiNode.getPlaybackQuality = function(){return that.myvlc.getPlaybackQuality();};
+	this.fakeApiNode.setPlaybackQuality = function(e){that.myvlc.setPlaybackQuality(e);};
+	this.fakeApiNode.getVolume = function(){return that.myvlc.getVolume();};
+	this.fakeApiNode.setVolume = function(e){that.myvlc.setVolume(e);};
+	this.fakeApiNode.isMuted = function(){return false;};
+	this.fakeApiNode.isReady = function(){return false;};
+	this.fakeApiNode.getCurrentVideoConfig = function(){return null;};
+	this.fakeApiNode.getPlaybackRate = function(){return that.myvlc.vlc.input.rate;};
+	this.fakeApiNode.setPlaybackRate = function(e){that.myvlc.vlc.input.rate = e;};
+	this.fakeApiNode.isMuted = function(){return that.myvlc.vlc.audio.mute;};
+	this.fakeApiNode.loadVideoByPlayerVars = function(vars){console.log("FakeAPI: loadVideoByPlayerVars, ignored.", vars);};
 	this.fakeApiNode.getPlayerState = function(){
 		if(!that.myvlc.input) return 0;
 		switch(that.myvlc.input.state){
@@ -4363,21 +4336,21 @@ ScriptInstance.prototype.SetupAPI = function()
 			case 4: return 2;//paused
 			case 5: case 6: return 0;//stopped, ended
 		}
-	}
+	};
 	this.fakeApiNode.canPlayType = function(){
 		//console.log("canPlayType", arguments);
 		return true;
-	}
+	};
 
 	this.fakeApiNode.addEventListener = function(event, fun, bubble) {
 		that.playerEvents.addListener(event, fun);
-	}
+	};
 	this.fakeApiNode.removeEventListener = function(event, fun) {
 		that.playerEvents.removeListener(event, fun);
-	}
+	};
 	if(typeof onYouTubePlayerReady === "function")
 		onYouTubePlayerReady(this.fakeApiNode);
-}
+};
 
 ScriptInstance.prototype.exterminate = function()
 {
@@ -4407,7 +4380,7 @@ ScriptInstance.prototype.exterminate = function()
 		removeChildren(videos[i]);
 
 	this.hasSettled = 0;//reset count
-}
+};
 
 //Ah, stupid, brute-force it /wtf
 //FIXME sometimes needs a reload :/
@@ -4441,13 +4414,13 @@ ScriptInstance.prototype.overrideRef = function()
 		//this.yt.www.watch.player.seekTo = this.myvlc._seekTo;
 		this.yt.www.watch.player.seekTo = function(t){
 			that.myvlc._seekTo(t);
-		}
+		};
 	}catch(e){
 		//console.log(e);
 	}
 
 	this.win.setTimeout(function(e){that.overrideRef();}, 1000);
-}
+};
 
 // Remove old stuff and recreate (with new settings)
 ScriptInstance.prototype.reloadPlayer = function()
@@ -4461,7 +4434,7 @@ ScriptInstance.prototype.reloadPlayer = function()
 		this.restoreVolume();//eventPlaying should, but sometimes doesn't???
 		this.overrideRef();
 	}
-}
+};
 
 var VLCinstance = new ScriptInstance(window);
 
@@ -4509,7 +4482,7 @@ function GM_xmlhttpRequest(params)
 	xhr.onreadystatechange = function () {
 		if (xhr.readyState != 4) return;
 		params.onload(xhr);
-	}
+	};
 	xhr.send(params.data);
 	//VLC.myxmlhttpRequest(params);
 }
@@ -4537,7 +4510,7 @@ function GM_xmlhttpRequest(params)
 
 	loader(oldNode);
 	return VLCinstance;
-} /// var VLCTube = ...
+}; /// var VLCTube = ...
 
 function injectScript(src)
 {
@@ -4713,7 +4686,7 @@ function loadDefaults()
 				}
 			});
 		}
-	}
+	};
 	parseLive();
 
 	function SaveGMValues()
@@ -4775,8 +4748,8 @@ var noVideoElement = function()
 	var fakeVideo = document.createElement('DIV');
 	var fakeVideoParent = document.createElement('DIV');
 	fakeVideoParent.appendChild(fakeVideo); //just in case as html5 player logic checks for parent node
-	fakeVideo.load = function(){}
-	fakeVideo.play = function(){}
+	fakeVideo.load = function(){};
+	fakeVideo.play = function(){};
 
 	var _createElement = document.createElement.bind(document);
 	var localCreateElement = function(tag){
@@ -4787,14 +4760,14 @@ var noVideoElement = function()
 			//return fakeVideo;
 
 			var el = _createElement(tag);
-			el.play = function(){ console.log("Attempted to call play() on hijacked <video/>"); }
+			el.play = function(){ console.log("Attempted to call play() on hijacked <video/>"); };
 			return el;
 		}
 		return _createElement(tag);
 	};
 
 	document.createElement = localCreateElement;
-}
+};
 
 var domObserver;
 function DOMevent(mutations)
@@ -4847,7 +4820,7 @@ if((!/\/embed\//.test(window.location.pathname) && window.top !== window.self) |
 
 //document-start
 injectScript("("+noVideoElement.toString() + ")();");
-var domObserver = new MutationObserver(DOMevent);
+domObserver = new MutationObserver(DOMevent);
 domObserver.observe(document, {subtree:true, childList:true});
 
 //document-end
