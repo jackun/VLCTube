@@ -2641,6 +2641,7 @@ function Ni(a, b, c, d, e, f) {
 	/[;=\s]/.test(b) && console.log('Invalid cookie name "' + b + '"');
 	/[;\r\n]/.test(c) && console.log('Invalid cookie value "' + c + '"');
 	//fa(d) || (d = -1);
+	if(d === undefined) d = -1;
 	f = f ? ";domain=" + f : "";
 	e = e ? ";path=" + e : "";
 	d = 0 > d ? "" : 0 == d ? ";expires=" + (new Date(1970, 1, 1)).toUTCString() : ";expires=" + (new Date((Date.now) + 1E3 * d)).toUTCString();
