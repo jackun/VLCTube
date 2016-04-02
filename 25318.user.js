@@ -1737,7 +1737,7 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 		console.log("video seems to be unavailable");
 		return;
 	}
-	unavail.id = "player-unavailable-off";
+	unavail && (unavail.id = "player-unavailable-off");
 
 	this.putCSS();
 
@@ -4321,12 +4321,13 @@ ScriptInstance.prototype.SetupAPI = function()
 	this.fakeApiNode.getVolume = function(){return that.myvlc.getVolume();};
 	this.fakeApiNode.setVolume = function(e){that.myvlc.setVolume(e);};
 	this.fakeApiNode.isMuted = function(){return false;};
-	this.fakeApiNode.isReady = function(){return false;};
+	this.fakeApiNode.isReady = function(){return !!that.myvlc.vlc && !!that.myvlc.vlc.input;};
 	this.fakeApiNode.getCurrentVideoConfig = function(){return null;};
 	this.fakeApiNode.getPlaybackRate = function(){return that.myvlc.vlc.input.rate;};
 	this.fakeApiNode.setPlaybackRate = function(e){that.myvlc.vlc.input.rate = e;};
 	this.fakeApiNode.isMuted = function(){return that.myvlc.vlc.audio.mute;};
 	this.fakeApiNode.loadVideoByPlayerVars = function(vars){console.log("FakeAPI: loadVideoByPlayerVars, ignored.", vars);};
+	this.fakeApiNode.setAutonavState = function(state){};
 	this.fakeApiNode.getPlayerState = function(){
 		if(!that.myvlc.input) return 0;
 		switch(that.myvlc.input.state){
