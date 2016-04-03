@@ -15,7 +15,7 @@
 // @grant          GM_xmlhttpRequest
 // @grant          GM_registerMenuCommand
 // @grant          unsafeWindow
-// @version        61.29
+// @version        61.30
 // @updateURL      https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
@@ -3171,7 +3171,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 
 		/// Mute
 		if(this.bshowMute) {
-			btn = this._makeButton('_mute', _('MUTE'));
+			var btn = this._makeButton('_mute', _('MUTE'));
 			btn.muteStyleToggle = function(mute) {
 				if(mute) {
 					this.classList.add('vlc-boo-bg');
