@@ -2947,10 +2947,11 @@ ScriptInstance.prototype._makeCheckbox = function(id, setting, text, title)
 
 ScriptInstance.prototype.openPopup = function(w,h)
 {
+	var popupID = '';
 	if(typeof(w) == 'undefined') w = 854;
 	if(typeof(h) == 'undefined') h = 480;
-	if(this.bpopupSeparate) popupID = '';
-	else popupID = 'vlc-popup-window';
+	if(!this.bpopupSeparate)
+		popupID = 'vlc-popup-window';
 
 	var win = window.open(this.win.location.href + "#popup" /*+ "&w=" + w + "&h=" + h*/, popupID, 'width=' +w+ ',height=' +h+ ',resizeable,scrollbars');
 
