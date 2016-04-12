@@ -841,6 +841,7 @@ function ccTimer()
 	this.lastTime = 0;
 	this.nodeCount = 0;
 	this.reset = true;
+	this.prevTexts = [];
 }
 
 ccTimer.prototype =
@@ -855,13 +856,13 @@ ccTimer.prototype =
 	getStart : function(offset)
 	{
 		if(offset>-1 && offset < this.nodeCount)
-			return this.ccObj.childNodes[offset].getAttribute("start");
+			return parseFloat(this.ccObj.childNodes[offset].getAttribute("start"));
 		return 0;
 	},
 	getDur : function(offset)
 	{
 		if(offset>-1 && offset < this.nodeCount)
-			return this.ccObj.childNodes[offset].getAttribute("dur");
+			return parseFloat(this.ccObj.childNodes[offset].getAttribute("dur"));
 		return 0;
 	},
 	getLastStart : function()
@@ -876,6 +877,7 @@ ccTimer.prototype =
 	{
 		this.ccOffset = -1;
 		this.lastTime = 0;
+		this.prevTexts = [];
 		this.resetCC();
 	},
 	update: function(time, vlc)
@@ -899,7 +901,7 @@ ccTimer.prototype =
 				//&& time < this.getStart(newOff) + this.getDur(newOff)
 			)
 			{
-				this.setCC(newOff, time, vlc);
+				this.setCC(newOff, vlc);
 				this.lastTime = this.getLastStart();
 			}
 		}
@@ -907,14 +909,41 @@ ccTimer.prototype =
 		//console.log(time);
 	},
 
-	setCC : function(offset, time, vlc)
+	setCC : function(offset, vlc)
 	{
-
 		//vlc.video.marquee.disable();//brute forcing, sometimes it fails to show
-		//vlc.video.marquee.enable();
+		//Stopping video disables marquee so keep enabling it
+		vlc.video.marquee.enable(); //TODO Better place?
 
-		vlc.video.marquee.text = this._unescape(this.ccObj.childNodes[offset].innerHTML);
-		vlc.video.marquee.timeout = 1000 * this.getDur(offset);
+		var text = "";
+		var prevEnd = 0;
+		var line = this._unescape(this.ccObj.childNodes[offset].innerHTML);
+		var time = this.getStart(offset);
+		var dur = this.getDur(offset);
+
+		if(this.prevTexts.length == 0)
+			text = line;
+		else
+		{
+			while(this.prevTexts.length && this.prevTexts[0].end <= time)
+			{
+				this.prevTexts = this.prevTexts.slice(1);
+			}
+
+			for(var i in this.prevTexts)
+			{
+				if(this.prevTexts[i].end > prevEnd)
+					prevEnd = this.prevTexts[i].end;
+				text += this.prevTexts[i].text + "\n";
+			}
+			text += line;
+		}
+
+		vlc.video.marquee.text = text;
+		// TODO Limiting to 30 seconds just in case.
+		vlc.video.marquee.timeout = 1000 * Math.min((time + dur > prevEnd ?  dur : prevEnd - time), 30);
+
+		this.prevTexts.push({'text': line, 'end': time + dur});
 
 		this.ccOffset = offset;
 		this.reset = false;
@@ -1287,6 +1316,11 @@ VLCObj.prototype = {
 		}*/
 		this.vlc.video.marquee.disable();
 		this.vlc.video.marquee.enable();
+	},
+	clearMarquee: function()
+	{
+		this.vlc.video.marquee.text = "";
+		this.vlc.video.marquee.timeout = 1;
 	},
 	toggleMute: function()
 	{
@@ -1763,6 +1797,7 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 	var spfnavigate = (function() {
 		//console.log("navigate");
 		this.navigating = true;
+		this.myvlc.clearMarquee();
 		if(!this.bmusicMode)
 			this.myvlc.stopVideo();
 	}).bind(this);
@@ -1772,6 +1807,7 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 		if(this.navigating)
 		{
 			setTimeout((function(){
+			this.myvlc.clearMarquee();
 			clearWLButtonState();
 			this.onMainPage(null, true);
 			if(/\/user\//.test(this.win.location.href) ||
