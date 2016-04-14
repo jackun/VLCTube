@@ -1747,7 +1747,7 @@ ScriptInstance.prototype.init = function(popup, oldNode, upsell)
 	this.initVars();
 	this.isPopup = popup;
 	//Is on embedded iframe page?
-	this.isEmbed = this.win.location.pathname.match(/\/embed\//i);
+	this.isEmbed = /\/embed\//i.test(this.win.location.pathname);
 
 	//Hijack 'getElementById' so YT js can do its job and also not overwrite vlc with flash again.
 	//FIXME but srsly something less intrusive maybe
@@ -1933,7 +1933,7 @@ ScriptInstance.prototype.saveVolume = function(sbVol)
 
 ScriptInstance.prototype.restoreVolume = function(stopped)
 {
-	if(!this.myvlc.vlc.audio) return;
+	if(!this.myvlc || !this.myvlc.vlc.audio) return;
 	//Desktop app might have volume over 100% (app/plugin, all the same to pulseaudio)
 	var volSaved = Math.min(GM_getValue('vlc_vol', 100), 100);
 	if(volSaved < 0) GM_setValue('vlc_vol', 100); //fix bad save
@@ -1977,6 +1977,7 @@ ScriptInstance.prototype.restoreSettings = function(ev){
 	//quality
 	var q = GM_getValue('ytquality', undefined);
 	var sel = this.$(vlc_id+'_select');
+	if(!sel) return false;
 	var opt = sel.options.namedItem(q);
 
 	if(!opt || GM_getValue('balwaysBestFormat', false))
@@ -2440,6 +2441,14 @@ ScriptInstance.prototype.setSideBar = function(wide)
 
 ScriptInstance.prototype.setPlayerSize = function(wide)
 {
+	if(this.isEmbed)
+	{
+		var w = this.player.clientWidth;
+		var h = this.player.clientHeight;
+		this.$(vlc_id + '-holder').style.height = (h - this.$('vlc_controls_div').clientHeight) + "px";
+		return;
+	}
+
 	if(wide !== undefined)
 	{
 		this.isWide = wide;
@@ -3645,6 +3654,19 @@ ScriptInstance.prototype.generateDOM = function(options)
 	mediaEvents.className = "vlc-media-event-detector";
 	mediaEvents.addEventListener('animationstart', dispatchMEvent.bind(this), false);
 	document.body.appendChild(mediaEvents);
+	if(this.isEmbed)
+	{
+		var resizer = function(ev) {
+			/*jshint validthis: true */
+			if (this._resize_to)
+				window.clearTimeout(this._resize_to);
+			this._resize_to = window.setTimeout((function(ev){
+					dispatchMEvent.call(this, ev);
+					this._resize_to = null;
+				}).bind(this), 100);
+		}
+		window.addEventListener('resize', resizer.bind(this));
+	}
 
 	return {dom: vlc, node: embedNode};
 };
@@ -4152,8 +4174,8 @@ ScriptInstance.prototype.loadEmbedVideo = function()
 				var vlcNode = that.generateDOM({wide:false, dl:false});
 				vlcNode.dom.style.height = "100%";
 
-				var player = that.$('player');
-				player.appendChild(vlcNode.dom);
+				that.player = that.$('player');
+				that.player.appendChild(vlcNode.dom);
 
 				//Now fix the height
 				var spacer = that.$('vlc-spacer');
@@ -4212,6 +4234,7 @@ ScriptInstance.prototype.onEmbedPage = function()
 	var that = this;
 	// writeEmbed(); overwrites
 	this.pullYTVars();
+	this.yt.getConfig = this.yt.getConfig || function(p){ return this.config_[p]; };
 
 	if(!this.swf_args)
 	{
@@ -4273,6 +4296,7 @@ ScriptInstance.prototype.initialAddToPlaylist = function(bypass, dohash)
 	if(bypass || this.restoreSettings())
 	{
 		var sel = this.$(vlc_id+'_select');
+		if(!sel && this.isEmbed) return true;
 		var opt = sel.options.item(sel.selectedIndex);
 		this.onFmtChange(null, opt);
 		//Fake hashchange
