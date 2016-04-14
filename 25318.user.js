@@ -3664,7 +3664,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 					dispatchMEvent.call(this, ev);
 					this._resize_to = null;
 				}).bind(this), 100);
-		}
+		};
 		window.addEventListener('resize', resizer.bind(this));
 	}
 
