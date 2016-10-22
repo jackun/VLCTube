@@ -444,16 +444,19 @@ function removeChildren(node, keepThis)
 		return;
 	}
 
+	//silence html5 element
+	if (node.tagName === "VIDEO")
+	{
+		node.pause();
+		node.play = function(){console.log('video.play()');}
+		node.src = "";
+		node.load();
+	}
+
 	while (node.hasChildNodes())
 	{
 		removeChildren(node.firstChild, false);
 	}
-
-	//silence html5 element
-	if(typeof(node.pauseVideo) === 'function')
-		node.pauseVideo();
-	else if(typeof(node.pause) === 'function')
-		node.pause();
 
 	if(!keepThis) node.parentNode.removeChild(node);
 }
@@ -1323,8 +1326,13 @@ VLCObj.prototype = {
 	},
 	toggleMute: function()
 	{
-		if(!this._mute) this._mute = this.$('_mute');
-		if(this._mute && this._mute.muteStyleToggle) this._mute.muteStyleToggle(this.vlc.audio.mute);
+		try {
+			if(!this._mute) this._mute = this.$('_mute');
+			if(this._mute && this._mute.muteStyleToggle)
+				this._mute.muteStyleToggle(this.vlc.audio.mute);
+		} catch (e) {
+			console.log(e);
+		}
 	},
 	eventPos: function(e){
 		//e is normalized 0..1
@@ -4803,10 +4811,13 @@ function removeChildren(node, keepThis)
 	}
 
 	//silence html5 element
-	if(typeof(node.pauseVideo) === 'function')
-		node.pauseVideo();
-	else if(typeof(node.pause) === 'function')
+	if (node.tagName === "VIDEO")
+	{
 		node.pause();
+		node.play = function(){console.log('video.play()');}
+		node.src = "";
+		node.load();
+	}
 
 	if(!keepThis) node.parentNode.removeChild(node);
 }
