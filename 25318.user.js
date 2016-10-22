@@ -1043,9 +1043,9 @@ Storyboard.prototype = {
 		if(page < 0)
 			page = 0;
 		else if(page >= pages)
-			page = pages - 1;
+			page = Math.floor(pages);// - 1;
 		//thumbnail's index
-		var image = Math.floor(pos * this.thumbs[i].count - 1);
+		var image = Math.floor(pos * (this.thumbs[i].count - 1));
 		image = Math.max(0, image);
 		//thumbnail's index on current image page
 		image -= page * this.thumbs[i].gridX * this.thumbs[i].gridY;
@@ -1053,7 +1053,6 @@ Storyboard.prototype = {
 		//thumbnail's x,y on current image page
 		var image_x = this.thumbs[i].w * (image % this.thumbs[i].gridX);
 		var image_y = this.thumbs[i].h * (Math.floor(image / this.thumbs[i].gridX));
-
 
 		return {
 			'src': this.getStoryBoardSrc(page, i),
@@ -1208,7 +1207,7 @@ VLCObj.prototype = {
 				//Start play or pause
 				case KeyEvent.DOM_VK_SPACE:
 					ev.preventDefault();
-					this.play();
+					this.play(true);
 				break;
 				case KeyEvent.DOM_VK_UP: /* up */
 					if(this.ctrlDown)
@@ -1487,10 +1486,12 @@ VLCObj.prototype = {
 		}
 	},
 	//Button click events
-	play: function(){
+	play: function(ev){
+		var toggle = true;
+		if (typeof(ev) === 'boolean') toggle = ev;
 		//this.instance.setThumbnailVisible(false);
 		var jumpable = (this.prevState == 5 || this.prevState == 6);
-		if(this.vlc.input.state == 3)
+		if(toggle === true && this.vlc.input.state == 3)
 			this.vlc.playlist.pause();
 		else
 			this.vlc.playlist.play();
@@ -1626,6 +1627,7 @@ VLCObj.prototype = {
 				//TODO Reloading on error or not if #vlc-error is in url already
 				//if(this.vlc.input.state == 7 && typeof this.reloading == 'undefined' && !/#vlc-error/.test(window.location))
 				//	this.reloading = setTimeout(function(){window.location += "#vlc-error"; window.location.reload();}, 3000);
+				//console.log(this.vlc.input.time, this.vlc.input.length, (this.instance.swf_args ? this.instance.swf_args.length_seconds : "<nul>"));
 				this.setTimes(this.vlc.input.time,
 					this.vlc.input.length > 0 ? this.vlc.input.length : (this.instance.swf_args ? 1000*this.instance.swf_args.length_seconds : 0));
 
@@ -2099,7 +2101,7 @@ ScriptInstance.prototype.putCSS = function(){
 		format('woff'); font-weight: normal; font-style: normal; }", true);
 
 	this.addCSS(".fa { display: inline-block; font-family: FontAwesome; font-style: normal; font-weight: normal; line-height: 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;} .fa-lg{font-size: 1.3333333333333333em;line-height: 0.75em;vertical-align: -15%;}");
-	this.addCSS('.fa-play:before{content:"\\f04b";}.fa-pause:before{content:"\\f04c";}.fa-stop:before{content:"\\f04d";}.fa-expand:before{content:"\\f065";}.fa-external-link:before{content:"\\f08e";}.fa-arrows-alt:before{content:"\\f0b2";}.fa-youtube:before{content:"\\f167";}.fa-youtube-play:before{content:"\\f16a";}.fa-download:before{content:"\\f019";}.fa-clock-o:before{content:"\\f017";}');
+	this.addCSS('.fa-play:before{content:"\\f04b";}.fa-pause:before{content:"\\f04c";}.fa-stop:before{content:"\\f04d";}.fa-expand:before{content:"\\f065";}.fa-external-link:before{content:"\\f08e";}.fa-arrows-alt:before{content:"\\f0b2";}.vlc-fa-youtube:before{content:"\\f167";}.fa-youtube-play:before{content:"\\f16a";}.fa-download:before{content:"\\f019";}.fa-clock-o:before{content:"\\f017";}');
 
 	this.addCSS("button .fa ~ span { display: none; } a .fa ~ span { display: none; }");
 
@@ -3090,7 +3092,10 @@ ScriptInstance.prototype.generateDOM = function(options)
 		if(options.upsell)
 			holder.childNodes[0].addEventListener('click', (function(ev){ this.win.location.pathname = '/watch?v=' + this.swf_args.video_id; }).bind(this), false);
 		else
-			holder.childNodes[0].addEventListener('click', (function(e){this.myvlc.play();}).bind(this), false);
+		{
+			holder.childNodes[0].addEventListener('click', (function(e){this.myvlc.play(false);}).bind(this), false);
+			holder.childNodes[0]._has_onclick_evt = true;
+		}
 	}
 	else
 		holder.childNodes[0].classList.add("vlc_hidden");//perma hide
@@ -3177,7 +3182,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			{
 				var clone = buttons.cloneNode(true);
 				clone.style.display = "inline-block";
-				el = this._makeButton('_cv', _("CURRVIDEO"), 'fa-youtube');
+				el = this._makeButton('_cv', _("CURRVIDEO"), 'vlc-fa-youtube');
 				el.addEventListener('click', (function(){
 					spf.navigate(this._current_video_page);
 				}).bind(this), false);
@@ -3299,7 +3304,7 @@ ScriptInstance.prototype.generateDOM = function(options)
 			link.className = "yt-uix-button yt-uix-button-default";
 			link.setAttribute("href", "//" + this.win.location.hostname + "/watch?v=" + this.swf_args.video_id);
 			link.setAttribute("target", "_new");
-			link.innerHTML = (this.bbtnIcons ? '<i class="fa fa-youtube fa-lg"></i>' : '') +
+			link.innerHTML = (this.bbtnIcons ? '<i class="fa vlc-fa-youtube fa-lg"></i>' : '') +
 				'<span class="yt-uix-button-content">' + _("WATCHYT") + ' </span>';
 			link.title = _("WATCHYT");
 			link.addEventListener('click', (function(){this.myvlc.pauseVideo();}).bind(this), false);
@@ -3997,7 +4002,6 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 
 	this.setThumbnailVisible(this.buseThumbnail);
 	if(this.bscrollToPlayer) this.player.scrollIntoView(true);
-	//if(!this.isEmbed) this.generateMPD();
 
 	var plbtn = document.querySelector('div.playlist-nav-controls button.toggle-autoplay');
 
@@ -4080,7 +4084,12 @@ ScriptInstance.prototype.onMainPage = function(oldNode, spfNav, upsell)
 				tn2.style.backgroundRepeat = "no-repeat";
 				tn2.style.backgroundSize = "100%";
 				tn2.style.backgroundPosition = "50%";
-				tn.addEventListener('click', (function(ev){ this.myvlc.playVideo(); }).bind(this), false);
+				//not needed but just in case
+				if(tn._has_onclick_evt !== true)
+				{
+					tn.addEventListener('click', (function(ev){ this.myvlc.playVideo(); }).bind(this), false);
+					tn._has_onclick_evt = true;
+				}
 			}
 			else
 				tn.classList.add("vlc_hidden");//perma hide
