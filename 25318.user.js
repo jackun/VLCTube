@@ -20,7 +20,7 @@
 // @downloadURL    https://github.com/jackun/VLCTube/raw/master/25318.user.js
 // ==/UserScript==
 // @updateURL      https://greasyfork.org/scripts/1783-vlctube/code/VLCTube.meta.js
-// @downloadURL    https://greasyfork.org/scripts/1783-vlctube/code/VLCTube.meta.js
+// @downloadURL    https://greasyfork.org/scripts/1783-vlctube/code/VLCTube.user.js
 // http://wiki.videolan.org/Documentation:WebPlugin
 // Tested on Arch linux, Fx35+, vlc 2.1.5, (or vlc-git & npapi-vlc-git from AUR)
 
